@@ -4,16 +4,16 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 智能体（Agent）与 MCP 简介 智能体（AI Agent） 发展脉络：\n2023 年：AutoGPT 等自治代理出现，将 GPT-4 与工具循环结合，标志着“让 LLM 自主执行复杂任务”的探索开始，被视为 智能体元年。 2024 年：LangChain、HuggingGPT、MetaGPT 等框架涌现，支持构建单/多智能体系统；产业界高度关注，IDC 预测 2026 年 50% 的大型企业数据团队将使用 AI Agent，Gartner 将 “Agentic AI” 列为 2025 年首要技术趋势。 核心机制：\n智能体赋予 LLM 自主决策与行动能力，不再只是被动回答。\n采用 “思考–行动–观察”循环机制：\n思考：LLM 接收目标后进行推理； 行动：决定调用工具（如搜索、执行代码）； 观察：获取环境反馈，继续迭代直至任务完成。 在大模型生态中的角色：\n智能体是 连接大模型与实际应用的桥梁。\n封装业务逻辑、工具调用（如 Function Calling、RAG），将企业知识库、数据库、第三方服务融入决策。\n扮演“大脑指挥官”，协调记忆、规划、工具接口等模块，驱动任务流程。\n例如：客服场景中，智能体可自主引导对话、查询数据库、转接人工，提升解决率。\nMCP（Model Context Protocol，模型上下文协议） 起源与概念：\n由 Anthropic 团队于 2024 年 11 月提出，受“语言服务器协议（LSP）”启发。 被誉为 AI 世界的“USB-C 接口”，提供模型与外部工具/数据交互的统一标准。 解决问题：此前各模型厂商的 Function Calling 实现五花八门，开发者需为每种模型+工具编写特定集成代码，繁琐且难扩展。 作用： 通过 标准化协议，让 LLM 能便捷接入数据库、搜索引擎、插件等外部资源。 支持 检索增强（RAG）、实时数据查询、API 调用等，突破训练语料限制。 提升回答的 准确性、实时性与行动能力。 LLM、智能体、MCP 定位与职责 组件 角色 职责 智能体（Agent） MCP 主机 / 用户交互入口 接收用户请求，调用 LLM，整合工具结果，返回最终答案 大模型（LLM） 智能体的“大脑” 理解用户意图，推理决策，判断是否调用工具，生成结构化调用指令或最终回复 MCP 客户端（Client） LLM 与外部资源的“信使” 解析 LLM 的工具调用请求，按 MCP 协议转发给对应服务器 MCP 服务器（Server） 工具/数据提供者 提供 Tools（可执行函数） 和 Resources（数据源），执行操作并返回结果 💡 补充：智能体应用通常内置 MCP 客户端，可同时连接多个 MCP 服务器。开发者只需将工具以 MCP Server 形式暴露，即可被任意兼容 MCP 的 LLM 调用。\n">
 <title>Agent、MCP与LLM</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/hugo-stack/p/agentmcp%E4%B8%8Ellm/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/agentmcp%E4%B8%8Ellm/'>
 
-<link rel="stylesheet" href="/hugo-stack/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Agent、MCP与LLM">
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Agent、MCP与LLM">
 <meta property='og:description' content=" 智能体（Agent）与 MCP 简介 智能体（AI Agent） 发展脉络：\n2023 年：AutoGPT 等自治代理出现，将 GPT-4 与工具循环结合，标志着“让 LLM 自主执行复杂任务”的探索开始，被视为 智能体元年。 2024 年：LangChain、HuggingGPT、MetaGPT 等框架涌现，支持构建单/多智能体系统；产业界高度关注，IDC 预测 2026 年 50% 的大型企业数据团队将使用 AI Agent，Gartner 将 “Agentic AI” 列为 2025 年首要技术趋势。 核心机制：\n智能体赋予 LLM 自主决策与行动能力，不再只是被动回答。\n采用 “思考–行动–观察”循环机制：\n思考：LLM 接收目标后进行推理； 行动：决定调用工具（如搜索、执行代码）； 观察：获取环境反馈，继续迭代直至任务完成。 在大模型生态中的角色：\n智能体是 连接大模型与实际应用的桥梁。\n封装业务逻辑、工具调用（如 Function Calling、RAG），将企业知识库、数据库、第三方服务融入决策。\n扮演“大脑指挥官”，协调记忆、规划、工具接口等模块，驱动任务流程。\n例如：客服场景中，智能体可自主引导对话、查询数据库、转接人工，提升解决率。\nMCP（Model Context Protocol，模型上下文协议） 起源与概念：\n由 Anthropic 团队于 2024 年 11 月提出，受“语言服务器协议（LSP）”启发。 被誉为 AI 世界的“USB-C 接口”，提供模型与外部工具/数据交互的统一标准。 解决问题：此前各模型厂商的 Function Calling 实现五花八门，开发者需为每种模型+工具编写特定集成代码，繁琐且难扩展。 作用： 通过 标准化协议，让 LLM 能便捷接入数据库、搜索引擎、插件等外部资源。 支持 检索增强（RAG）、实时数据查询、API 调用等，突破训练语料限制。 提升回答的 准确性、实时性与行动能力。 LLM、智能体、MCP 定位与职责 组件 角色 职责 智能体（Agent） MCP 主机 / 用户交互入口 接收用户请求，调用 LLM，整合工具结果，返回最终答案 大模型（LLM） 智能体的“大脑” 理解用户意图，推理决策，判断是否调用工具，生成结构化调用指令或最终回复 MCP 客户端（Client） LLM 与外部资源的“信使” 解析 LLM 的工具调用请求，按 MCP 协议转发给对应服务器 MCP 服务器（Server） 工具/数据提供者 提供 Tools（可执行函数） 和 Resources（数据源），执行操作并返回结果 💡 补充：智能体应用通常内置 MCP 客户端，可同时连接多个 MCP 服务器。开发者只需将工具以 MCP Server 形式暴露，即可被任意兼容 MCP 的 LLM 调用。\n">
-<meta property='og:url' content='https://charles-7777.github.io/hugo-stack/p/agentmcp%E4%B8%8Ellm/'>
+<meta property='og:url' content='https://charles-7777.github.io/p/agentmcp%E4%B8%8Ellm/'>
 <meta property='og:site_name' content=''>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='AI' /><meta property='article:published_time' content='2025-11-24T14:44:59&#43;08:00'/><meta property='article:modified_time' content='2025-11-24T14:57:10&#43;08:00'/>
 <meta name="twitter:title" content="Agent、MCP与LLM">
 <meta name="twitter:description" content=" 智能体（Agent）与 MCP 简介 智能体（AI Agent） 发展脉络：\n2023 年：AutoGPT 等自治代理出现，将 GPT-4 与工具循环结合，标志着“让 LLM 自主执行复杂任务”的探索开始，被视为 智能体元年。 2024 年：LangChain、HuggingGPT、MetaGPT 等框架涌现，支持构建单/多智能体系统；产业界高度关注，IDC 预测 2026 年 50% 的大型企业数据团队将使用 AI Agent，Gartner 将 “Agentic AI” 列为 2025 年首要技术趋势。 核心机制：\n智能体赋予 LLM 自主决策与行动能力，不再只是被动回答。\n采用 “思考–行动–观察”循环机制：\n思考：LLM 接收目标后进行推理； 行动：决定调用工具（如搜索、执行代码）； 观察：获取环境反馈，继续迭代直至任务完成。 在大模型生态中的角色：\n智能体是 连接大模型与实际应用的桥梁。\n封装业务逻辑、工具调用（如 Function Calling、RAG），将企业知识库、数据库、第三方服务融入决策。\n扮演“大脑指挥官”，协调记忆、规划、工具接口等模块，驱动任务流程。\n例如：客服场景中，智能体可自主引导对话、查询数据库、转接人工，提升解决率。\nMCP（Model Context Protocol，模型上下文协议） 起源与概念：\n由 Anthropic 团队于 2024 年 11 月提出，受“语言服务器协议（LSP）”启发。 被誉为 AI 世界的“USB-C 接口”，提供模型与外部工具/数据交互的统一标准。 解决问题：此前各模型厂商的 Function Calling 实现五花八门，开发者需为每种模型+工具编写特定集成代码，繁琐且难扩展。 作用： 通过 标准化协议，让 LLM 能便捷接入数据库、搜索引擎、插件等外部资源。 支持 检索增强（RAG）、实时数据查询、API 调用等，突破训练语料限制。 提升回答的 准确性、实时性与行动能力。 LLM、智能体、MCP 定位与职责 组件 角色 职责 智能体（Agent） MCP 主机 / 用户交互入口 接收用户请求，调用 LLM，整合工具结果，返回最终答案 大模型（LLM） 智能体的“大脑” 理解用户意图，推理决策，判断是否调用工具，生成结构化调用指令或最终回复 MCP 客户端（Client） LLM 与外部资源的“信使” 解析 LLM 的工具调用请求，按 MCP 协议转发给对应服务器 MCP 服务器（Server） 工具/数据提供者 提供 Tools（可执行函数） 和 Resources（数据源），执行操作并返回结果 💡 补充：智能体应用通常内置 MCP 客户端，可同时连接多个 MCP 服务器。开发者只需将工具以 MCP Server 形式暴露，即可被任意兼容 MCP 的 LLM 调用。\n">
-    <link rel="shortcut icon" href="/hugo-stack/favicon2.ico" />
+    <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
     <body class="
@@ -52,7 +52,7 @@
         
             
             <figure class="site-avatar">
-                <a href="/hugo-stack/">
+                <a href="/">
                 
                     <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
                 
@@ -63,7 +63,7 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/hugo-stack"></a></h1>
+            <h1 class="site-name"><a href="/"></a></h1>
             <h2 class="site-description"></h2>
         </div>
     </header><ol class="menu-social">
@@ -121,7 +121,7 @@
         
         
         <li >
-            <a href='/hugo-stack/' >
+            <a href='/' >
                 
                 
                 
@@ -141,7 +141,7 @@
         
         
         <li >
-            <a href='/hugo-stack/archives/' >
+            <a href='/archives/' >
                 
                 
                 
@@ -161,7 +161,7 @@
         
         
         <li >
-            <a href='/hugo-stack/cats-tags/' >
+            <a href='/cats-tags/' >
                 
                 
                 
@@ -173,7 +173,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E9%93%BE%E6%8E%A5/' >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
                 
                 
                 
@@ -192,7 +192,7 @@
         
         
         <li >
-            <a href='/hugo-stack/search/' >
+            <a href='/search/' >
                 
                 
                 
@@ -211,7 +211,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E5%85%B3%E4%BA%8E/' >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
                 
                 
                 
@@ -230,7 +230,7 @@
         
         
         <li >
-            <a href='/hugo-stack/updatelog/' >
+            <a href='/updatelog/' >
                 
                 
                 
@@ -318,7 +318,7 @@
     
     <header class="article-category">
         
-            <a href="/hugo-stack/categories/ai/" >
+            <a href="/categories/ai/" >
                 AI
             </a>
         
@@ -327,7 +327,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/hugo-stack/p/agentmcp%E4%B8%8Ellm/">Agent、MCP与LLM</a>
+            <a href="/p/agentmcp%E4%B8%8Ellm/">Agent、MCP与LLM</a>
         </h2>
     
         
@@ -574,7 +574,7 @@
     
     <section class="article-tags">
         
-            <a href="/hugo-stack/tags/ai/">AI</a>
+            <a href="/tags/ai/">AI</a>
         
     </section>
 
@@ -611,7 +611,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/agent-skill/">
+    <a href="/p/agent-skill/">
         
         
 
@@ -731,7 +731,7 @@
                 src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
                 
                 >
-            </script><script type="text/javascript" src="/hugo-stack/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
 <script>
     (function () {
         const customFont = document.createElement('link');
@@ -744,7 +744,7 @@
     }());
 </script>
 
-<script src=https://charles-7777.github.io/hugo-stack/background/sakura.js></script>
+<script src=https://charles-7777.github.io/background/sakura.js></script>
 
 
 
@@ -821,7 +821,7 @@
       
       let img = document.createElement('img');
       img.classList.add('code-more-img');
-      img.src = "https://charles-7777.github.io/hugo-stack/icons/codeMore.png"
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
       
       codeMoreBtn.appendChild(img);
       codeMoreBox.appendChild(codeMoreBtn);
@@ -843,7 +843,7 @@
         cursor: pointer;
         width: 30px;
         height: 30px;
-        background-image: url(https://charles-7777.github.io/hugo-stack/icons/backTop.svg);
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
     }
 </style>
 

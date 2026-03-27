@@ -4,16 +4,16 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="LXC (Linux 容器) 工作原理详解 LXC (Linux Containers) 是一种操作系统级别的虚拟化技术，它允许在单个 Linux 内核上运行多个隔离的 Linux 系统（容器）。与虚拟机（VM）不同，LXC 不需要模拟硬件，因此它非常轻量级且启动速度快。\nLXC 的核心是利用 Linux 内核的两个关键特性：命名空间 (Namespaces) 和 控制组 (Cgroups)。\nNamespaces：负责隔离，确保一个容器中的进程看不到或影响到另一个容器或宿主机的进程、网络、文件系统等。 Cgroups：负责资源限制和审计，确保每个容器只能使用分配给它的 CPU、内存、I/O 等资源。 本文将重点详细介绍几个关键的命名空间。\n1. PID 命名空间 (PID Namespace) PID (Process ID) 命名空间用于隔离进程 ID。\n原理 隔离进程树：每个 PID 命名空间都有一套独立的进程 ID，从 1 开始。 容器的 init 进程：在一个新的 PID 命名空间中创建的第一个进程会成为该空间的 &ldquo;init&rdquo; 进程，其 PID 为 1。这个进程负责管理容器内的所有其他进程（例如，处理孤儿进程）。如果这个 PID 为 1 的进程终止，内核将终止该命名空间中的所有其他进程。 内外 PID 映射：容器内的进程在容器内部有自己的 PID（例如，PID 1, 2, 3&hellip;），同时在宿主机上也有一个全局唯一的 PID。这意味着从宿主机看，所有容器的进程都是普通的进程，只是被 PID 命名空间隔离开来。 示例 假设我们在宿主机上启动一个 LXC 容器，并在容器内运行 bash。\n">
 <title>LXC详解</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/hugo-stack/p/lxc%E8%AF%A6%E8%A7%A3/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/lxc%E8%AF%A6%E8%A7%A3/'>
 
-<link rel="stylesheet" href="/hugo-stack/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="LXC详解">
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="LXC详解">
 <meta property='og:description' content="LXC (Linux 容器) 工作原理详解 LXC (Linux Containers) 是一种操作系统级别的虚拟化技术，它允许在单个 Linux 内核上运行多个隔离的 Linux 系统（容器）。与虚拟机（VM）不同，LXC 不需要模拟硬件，因此它非常轻量级且启动速度快。\nLXC 的核心是利用 Linux 内核的两个关键特性：命名空间 (Namespaces) 和 控制组 (Cgroups)。\nNamespaces：负责隔离，确保一个容器中的进程看不到或影响到另一个容器或宿主机的进程、网络、文件系统等。 Cgroups：负责资源限制和审计，确保每个容器只能使用分配给它的 CPU、内存、I/O 等资源。 本文将重点详细介绍几个关键的命名空间。\n1. PID 命名空间 (PID Namespace) PID (Process ID) 命名空间用于隔离进程 ID。\n原理 隔离进程树：每个 PID 命名空间都有一套独立的进程 ID，从 1 开始。 容器的 init 进程：在一个新的 PID 命名空间中创建的第一个进程会成为该空间的 &ldquo;init&rdquo; 进程，其 PID 为 1。这个进程负责管理容器内的所有其他进程（例如，处理孤儿进程）。如果这个 PID 为 1 的进程终止，内核将终止该命名空间中的所有其他进程。 内外 PID 映射：容器内的进程在容器内部有自己的 PID（例如，PID 1, 2, 3&hellip;），同时在宿主机上也有一个全局唯一的 PID。这意味着从宿主机看，所有容器的进程都是普通的进程，只是被 PID 命名空间隔离开来。 示例 假设我们在宿主机上启动一个 LXC 容器，并在容器内运行 bash。\n">
-<meta property='og:url' content='https://charles-7777.github.io/hugo-stack/p/lxc%E8%AF%A6%E8%A7%A3/'>
+<meta property='og:url' content='https://charles-7777.github.io/p/lxc%E8%AF%A6%E8%A7%A3/'>
 <meta property='og:site_name' content=''>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='lxc' /><meta property='article:published_time' content='2025-07-28T20:00:08&#43;08:00'/><meta property='article:modified_time' content='2025-07-28T20:05:23&#43;08:00'/>
 <meta name="twitter:title" content="LXC详解">
 <meta name="twitter:description" content="LXC (Linux 容器) 工作原理详解 LXC (Linux Containers) 是一种操作系统级别的虚拟化技术，它允许在单个 Linux 内核上运行多个隔离的 Linux 系统（容器）。与虚拟机（VM）不同，LXC 不需要模拟硬件，因此它非常轻量级且启动速度快。\nLXC 的核心是利用 Linux 内核的两个关键特性：命名空间 (Namespaces) 和 控制组 (Cgroups)。\nNamespaces：负责隔离，确保一个容器中的进程看不到或影响到另一个容器或宿主机的进程、网络、文件系统等。 Cgroups：负责资源限制和审计，确保每个容器只能使用分配给它的 CPU、内存、I/O 等资源。 本文将重点详细介绍几个关键的命名空间。\n1. PID 命名空间 (PID Namespace) PID (Process ID) 命名空间用于隔离进程 ID。\n原理 隔离进程树：每个 PID 命名空间都有一套独立的进程 ID，从 1 开始。 容器的 init 进程：在一个新的 PID 命名空间中创建的第一个进程会成为该空间的 &ldquo;init&rdquo; 进程，其 PID 为 1。这个进程负责管理容器内的所有其他进程（例如，处理孤儿进程）。如果这个 PID 为 1 的进程终止，内核将终止该命名空间中的所有其他进程。 内外 PID 映射：容器内的进程在容器内部有自己的 PID（例如，PID 1, 2, 3&hellip;），同时在宿主机上也有一个全局唯一的 PID。这意味着从宿主机看，所有容器的进程都是普通的进程，只是被 PID 命名空间隔离开来。 示例 假设我们在宿主机上启动一个 LXC 容器，并在容器内运行 bash。\n">
-    <link rel="shortcut icon" href="/hugo-stack/favicon2.ico" />
+    <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
     <body class="
@@ -52,7 +52,7 @@
         
             
             <figure class="site-avatar">
-                <a href="/hugo-stack/">
+                <a href="/">
                 
                     <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
                 
@@ -63,7 +63,7 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/hugo-stack"></a></h1>
+            <h1 class="site-name"><a href="/"></a></h1>
             <h2 class="site-description"></h2>
         </div>
     </header><ol class="menu-social">
@@ -121,7 +121,7 @@
         
         
         <li >
-            <a href='/hugo-stack/' >
+            <a href='/' >
                 
                 
                 
@@ -141,7 +141,7 @@
         
         
         <li >
-            <a href='/hugo-stack/archives/' >
+            <a href='/archives/' >
                 
                 
                 
@@ -161,7 +161,7 @@
         
         
         <li >
-            <a href='/hugo-stack/cats-tags/' >
+            <a href='/cats-tags/' >
                 
                 
                 
@@ -173,7 +173,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E9%93%BE%E6%8E%A5/' >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
                 
                 
                 
@@ -192,7 +192,7 @@
         
         
         <li >
-            <a href='/hugo-stack/search/' >
+            <a href='/search/' >
                 
                 
                 
@@ -211,7 +211,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E5%85%B3%E4%BA%8E/' >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
                 
                 
                 
@@ -230,7 +230,7 @@
         
         
         <li >
-            <a href='/hugo-stack/updatelog/' >
+            <a href='/updatelog/' >
                 
                 
                 
@@ -327,7 +327,7 @@
     
     <header class="article-category">
         
-            <a href="/hugo-stack/categories/%E7%AC%94%E8%AE%B0/" >
+            <a href="/categories/%E7%AC%94%E8%AE%B0/" >
                 笔记
             </a>
         
@@ -336,7 +336,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/hugo-stack/p/lxc%E8%AF%A6%E8%A7%A3/">LXC详解</a>
+            <a href="/p/lxc%E8%AF%A6%E8%A7%A3/">LXC详解</a>
         </h2>
     
         
@@ -521,7 +521,7 @@
     
     <section class="article-tags">
         
-            <a href="/hugo-stack/tags/lxc/">Lxc</a>
+            <a href="/tags/lxc/">Lxc</a>
         
     </section>
 
@@ -558,7 +558,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/openwrt-procd%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">
+    <a href="/p/openwrt-procd%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">
         
         
 
@@ -571,7 +571,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/%E8%AF%81%E4%B9%A6%E8%AF%A6%E8%A7%A3/">
+    <a href="/p/%E8%AF%81%E4%B9%A6%E8%AF%A6%E8%A7%A3/">
         
         
 
@@ -584,7 +584,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/restful-api/">
+    <a href="/p/restful-api/">
         
         
 
@@ -704,7 +704,7 @@
                 src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
                 
                 >
-            </script><script type="text/javascript" src="/hugo-stack/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
 <script>
     (function () {
         const customFont = document.createElement('link');
@@ -717,7 +717,7 @@
     }());
 </script>
 
-<script src=https://charles-7777.github.io/hugo-stack/background/sakura.js></script>
+<script src=https://charles-7777.github.io/background/sakura.js></script>
 
 
 
@@ -794,7 +794,7 @@
       
       let img = document.createElement('img');
       img.classList.add('code-more-img');
-      img.src = "https://charles-7777.github.io/hugo-stack/icons/codeMore.png"
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
       
       codeMoreBtn.appendChild(img);
       codeMoreBox.appendChild(codeMoreBtn);
@@ -816,7 +816,7 @@
         cursor: pointer;
         width: 30px;
         height: 30px;
-        background-image: url(https://charles-7777.github.io/hugo-stack/icons/backTop.svg);
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
     }
 </style>
 

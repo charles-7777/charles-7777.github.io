@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Openwrt on </title>
-        <link>https://charles-7777.github.io/hugo-stack/tags/openwrt/</link>
+        <link>https://charles-7777.github.io/tags/openwrt/</link>
         <description>Recent content in Openwrt on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Thu, 07 Aug 2025 19:42:06 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/tags/openwrt/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Thu, 07 Aug 2025 19:42:06 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/openwrt/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>openwrt procd启动流程分析</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/openwrt-procd%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/</link>
+        <link>https://charles-7777.github.io/p/openwrt-procd%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/</link>
         <pubDate>Wed, 30 Jul 2025 18:28:23 +0800</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/openwrt-procd%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/</guid>
+        <guid>https://charles-7777.github.io/p/openwrt-procd%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/</guid>
         <description>&lt;h1 id=&#34;openwrt-procd启动流程分析&#34;&gt;openwrt procd启动流程分析
 &lt;/h1&gt;&lt;h2 id=&#34;kernel_init&#34;&gt;kernel_init
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;Linux&lt;/strong&gt;内核执行&lt;em&gt;start_kernel&lt;/em&gt;函数时会调用&lt;em&gt;kernel_init&lt;/em&gt;来启动&lt;strong&gt;init&lt;/strong&gt;进程，流程如下图&lt;/p&gt;

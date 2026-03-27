@@ -2,24 +2,24 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Stack on </title>
-        <link>https://charles-7777.github.io/hugo-stack/tags/stack/</link>
+        <link>https://charles-7777.github.io/tags/stack/</link>
         <description>Recent content in Stack on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Tue, 24 Jun 2025 17:18:07 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/tags/stack/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 24 Jun 2025 17:18:07 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/stack/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>hugo stack blog 搭建记录</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/</link>
+        <link>https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/</link>
         <pubDate>Mon, 09 Jun 2025 00:00:00 +0000</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/</guid>
+        <guid>https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/</guid>
         <description>&lt;img src="https://cdn.jsdelivr.net/gh/charles-7777/ImageBed@main/blog/hugo.png" alt="Featured image of post hugo stack blog 搭建记录" /&gt;&lt;!-- &lt;div align=&#39;center&#39;&gt; &lt;font size=&#39;70&#39;&gt;hugo stack blog 搭建记录&lt;/font&gt;&lt;/div&gt; --&gt;
 &lt;h2 id=&#34;创建仓库&#34;&gt;创建仓库
 &lt;/h2&gt;&lt;p&gt;首先在github创建两个仓库，一个用于存储&lt;code&gt;hugo new site&lt;/code&gt;创建的workspace，这个设置为private私密；另一个仓库用来存储&lt;code&gt;hugo -D&lt;/code&gt;生成的网页文件 ，设置为公开:&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/1.JPG&#34;
+&lt;p&gt;&lt;img src=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/1.JPG&#34;
 	width=&#34;417&#34;
 	height=&#34;202&#34;
-	srcset=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/1_hu_a4b7f6b66ebad2ea.JPG 480w, https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/1_hu_a950810744288ed5.JPG 1024w&#34;
+	srcset=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/1_hu_a4b7f6b66ebad2ea.JPG 480w, https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/1_hu_a950810744288ed5.JPG 1024w&#34;
 	loading=&#34;lazy&#34;
 	
 	
@@ -66,10 +66,10 @@
 &lt;/div&gt;
 &lt;/div&gt;&lt;h2 id=&#34;创建github-token&#34;&gt;创建github token
 &lt;/h2&gt;&lt;p&gt;在 GitHub 账户下 &lt;code&gt;Setting - Developer setting - Personal access tokens(classic)&lt;/code&gt; 下创建一个不过期(no expiration)的 Token，权限需要开启 &lt;code&gt;repo&lt;/code&gt; 与 &lt;code&gt;workflow&lt;/code&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/2.png&#34;
+&lt;p&gt;&lt;img src=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/2.png&#34;
 	width=&#34;999&#34;
 	height=&#34;534&#34;
-	srcset=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/2_hu_67b62f5a97c7918e.png 480w, https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/2_hu_de60ae58fce194c.png 1024w&#34;
+	srcset=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/2_hu_67b62f5a97c7918e.png 480w, https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/2_hu_de60ae58fce194c.png 1024w&#34;
 	loading=&#34;lazy&#34;
 	
 	
@@ -79,10 +79,10 @@
 	
 &gt;
 （注意：token只会显示一次，请及时保存）
-&lt;img src=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/3.JPG&#34;
+&lt;img src=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/3.JPG&#34;
 	width=&#34;1161&#34;
 	height=&#34;274&#34;
-	srcset=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/3_hu_3526dfd694f8f521.JPG 480w, https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/3_hu_7e56dad6624b2df4.JPG 1024w&#34;
+	srcset=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/3_hu_3526dfd694f8f521.JPG 480w, https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/3_hu_7e56dad6624b2df4.JPG 1024w&#34;
 	loading=&#34;lazy&#34;
 	
 	
@@ -94,10 +94,10 @@
 &lt;h2 id=&#34;私密源仓库设置token&#34;&gt;私密源仓库设置token
 &lt;/h2&gt;&lt;p&gt;在博客源仓库的 &lt;code&gt;Settings-&amp;gt;Secrets-&amp;gt;Actions&lt;/code&gt; 中添加 &lt;code&gt;PERSONAL_TOKEN&lt;/code&gt; 环境变量为刚才的 Token,&lt;br&gt;
 这样 GitHub Action 就可以获取到Token 了。
-&lt;img src=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/4.JPG&#34;
+&lt;img src=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/4.JPG&#34;
 	width=&#34;1115&#34;
 	height=&#34;254&#34;
-	srcset=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/4_hu_cdee5da8242e9332.JPG 480w, https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/4_hu_e99e0d4552431752.JPG 1024w&#34;
+	srcset=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/4_hu_cdee5da8242e9332.JPG 480w, https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/4_hu_e99e0d4552431752.JPG 1024w&#34;
 	loading=&#34;lazy&#34;
 	
 	
@@ -235,10 +235,10 @@ hugo 生成网站时优先寻找站点源目录下的，找不到，才会去sta
 &lt;/div&gt;&lt;p&gt;提交github action的改动后，每次push hugo-stack-blog-dev ,就会把基于这个厂库 hugo -D 生成的文件 自动push 到仓库 hugo-stack&lt;/p&gt;
 &lt;h2 id=&#34;github-pages&#34;&gt;GitHub Pages
 &lt;/h2&gt;&lt;p&gt;前往hugo-stack 仓库的&lt;code&gt;settings--&amp;gt;Pages&lt;/code&gt;去添加deploy GitHub Pages
-&lt;img src=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/5.JPG&#34;
+&lt;img src=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/5.JPG&#34;
 	width=&#34;1171&#34;
 	height=&#34;463&#34;
-	srcset=&#34;https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/5_hu_b0ef71104d7fedc5.JPG 480w, https://charles-7777.github.io/hugo-stack/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/5_hu_e6a30c8f14b41da3.JPG 1024w&#34;
+	srcset=&#34;https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/5_hu_b0ef71104d7fedc5.JPG 480w, https://charles-7777.github.io/p/hugo-stack-blog-%E6%90%AD%E5%BB%BA%E8%AE%B0%E5%BD%95/5_hu_e6a30c8f14b41da3.JPG 1024w&#34;
 	loading=&#34;lazy&#34;
 	
 	
@@ -286,7 +286,7 @@ hugo 生成网站时优先寻找站点源目录下的，找不到，才会去sta
 &lt;/p&gt;&lt;/blockquote&gt;
 &lt;blockquote class=&#34;alert alert-note&#34;&gt;
     &lt;p&gt;markdown中的图片也可以不用本地的图片，可以使用网络url，可以自己创建一个图床，方便管理。
-&lt;a class=&#34;link&#34; href=&#34;https://charles-7777.github.io/hugo-stack/p/github--picgo-%E6%90%AD%E5%BB%BA%E5%9B%BE%E5%BA%8A/&#34; &gt;github图床&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://charles-7777.github.io/p/github--picgo-%E6%90%AD%E5%BB%BA%E5%9B%BE%E5%BA%8A/&#34; &gt;github图床&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
 </description>
         </item>
         

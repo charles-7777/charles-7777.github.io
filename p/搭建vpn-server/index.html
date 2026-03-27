@@ -4,16 +4,16 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="docker 搭建 hwdsl2/docker-ipsec-vpn-server: Docker image to run an IPsec VPN server, with IPsec/L2TP, Cisco IPsec and IKEv2\n1 2 3 4 5 6 7 8 9 10 docker run \\ --name ipsec-vpn-server \\ --restart=always \\ --env-file ./vpn.env \\ -v ikev2-vpn-data:/etc/ipsec.d \\ -v /lib/modules:/lib/modules:ro \\ -p 500:500/udp \\ -p 4500:4500/udp \\ -d --privileged \\ hwdsl2/ipsec-vpn-server vpn.env\n1 2 3 4 5 6 VPN_IPSEC_PSK=ipsec VPN_USER=vpnuser VPN_PASSWORD=123456 VPN_PUBLIC_IP=x.x.x.x VPN_ADDL_USERS=vpnuser1 vpnuser2 VPN_ADDL_PASSWORDS=123456 123456 查看docker启动log\n">
 <title>搭建vpn server</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/hugo-stack/p/%E6%90%AD%E5%BB%BAvpn-server/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/%E6%90%AD%E5%BB%BAvpn-server/'>
 
-<link rel="stylesheet" href="/hugo-stack/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="搭建vpn server">
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="搭建vpn server">
 <meta property='og:description' content="docker 搭建 hwdsl2/docker-ipsec-vpn-server: Docker image to run an IPsec VPN server, with IPsec/L2TP, Cisco IPsec and IKEv2\n1 2 3 4 5 6 7 8 9 10 docker run \\ --name ipsec-vpn-server \\ --restart=always \\ --env-file ./vpn.env \\ -v ikev2-vpn-data:/etc/ipsec.d \\ -v /lib/modules:/lib/modules:ro \\ -p 500:500/udp \\ -p 4500:4500/udp \\ -d --privileged \\ hwdsl2/ipsec-vpn-server vpn.env\n1 2 3 4 5 6 VPN_IPSEC_PSK=ipsec VPN_USER=vpnuser VPN_PASSWORD=123456 VPN_PUBLIC_IP=x.x.x.x VPN_ADDL_USERS=vpnuser1 vpnuser2 VPN_ADDL_PASSWORDS=123456 123456 查看docker启动log\n">
-<meta property='og:url' content='https://charles-7777.github.io/hugo-stack/p/%E6%90%AD%E5%BB%BAvpn-server/'>
+<meta property='og:url' content='https://charles-7777.github.io/p/%E6%90%AD%E5%BB%BAvpn-server/'>
 <meta property='og:site_name' content=''>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='vpn' /><meta property='article:published_time' content='2025-09-01T19:31:02&#43;08:00'/><meta property='article:modified_time' content='2025-09-03T19:31:51&#43;08:00'/>
 <meta name="twitter:title" content="搭建vpn server">
 <meta name="twitter:description" content="docker 搭建 hwdsl2/docker-ipsec-vpn-server: Docker image to run an IPsec VPN server, with IPsec/L2TP, Cisco IPsec and IKEv2\n1 2 3 4 5 6 7 8 9 10 docker run \\ --name ipsec-vpn-server \\ --restart=always \\ --env-file ./vpn.env \\ -v ikev2-vpn-data:/etc/ipsec.d \\ -v /lib/modules:/lib/modules:ro \\ -p 500:500/udp \\ -p 4500:4500/udp \\ -d --privileged \\ hwdsl2/ipsec-vpn-server vpn.env\n1 2 3 4 5 6 VPN_IPSEC_PSK=ipsec VPN_USER=vpnuser VPN_PASSWORD=123456 VPN_PUBLIC_IP=x.x.x.x VPN_ADDL_USERS=vpnuser1 vpnuser2 VPN_ADDL_PASSWORDS=123456 123456 查看docker启动log\n">
-    <link rel="shortcut icon" href="/hugo-stack/favicon2.ico" />
+    <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
     <body class="
@@ -52,7 +52,7 @@
         
             
             <figure class="site-avatar">
-                <a href="/hugo-stack/">
+                <a href="/">
                 
                     <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
                 
@@ -63,7 +63,7 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/hugo-stack"></a></h1>
+            <h1 class="site-name"><a href="/"></a></h1>
             <h2 class="site-description"></h2>
         </div>
     </header><ol class="menu-social">
@@ -121,7 +121,7 @@
         
         
         <li >
-            <a href='/hugo-stack/' >
+            <a href='/' >
                 
                 
                 
@@ -141,7 +141,7 @@
         
         
         <li >
-            <a href='/hugo-stack/archives/' >
+            <a href='/archives/' >
                 
                 
                 
@@ -161,7 +161,7 @@
         
         
         <li >
-            <a href='/hugo-stack/cats-tags/' >
+            <a href='/cats-tags/' >
                 
                 
                 
@@ -173,7 +173,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E9%93%BE%E6%8E%A5/' >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
                 
                 
                 
@@ -192,7 +192,7 @@
         
         
         <li >
-            <a href='/hugo-stack/search/' >
+            <a href='/search/' >
                 
                 
                 
@@ -211,7 +211,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E5%85%B3%E4%BA%8E/' >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
                 
                 
                 
@@ -230,7 +230,7 @@
         
         
         <li >
-            <a href='/hugo-stack/updatelog/' >
+            <a href='/updatelog/' >
                 
                 
                 
@@ -331,7 +331,7 @@
     
     <header class="article-category">
         
-            <a href="/hugo-stack/categories/vpn/" >
+            <a href="/categories/vpn/" >
                 Vpn
             </a>
         
@@ -340,7 +340,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/hugo-stack/p/%E6%90%AD%E5%BB%BAvpn-server/">搭建vpn server</a>
+            <a href="/p/%E6%90%AD%E5%BB%BAvpn-server/">搭建vpn server</a>
         </h2>
     
         
@@ -660,7 +660,7 @@
     
     <section class="article-tags">
         
-            <a href="/hugo-stack/tags/vpn/">Vpn</a>
+            <a href="/tags/vpn/">Vpn</a>
         
     </section>
 
@@ -795,7 +795,7 @@
                 src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
                 
                 >
-            </script><script type="text/javascript" src="/hugo-stack/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
 <script>
     (function () {
         const customFont = document.createElement('link');
@@ -808,7 +808,7 @@
     }());
 </script>
 
-<script src=https://charles-7777.github.io/hugo-stack/background/sakura.js></script>
+<script src=https://charles-7777.github.io/background/sakura.js></script>
 
 
 
@@ -885,7 +885,7 @@
       
       let img = document.createElement('img');
       img.classList.add('code-more-img');
-      img.src = "https://charles-7777.github.io/hugo-stack/icons/codeMore.png"
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
       
       codeMoreBtn.appendChild(img);
       codeMoreBox.appendChild(codeMoreBtn);
@@ -907,7 +907,7 @@
         cursor: pointer;
         width: 30px;
         height: 30px;
-        background-image: url(https://charles-7777.github.io/hugo-stack/icons/backTop.svg);
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
     }
 </style>
 

@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Lxc on </title>
-        <link>https://charles-7777.github.io/hugo-stack/tags/lxc/</link>
+        <link>https://charles-7777.github.io/tags/lxc/</link>
         <description>Recent content in Lxc on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Mon, 28 Jul 2025 20:05:23 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/tags/lxc/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 28 Jul 2025 20:05:23 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/lxc/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>LXC详解</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/lxc%E8%AF%A6%E8%A7%A3/</link>
+        <link>https://charles-7777.github.io/p/lxc%E8%AF%A6%E8%A7%A3/</link>
         <pubDate>Mon, 28 Jul 2025 20:00:08 +0800</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/lxc%E8%AF%A6%E8%A7%A3/</guid>
+        <guid>https://charles-7777.github.io/p/lxc%E8%AF%A6%E8%A7%A3/</guid>
         <description>&lt;h1 id=&#34;lxc-linux-容器-工作原理详解&#34;&gt;LXC (Linux 容器) 工作原理详解
 &lt;/h1&gt;&lt;p&gt;LXC (Linux Containers) 是一种操作系统级别的虚拟化技术，它允许在单个 Linux 内核上运行多个隔离的 Linux 系统（容器）。与虚拟机（VM）不同，LXC 不需要模拟硬件，因此它非常轻量级且启动速度快。&lt;/p&gt;
 &lt;p&gt;LXC 的核心是利用 Linux 内核的两个关键特性：&lt;strong&gt;命名空间 (Namespaces)&lt;/strong&gt; 和 &lt;strong&gt;控制组 (Cgroups)&lt;/strong&gt;。&lt;/p&gt;

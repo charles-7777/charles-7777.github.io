@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>仿真 on </title>
-        <link>https://charles-7777.github.io/hugo-stack/tags/%E4%BB%BF%E7%9C%9F/</link>
+        <link>https://charles-7777.github.io/tags/%E4%BB%BF%E7%9C%9F/</link>
         <description>Recent content in 仿真 on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Mon, 18 Aug 2025 20:12:04 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/tags/%E4%BB%BF%E7%9C%9F/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 18 Aug 2025 20:12:04 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/%E4%BB%BF%E7%9C%9F/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>CORE(Common Open Research Emulator)网络仿真工具</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/</link>
+        <link>https://charles-7777.github.io/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/</link>
         <pubDate>Mon, 18 Aug 2025 20:01:30 +0800</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/</guid>
+        <guid>https://charles-7777.github.io/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/</guid>
         <description>&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://coreemu.github.io/core/&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;官方文档&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;CORE (Common Open Research Emulator) 是一个强大的、开源的网络模拟和仿真工具，广泛应用于网络研究、教学、协议开发和网络应用测试&lt;/p&gt;

@@ -4,16 +4,16 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="官方文档\nCORE (Common Open Research Emulator) 是一个强大的、开源的网络模拟和仿真工具，广泛应用于网络研究、教学、协议开发和网络应用测试\n主题 描述 Architecture 体系结构概述，介绍如何使用Python、gRPC直接控制Core Installation CORE的安装方法及要求 GUI 如何使用GUI Node Types CORE支持的节点类型概述 (BETA) Python GUI 如何使用基于Python的BETA GUI Python API 介绍如何使用Python直接控制Core (自己实现core-daemon) gRPC API 介绍如何使用gRPC控制Core (连接core-daemon 调用其api) Distributed 在多个服务器上运行CORE的分布式细节 CTRLNET 如何控制网络从主机与节点通信 Services 概述所提供的服务并创建自定义服务 Performance 使用CORE时的性能说明 Developers Guide 概述如何对CORE开发 Core Emane CORE中运行和使用EMANE的高级主题和示例 Emane开发手册 Emane的架构介绍 开发相关 ">
 <title>CORE(Common Open Research Emulator)网络仿真工具</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/hugo-stack/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/'>
 
-<link rel="stylesheet" href="/hugo-stack/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="CORE(Common Open Research Emulator)网络仿真工具">
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="CORE(Common Open Research Emulator)网络仿真工具">
 <meta property='og:description' content="官方文档\nCORE (Common Open Research Emulator) 是一个强大的、开源的网络模拟和仿真工具，广泛应用于网络研究、教学、协议开发和网络应用测试\n主题 描述 Architecture 体系结构概述，介绍如何使用Python、gRPC直接控制Core Installation CORE的安装方法及要求 GUI 如何使用GUI Node Types CORE支持的节点类型概述 (BETA) Python GUI 如何使用基于Python的BETA GUI Python API 介绍如何使用Python直接控制Core (自己实现core-daemon) gRPC API 介绍如何使用gRPC控制Core (连接core-daemon 调用其api) Distributed 在多个服务器上运行CORE的分布式细节 CTRLNET 如何控制网络从主机与节点通信 Services 概述所提供的服务并创建自定义服务 Performance 使用CORE时的性能说明 Developers Guide 概述如何对CORE开发 Core Emane CORE中运行和使用EMANE的高级主题和示例 Emane开发手册 Emane的架构介绍 开发相关 ">
-<meta property='og:url' content='https://charles-7777.github.io/hugo-stack/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/'>
+<meta property='og:url' content='https://charles-7777.github.io/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/'>
 <meta property='og:site_name' content=''>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='仿真' /><meta property='article:published_time' content='2025-08-18T20:01:30&#43;08:00'/><meta property='article:modified_time' content='2025-08-18T20:12:04&#43;08:00'/>
 <meta name="twitter:title" content="CORE(Common Open Research Emulator)网络仿真工具">
 <meta name="twitter:description" content="官方文档\nCORE (Common Open Research Emulator) 是一个强大的、开源的网络模拟和仿真工具，广泛应用于网络研究、教学、协议开发和网络应用测试\n主题 描述 Architecture 体系结构概述，介绍如何使用Python、gRPC直接控制Core Installation CORE的安装方法及要求 GUI 如何使用GUI Node Types CORE支持的节点类型概述 (BETA) Python GUI 如何使用基于Python的BETA GUI Python API 介绍如何使用Python直接控制Core (自己实现core-daemon) gRPC API 介绍如何使用gRPC控制Core (连接core-daemon 调用其api) Distributed 在多个服务器上运行CORE的分布式细节 CTRLNET 如何控制网络从主机与节点通信 Services 概述所提供的服务并创建自定义服务 Performance 使用CORE时的性能说明 Developers Guide 概述如何对CORE开发 Core Emane CORE中运行和使用EMANE的高级主题和示例 Emane开发手册 Emane的架构介绍 开发相关 ">
-    <link rel="shortcut icon" href="/hugo-stack/favicon2.ico" />
+    <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
     <body class="
@@ -52,7 +52,7 @@
         
             
             <figure class="site-avatar">
-                <a href="/hugo-stack/">
+                <a href="/">
                 
                     <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
                 
@@ -63,7 +63,7 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/hugo-stack"></a></h1>
+            <h1 class="site-name"><a href="/"></a></h1>
             <h2 class="site-description"></h2>
         </div>
     </header><ol class="menu-social">
@@ -121,7 +121,7 @@
         
         
         <li >
-            <a href='/hugo-stack/' >
+            <a href='/' >
                 
                 
                 
@@ -141,7 +141,7 @@
         
         
         <li >
-            <a href='/hugo-stack/archives/' >
+            <a href='/archives/' >
                 
                 
                 
@@ -161,7 +161,7 @@
         
         
         <li >
-            <a href='/hugo-stack/cats-tags/' >
+            <a href='/cats-tags/' >
                 
                 
                 
@@ -173,7 +173,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E9%93%BE%E6%8E%A5/' >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
                 
                 
                 
@@ -192,7 +192,7 @@
         
         
         <li >
-            <a href='/hugo-stack/search/' >
+            <a href='/search/' >
                 
                 
                 
@@ -211,7 +211,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E5%85%B3%E4%BA%8E/' >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
                 
                 
                 
@@ -230,7 +230,7 @@
         
         
         <li >
-            <a href='/hugo-stack/updatelog/' >
+            <a href='/updatelog/' >
                 
                 
                 
@@ -279,7 +279,7 @@
     
     <header class="article-category">
         
-            <a href="/hugo-stack/categories/linux/" >
+            <a href="/categories/linux/" >
                 Linux
             </a>
         
@@ -288,7 +288,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/hugo-stack/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/">CORE(Common Open Research Emulator)网络仿真工具</a>
+            <a href="/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/">CORE(Common Open Research Emulator)网络仿真工具</a>
         </h2>
     
         
@@ -449,7 +449,7 @@
     
     <section class="article-tags">
         
-            <a href="/hugo-stack/tags/%E4%BB%BF%E7%9C%9F/">仿真</a>
+            <a href="/tags/%E4%BB%BF%E7%9C%9F/">仿真</a>
         
     </section>
 
@@ -486,7 +486,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/linux%E5%86%85%E6%A0%B8%E4%BF%A1%E5%8F%B7%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/">
+    <a href="/p/linux%E5%86%85%E6%A0%B8%E4%BF%A1%E5%8F%B7%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/">
         
         
 
@@ -499,7 +499,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/nf_conntrack-%E7%9A%84-ctstate/">
+    <a href="/p/nf_conntrack-%E7%9A%84-ctstate/">
         
         
 
@@ -512,7 +512,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/socket-i/o/">
+    <a href="/p/socket-i/o/">
         
         
 
@@ -525,7 +525,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/linux%E6%9D%82%E8%AE%B0/">
+    <a href="/p/linux%E6%9D%82%E8%AE%B0/">
         
         
 
@@ -538,7 +538,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/linux-%E7%BD%91%E6%A1%A5/">
+    <a href="/p/linux-%E7%BD%91%E6%A1%A5/">
         
         
 
@@ -658,7 +658,7 @@
                 src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
                 
                 >
-            </script><script type="text/javascript" src="/hugo-stack/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
 <script>
     (function () {
         const customFont = document.createElement('link');
@@ -671,7 +671,7 @@
     }());
 </script>
 
-<script src=https://charles-7777.github.io/hugo-stack/background/sakura.js></script>
+<script src=https://charles-7777.github.io/background/sakura.js></script>
 
 
 
@@ -748,7 +748,7 @@
       
       let img = document.createElement('img');
       img.classList.add('code-more-img');
-      img.src = "https://charles-7777.github.io/hugo-stack/icons/codeMore.png"
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
       
       codeMoreBtn.appendChild(img);
       codeMoreBox.appendChild(codeMoreBtn);
@@ -770,7 +770,7 @@
         cursor: pointer;
         width: 30px;
         height: 30px;
-        background-image: url(https://charles-7777.github.io/hugo-stack/icons/backTop.svg);
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
     }
 </style>
 

@@ -4,16 +4,16 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 信号是Linux系统中一种重要的进程间通信手段，它提供了一种异步通知机制，用于告知进程发生了某个事件。与管道、共享内存等同步通信方式不同，信号的到来是随机的，进程无法预知何时会收到信号。这种异步特性使得信号处理机制成为Linux内核中一个精妙而复杂的设计。 本文将从信号的生命周期出发，深入剖析Linux内核如何实现信号的产生、挂起、递达和处理，揭示从用户态到内核态再返回用户态的完整流程。\n信号的基本概念 什么是信号 信号本质上是软件层次上对中断机制的一种模拟。在原理上，一个进程收到一个信号与处理器收到一个中断请求非常相似——都是异步事件，都需要暂停当前工作去处理突发事件。\n每个信号都有一个唯一的编号，Linux系统中信号分为两大类：\n非实时信号（编号1-31）：也称为不可靠信号，不支持排队，可能丢失 实时信号（编号34-64）：也称为可靠信号，支持排队，不会丢失 信号的处理方式 当进程收到信号后，可以采取三种处理方式：\n默认处理：执行系统预设的操作，通常是终止进程、忽略信号、停止进程或产生核心转储 忽略信号：对信号不做任何处理，就像从未发生过一样 自定义捕捉：执行用户指定的信号处理函数 需要注意的是，SIGKILL和SIGSTOP这两个信号既不能被忽略，也不能被自定义捕捉，这是内核为了确保系统管理能力而做的强制规定。\n信号在内核中的数据结构 进程描述符中的信号相关字段 每个进程的task_struct中都包含了与信号相关的字段，用于记录信号的状态和处理方式：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 struct task_struct { // 信号处理函数表 struct sighand_struct *sighand; // 待处理信号集（未决信号） struct sigpending pending; // 信号阻塞掩码 sigset_t blocked; // 信号处理方式 struct signal_struct *signal; // ... }; 三张核心信号表 Linux内核为每个进程维护了三张信号相关的表：\n表类型 作用 数据结构 pending表 记录已经产生但尚未处理的信号 sigset_t位图 blocked表 记录被阻塞的信号（信号屏蔽字） sigset_t位图 handler表 记录每个信号的处理函数指针 struct k_sigaction数组 这三张表共同决定了信号的生命周期：当信号产生时，首先在pending表中标记；如果信号被阻塞，则暂不处理；当信号递达时，查询handler表确定执行何种操作。\n">
 <title>Linux内核信号处理机制原理</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/hugo-stack/p/linux%E5%86%85%E6%A0%B8%E4%BF%A1%E5%8F%B7%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/linux%E5%86%85%E6%A0%B8%E4%BF%A1%E5%8F%B7%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/'>
 
-<link rel="stylesheet" href="/hugo-stack/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Linux内核信号处理机制原理">
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Linux内核信号处理机制原理">
 <meta property='og:description' content=" 信号是Linux系统中一种重要的进程间通信手段，它提供了一种异步通知机制，用于告知进程发生了某个事件。与管道、共享内存等同步通信方式不同，信号的到来是随机的，进程无法预知何时会收到信号。这种异步特性使得信号处理机制成为Linux内核中一个精妙而复杂的设计。 本文将从信号的生命周期出发，深入剖析Linux内核如何实现信号的产生、挂起、递达和处理，揭示从用户态到内核态再返回用户态的完整流程。\n信号的基本概念 什么是信号 信号本质上是软件层次上对中断机制的一种模拟。在原理上，一个进程收到一个信号与处理器收到一个中断请求非常相似——都是异步事件，都需要暂停当前工作去处理突发事件。\n每个信号都有一个唯一的编号，Linux系统中信号分为两大类：\n非实时信号（编号1-31）：也称为不可靠信号，不支持排队，可能丢失 实时信号（编号34-64）：也称为可靠信号，支持排队，不会丢失 信号的处理方式 当进程收到信号后，可以采取三种处理方式：\n默认处理：执行系统预设的操作，通常是终止进程、忽略信号、停止进程或产生核心转储 忽略信号：对信号不做任何处理，就像从未发生过一样 自定义捕捉：执行用户指定的信号处理函数 需要注意的是，SIGKILL和SIGSTOP这两个信号既不能被忽略，也不能被自定义捕捉，这是内核为了确保系统管理能力而做的强制规定。\n信号在内核中的数据结构 进程描述符中的信号相关字段 每个进程的task_struct中都包含了与信号相关的字段，用于记录信号的状态和处理方式：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 struct task_struct { // 信号处理函数表 struct sighand_struct *sighand; // 待处理信号集（未决信号） struct sigpending pending; // 信号阻塞掩码 sigset_t blocked; // 信号处理方式 struct signal_struct *signal; // ... }; 三张核心信号表 Linux内核为每个进程维护了三张信号相关的表：\n表类型 作用 数据结构 pending表 记录已经产生但尚未处理的信号 sigset_t位图 blocked表 记录被阻塞的信号（信号屏蔽字） sigset_t位图 handler表 记录每个信号的处理函数指针 struct k_sigaction数组 这三张表共同决定了信号的生命周期：当信号产生时，首先在pending表中标记；如果信号被阻塞，则暂不处理；当信号递达时，查询handler表确定执行何种操作。\n">
-<meta property='og:url' content='https://charles-7777.github.io/hugo-stack/p/linux%E5%86%85%E6%A0%B8%E4%BF%A1%E5%8F%B7%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/'>
+<meta property='og:url' content='https://charles-7777.github.io/p/linux%E5%86%85%E6%A0%B8%E4%BF%A1%E5%8F%B7%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/'>
 <meta property='og:site_name' content=''>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-03-26T23:36:43&#43;08:00'/><meta property='article:modified_time' content='2026-03-26T23:44:35&#43;08:00'/>
 <meta name="twitter:title" content="Linux内核信号处理机制原理">
 <meta name="twitter:description" content=" 信号是Linux系统中一种重要的进程间通信手段，它提供了一种异步通知机制，用于告知进程发生了某个事件。与管道、共享内存等同步通信方式不同，信号的到来是随机的，进程无法预知何时会收到信号。这种异步特性使得信号处理机制成为Linux内核中一个精妙而复杂的设计。 本文将从信号的生命周期出发，深入剖析Linux内核如何实现信号的产生、挂起、递达和处理，揭示从用户态到内核态再返回用户态的完整流程。\n信号的基本概念 什么是信号 信号本质上是软件层次上对中断机制的一种模拟。在原理上，一个进程收到一个信号与处理器收到一个中断请求非常相似——都是异步事件，都需要暂停当前工作去处理突发事件。\n每个信号都有一个唯一的编号，Linux系统中信号分为两大类：\n非实时信号（编号1-31）：也称为不可靠信号，不支持排队，可能丢失 实时信号（编号34-64）：也称为可靠信号，支持排队，不会丢失 信号的处理方式 当进程收到信号后，可以采取三种处理方式：\n默认处理：执行系统预设的操作，通常是终止进程、忽略信号、停止进程或产生核心转储 忽略信号：对信号不做任何处理，就像从未发生过一样 自定义捕捉：执行用户指定的信号处理函数 需要注意的是，SIGKILL和SIGSTOP这两个信号既不能被忽略，也不能被自定义捕捉，这是内核为了确保系统管理能力而做的强制规定。\n信号在内核中的数据结构 进程描述符中的信号相关字段 每个进程的task_struct中都包含了与信号相关的字段，用于记录信号的状态和处理方式：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 struct task_struct { // 信号处理函数表 struct sighand_struct *sighand; // 待处理信号集（未决信号） struct sigpending pending; // 信号阻塞掩码 sigset_t blocked; // 信号处理方式 struct signal_struct *signal; // ... }; 三张核心信号表 Linux内核为每个进程维护了三张信号相关的表：\n表类型 作用 数据结构 pending表 记录已经产生但尚未处理的信号 sigset_t位图 blocked表 记录被阻塞的信号（信号屏蔽字） sigset_t位图 handler表 记录每个信号的处理函数指针 struct k_sigaction数组 这三张表共同决定了信号的生命周期：当信号产生时，首先在pending表中标记；如果信号被阻塞，则暂不处理；当信号递达时，查询handler表确定执行何种操作。\n">
-    <link rel="shortcut icon" href="/hugo-stack/favicon2.ico" />
+    <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
     <body class="
@@ -52,7 +52,7 @@
         
             
             <figure class="site-avatar">
-                <a href="/hugo-stack/">
+                <a href="/">
                 
                     <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
                 
@@ -63,7 +63,7 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/hugo-stack"></a></h1>
+            <h1 class="site-name"><a href="/"></a></h1>
             <h2 class="site-description"></h2>
         </div>
     </header><ol class="menu-social">
@@ -121,7 +121,7 @@
         
         
         <li >
-            <a href='/hugo-stack/' >
+            <a href='/' >
                 
                 
                 
@@ -141,7 +141,7 @@
         
         
         <li >
-            <a href='/hugo-stack/archives/' >
+            <a href='/archives/' >
                 
                 
                 
@@ -161,7 +161,7 @@
         
         
         <li >
-            <a href='/hugo-stack/cats-tags/' >
+            <a href='/cats-tags/' >
                 
                 
                 
@@ -173,7 +173,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E9%93%BE%E6%8E%A5/' >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
                 
                 
                 
@@ -192,7 +192,7 @@
         
         
         <li >
-            <a href='/hugo-stack/search/' >
+            <a href='/search/' >
                 
                 
                 
@@ -211,7 +211,7 @@
         
         
         <li >
-            <a href='/hugo-stack/%E5%85%B3%E4%BA%8E/' >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
                 
                 
                 
@@ -230,7 +230,7 @@
         
         
         <li >
-            <a href='/hugo-stack/updatelog/' >
+            <a href='/updatelog/' >
                 
                 
                 
@@ -360,7 +360,7 @@
     
     <header class="article-category">
         
-            <a href="/hugo-stack/categories/linux/" >
+            <a href="/categories/linux/" >
                 Linux
             </a>
         
@@ -369,7 +369,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/hugo-stack/p/linux%E5%86%85%E6%A0%B8%E4%BF%A1%E5%8F%B7%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/">Linux内核信号处理机制原理</a>
+            <a href="/p/linux%E5%86%85%E6%A0%B8%E4%BF%A1%E5%8F%B7%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/">Linux内核信号处理机制原理</a>
         </h2>
     
         
@@ -734,7 +734,7 @@
     
     <section class="article-tags">
         
-            <a href="/hugo-stack/tags/linux/">Linux</a>
+            <a href="/tags/linux/">Linux</a>
         
     </section>
 
@@ -771,7 +771,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/nf_conntrack-%E7%9A%84-ctstate/">
+    <a href="/p/nf_conntrack-%E7%9A%84-ctstate/">
         
         
 
@@ -784,7 +784,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/socket-i/o/">
+    <a href="/p/socket-i/o/">
         
         
 
@@ -797,7 +797,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/linux%E6%9D%82%E8%AE%B0/">
+    <a href="/p/linux%E6%9D%82%E8%AE%B0/">
         
         
 
@@ -810,7 +810,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/linux-%E7%BD%91%E6%A1%A5/">
+    <a href="/p/linux-%E7%BD%91%E6%A1%A5/">
         
         
 
@@ -823,7 +823,7 @@
             
                 
 <article class="">
-    <a href="/hugo-stack/p/linux%E8%99%9A%E6%8B%9F%E7%BD%91%E5%8D%A1tun%E5%92%8Ctap/">
+    <a href="/p/linux%E8%99%9A%E6%8B%9F%E7%BD%91%E5%8D%A1tun%E5%92%8Ctap/">
         
         
 
@@ -943,7 +943,7 @@
                 src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
                 
                 >
-            </script><script type="text/javascript" src="/hugo-stack/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
 <script>
     (function () {
         const customFont = document.createElement('link');
@@ -956,7 +956,7 @@
     }());
 </script>
 
-<script src=https://charles-7777.github.io/hugo-stack/background/sakura.js></script>
+<script src=https://charles-7777.github.io/background/sakura.js></script>
 
 
 
@@ -1033,7 +1033,7 @@
       
       let img = document.createElement('img');
       img.classList.add('code-more-img');
-      img.src = "https://charles-7777.github.io/hugo-stack/icons/codeMore.png"
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
       
       codeMoreBtn.appendChild(img);
       codeMoreBox.appendChild(codeMoreBtn);
@@ -1055,7 +1055,7 @@
         cursor: pointer;
         width: 30px;
         height: 30px;
-        background-image: url(https://charles-7777.github.io/hugo-stack/icons/backTop.svg);
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
     }
 </style>
 

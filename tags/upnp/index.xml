@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Upnp on </title>
-        <link>https://charles-7777.github.io/hugo-stack/tags/upnp/</link>
+        <link>https://charles-7777.github.io/tags/upnp/</link>
         <description>Recent content in Upnp on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Mon, 15 Sep 2025 15:10:27 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/tags/upnp/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 15 Sep 2025 15:10:27 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/upnp/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>upnp(通用即插即用)协议介绍</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/upnp%E9%80%9A%E7%94%A8%E5%8D%B3%E6%8F%92%E5%8D%B3%E7%94%A8%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/</link>
+        <link>https://charles-7777.github.io/p/upnp%E9%80%9A%E7%94%A8%E5%8D%B3%E6%8F%92%E5%8D%B3%E7%94%A8%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/</link>
         <pubDate>Mon, 15 Sep 2025 14:53:06 +0800</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/upnp%E9%80%9A%E7%94%A8%E5%8D%B3%E6%8F%92%E5%8D%B3%E7%94%A8%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/</guid>
+        <guid>https://charles-7777.github.io/p/upnp%E9%80%9A%E7%94%A8%E5%8D%B3%E6%8F%92%E5%8D%B3%E7%94%A8%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/</guid>
         <description>&lt;h2 id=&#34;什么是-upnp&#34;&gt;什么是 UPnP？
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;UPnP&lt;/strong&gt;（Universal Plug and Play，通用即插即用）是一种网络协议标准，旨在让网络设备（如计算机、打印机、摄像头、智能电视、路由器、IoT设备等）在接入网络时能够&lt;strong&gt;自动发现彼此并建立功能性的网络服务&lt;/strong&gt;，无需用户手动配置。其设计目标是实现“零配置”网络体验。
 UPnP 基于开放的互联网标准和技术，如 TCP/IP、HTTP、XML、SOAP 和 SSDP，使其能在多种操作系统和硬件平台上运行。&lt;/p&gt;

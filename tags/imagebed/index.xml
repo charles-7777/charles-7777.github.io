@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Imagebed on </title>
-        <link>https://charles-7777.github.io/hugo-stack/tags/imagebed/</link>
+        <link>https://charles-7777.github.io/tags/imagebed/</link>
         <description>Recent content in Imagebed on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Sat, 21 Jun 2025 16:19:13 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/tags/imagebed/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sat, 21 Jun 2025 16:19:13 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/imagebed/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Github &#43; PicGo 搭建图床</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/github--picgo-%E6%90%AD%E5%BB%BA%E5%9B%BE%E5%BA%8A/</link>
+        <link>https://charles-7777.github.io/p/github--picgo-%E6%90%AD%E5%BB%BA%E5%9B%BE%E5%BA%8A/</link>
         <pubDate>Thu, 12 Jun 2025 19:33:46 +0800</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/github--picgo-%E6%90%AD%E5%BB%BA%E5%9B%BE%E5%BA%8A/</guid>
+        <guid>https://charles-7777.github.io/p/github--picgo-%E6%90%AD%E5%BB%BA%E5%9B%BE%E5%BA%8A/</guid>
         <description>&lt;h2 id=&#34;创建public仓库用来存放照片&#34;&gt;创建public仓库用来存放照片
 &lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://cdn.jsdelivr.net/gh/charles-7777/ImageBed@main/blog/image-20250612194003078.png&#34;
 	

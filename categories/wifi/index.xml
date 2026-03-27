@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Wifi on </title>
-        <link>https://charles-7777.github.io/hugo-stack/categories/wifi/</link>
+        <link>https://charles-7777.github.io/categories/wifi/</link>
         <description>Recent content in Wifi on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Tue, 17 Mar 2026 19:31:18 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/categories/wifi/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 17 Mar 2026 19:31:18 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/wifi/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Wi-Fi Protected Setup (WPS) 协议介绍</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/wi-fi-protected-setup-wps-%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/</link>
+        <link>https://charles-7777.github.io/p/wi-fi-protected-setup-wps-%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/</link>
         <pubDate>Tue, 17 Mar 2026 19:27:21 +0800</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/wi-fi-protected-setup-wps-%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/</guid>
+        <guid>https://charles-7777.github.io/p/wi-fi-protected-setup-wps-%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/</guid>
         <description>&lt;blockquote&gt;
 &lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.wi-fi.org/system/files/Wi-Fi%20Protected%20Setup%20Specification%20v2.0.9.pdf&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;参考文件：Wi-Fi Protected Setup Specification v2.0.9, Wi-Fi Alliance, 2024&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
@@ -99,10 +99,10 @@ AP 的 PIN 通常用于 当 AP 作为 Enrollee 时（例如：将一个新 AP �
         </item>
         <item>
         <title>Wi-Fi 速率计算</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/wi-fi-%E9%80%9F%E7%8E%87%E8%AE%A1%E7%AE%97/</link>
+        <link>https://charles-7777.github.io/p/wi-fi-%E9%80%9F%E7%8E%87%E8%AE%A1%E7%AE%97/</link>
         <pubDate>Fri, 12 Dec 2025 15:25:55 +0800</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/wi-fi-%E9%80%9F%E7%8E%87%E8%AE%A1%E7%AE%97/</guid>
+        <guid>https://charles-7777.github.io/p/wi-fi-%E9%80%9F%E7%8E%87%E8%AE%A1%E7%AE%97/</guid>
         <description>&lt;p&gt;本文介绍 Wi-Fi 物理层协商速率（PHY Rate）的计算方法，并提供 802.11ac (Wi-Fi 5) 和 802.11ax (Wi-Fi 6) 的 MCS (Modulation and Coding Scheme) 表。&lt;/p&gt;
 &lt;h2 id=&#34;计算公式&#34;&gt;计算公式
 &lt;/h2&gt;&lt;p&gt;Wi-Fi 的理论物理层速率可以通过以下公式计算：&lt;/p&gt;

@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Vpn on </title>
-        <link>https://charles-7777.github.io/hugo-stack/tags/vpn/</link>
+        <link>https://charles-7777.github.io/tags/vpn/</link>
         <description>Recent content in Vpn on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Wed, 03 Sep 2025 19:31:51 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/tags/vpn/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Wed, 03 Sep 2025 19:31:51 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/vpn/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>搭建vpn server</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/%E6%90%AD%E5%BB%BAvpn-server/</link>
+        <link>https://charles-7777.github.io/p/%E6%90%AD%E5%BB%BAvpn-server/</link>
         <pubDate>Mon, 01 Sep 2025 19:31:02 +0800</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/%E6%90%AD%E5%BB%BAvpn-server/</guid>
+        <guid>https://charles-7777.github.io/p/%E6%90%AD%E5%BB%BAvpn-server/</guid>
         <description>&lt;h2 id=&#34;docker-搭建&#34;&gt;docker 搭建
 &lt;/h2&gt;&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/hwdsl2/docker-ipsec-vpn-server&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;hwdsl2/docker-ipsec-vpn-server: Docker image to run an IPsec VPN server, with IPsec/L2TP, Cisco IPsec and IKEv2&lt;/a&gt;&lt;/p&gt;

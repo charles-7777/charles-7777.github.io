@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Network on </title>
-        <link>https://charles-7777.github.io/hugo-stack/categories/network/</link>
+        <link>https://charles-7777.github.io/categories/network/</link>
         <description>Recent content in Network on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Mon, 29 Dec 2025 16:42:55 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/categories/network/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 29 Dec 2025 16:42:55 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/network/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>IPv6 ND proxy</title>
-        <link>https://charles-7777.github.io/hugo-stack/p/ipv6-nd-proxy/</link>
+        <link>https://charles-7777.github.io/p/ipv6-nd-proxy/</link>
         <pubDate>Mon, 29 Dec 2025 16:28:14 +0800</pubDate>
         
-        <guid>https://charles-7777.github.io/hugo-stack/p/ipv6-nd-proxy/</guid>
+        <guid>https://charles-7777.github.io/p/ipv6-nd-proxy/</guid>
         <description>&lt;h2 id=&#34;ipv6同一前缀地址通信&#34;&gt;IPv6同一前缀地址通信
 &lt;/h2&gt;&lt;p&gt;具有相同前缀的主机间互访的时候，不会查找路由表，只会发&lt;strong&gt;NS&lt;/strong&gt;（Neighbor Solicitation）请求，获取目的地址对应的链路层地址，然后使用该链路层地址封装要发送的数据报文&lt;/p&gt;
 &lt;pre class=&#34;mermaid&#34;&gt;
