@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>AI on </title>
+        <link>https://charles-7777.github.io/hugo-stack/categories/ai/</link>
+        <description>Recent content in AI on </description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <copyright>Charles Lv</copyright>
+        <lastBuildDate>Wed, 11 Feb 2026 16:50:08 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/categories/ai/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Agent Skill</title>
+        <link>https://charles-7777.github.io/hugo-stack/p/agent-skill/</link>
+        <pubDate>Wed, 11 Feb 2026 11:19:50 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/p/agent-skill/</guid>
+        <description>&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://zhuanlan.zhihu.com/p/1992272492392380044&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Agent Skills 终极指南：入门、精通、预测&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+</description>
+        </item>
+        <item>
+        <title>Agent、MCP与LLM</title>
+        <link>https://charles-7777.github.io/hugo-stack/p/agentmcp%E4%B8%8Ellm/</link>
+        <pubDate>Mon, 24 Nov 2025 14:44:59 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/p/agentmcp%E4%B8%8Ellm/</guid>
+        <description>&lt;hr&gt;
+&lt;h2 id=&#34;智能体agent与-mcp-简介&#34;&gt;智能体（Agent）与 MCP 简介
+&lt;/h2&gt;&lt;h3 id=&#34;智能体ai-agent&#34;&gt;智能体（AI Agent）
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;发展脉络&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;2023 年&lt;/strong&gt;：AutoGPT 等自治代理出现，将 GPT-4 与工具循环结合，标志着“让 LLM 自主执行复杂任务”的探索开始，被视为 &lt;strong&gt;智能体元年&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;2024 年&lt;/strong&gt;：LangChain、HuggingGPT、MetaGPT 等框架涌现，支持构建单/多智能体系统；产业界高度关注，IDC 预测 &lt;strong&gt;2026 年 50% 的大型企业数据团队将使用 AI Agent&lt;/strong&gt;，Gartner 将 “Agentic AI” 列为 &lt;strong&gt;2025 年首要技术趋势&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;核心机制&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;智能体赋予 LLM &lt;strong&gt;自主决策与行动能力&lt;/strong&gt;，不再只是被动回答。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;采用 &lt;strong&gt;“思考–行动–观察”循环机制&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;思考&lt;/strong&gt;：LLM 接收目标后进行推理；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;行动&lt;/strong&gt;：决定调用工具（如搜索、执行代码）；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;观察&lt;/strong&gt;：获取环境反馈，继续迭代直至任务完成。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;在大模型生态中的角色&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;智能体是 &lt;strong&gt;连接大模型与实际应用的桥梁&lt;/strong&gt;。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;封装业务逻辑、工具调用（如 Function Calling、RAG），将企业知识库、数据库、第三方服务融入决策。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;扮演“&lt;strong&gt;大脑指挥官&lt;/strong&gt;”，协调记忆、规划、工具接口等模块，驱动任务流程。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;例如：客服场景中，智能体可自主引导对话、查询数据库、转接人工，提升解决率。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;mcpmodel-context-protocol模型上下文协议&#34;&gt;MCP（Model Context Protocol，模型上下文协议）
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;起源与概念&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;由 &lt;strong&gt;Anthropic 团队于 2024 年 11 月&lt;/strong&gt;提出，受“语言服务器协议（LSP）”启发。&lt;/li&gt;
+&lt;li&gt;被誉为 &lt;strong&gt;AI 世界的“USB-C 接口”&lt;/strong&gt;，提供模型与外部工具/数据交互的统一标准。&lt;/li&gt;
+&lt;li&gt;解决问题：此前各模型厂商的 Function Calling 实现五花八门，开发者需为每种模型+工具编写特定集成代码，繁琐且难扩展。
+&lt;strong&gt;作用&lt;/strong&gt;：&lt;/li&gt;
+&lt;li&gt;通过 &lt;strong&gt;标准化协议&lt;/strong&gt;，让 LLM 能便捷接入数据库、搜索引擎、插件等外部资源。&lt;/li&gt;
+&lt;li&gt;支持 &lt;strong&gt;检索增强（RAG）&lt;/strong&gt;、实时数据查询、API 调用等，突破训练语料限制。&lt;/li&gt;
+&lt;li&gt;提升回答的 &lt;strong&gt;准确性、实时性与行动能力&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;llm智能体mcp-定位与职责&#34;&gt;LLM、智能体、MCP 定位与职责
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;组件&lt;/th&gt;
+          &lt;th&gt;角色&lt;/th&gt;
+          &lt;th&gt;职责&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;智能体（Agent）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;MCP 主机 / 用户交互入口&lt;/td&gt;
+          &lt;td&gt;接收用户请求，调用 LLM，整合工具结果，返回最终答案&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;大模型（LLM）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;智能体的“大脑”&lt;/td&gt;
+          &lt;td&gt;理解用户意图，推理决策，判断是否调用工具，生成结构化调用指令或最终回复&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;MCP 客户端（Client）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;LLM 与外部资源的“信使”&lt;/td&gt;
+          &lt;td&gt;解析 LLM 的工具调用请求，按 MCP 协议转发给对应服务器&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;MCP 服务器（Server）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;工具/数据提供者&lt;/td&gt;
+          &lt;td&gt;提供 &lt;strong&gt;Tools（可执行函数）&lt;/strong&gt; 和 &lt;strong&gt;Resources（数据源）&lt;/strong&gt;，执行操作并返回结果&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;blockquote&gt;
+&lt;p&gt;💡 补充：智能体应用通常内置 MCP 客户端，可同时连接多个 MCP 服务器。开发者只需将工具以 MCP Server 形式暴露，即可被任意兼容 MCP 的 LLM 调用。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;调用与通信顺序完整交互流程&#34;&gt;调用与通信顺序（完整交互流程）
+&lt;/h2&gt;&lt;p&gt;以下以“用户询问：明天想在上海玩一天，看看天气，怎么安排行程？”为例：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;用户提问&lt;/strong&gt;
+→ 在前端输入问题。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;智能体转发问题&lt;/strong&gt;
+→ 将用户请求 + 上下文 + 可用工具列表发送给 LLM。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;LLM 理解与决策&lt;/strong&gt;
+→ 判断是否需外部信息。若需（如查天气），进入工具调用流程。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;LLM 发出函数调用请求&lt;/strong&gt;
+→ 输出结构化指令，例如：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;7
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;tool_calls&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;arguments&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;city&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;上海&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;MCP 客户端解析并调用工具&lt;/strong&gt;
+→ 识别调用请求，通过 MCP 协议（如 JSON-RPC 2.0）转发给对应 MCP 服务器。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;MCP 服务器执行操作&lt;/strong&gt;
+→ 调用内部函数（如访问天气 API），获取实时数据。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;返回执行结果&lt;/strong&gt;
+→ 服务器将结果（如 JSON 或文本）返回给客户端，客户端传回 LLM。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;LLM 生成最终答案&lt;/strong&gt;
+→ 结合原始问题 + 外部数据，生成完整回复（如包含天气的游玩攻略）。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;结果返回用户&lt;/strong&gt;
+→ 智能体将最终答案展示给用户，任务完成。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;✅ 整个流程形成闭环：&lt;strong&gt;用户 → Agent → LLM → MCP Client → MCP Server → LLM → Agent → 用户&lt;/strong&gt;&lt;/p&gt;&lt;/blockquote&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;LLM&lt;/strong&gt; 是推理核心，但缺乏实时性和行动力；&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Agent&lt;/strong&gt; 赋予 LLM 目标导向的自主性，是落地关键；&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;MCP&lt;/strong&gt; 提供标准化“插拔式”接口，极大降低工具集成成本；&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;三者协作，使大模型从“聊天机器人”进化为“数字员工”，真正解决复杂业务问题。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;转载自 &lt;a class=&#34;link&#34; href=&#34;https://zhuanlan.zhihu.com/p/1910411281988588717&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://zhuanlan.zhihu.com/p/1910411281988588717&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

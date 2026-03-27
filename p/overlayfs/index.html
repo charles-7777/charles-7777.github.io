@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="OverlayFS 简介 OverlayFS (Overlay Filesystem) 是一种联合文件系统（Union Filesystem），它允许用户将一个文件系统（通常是可写的）“覆盖”在另一个文件系统（通常是只读的）之上。对于用户来说，这两个文件系统看起来像是一个合并后的单一目录树。\nOverlayFS 在 Linux 内核 3.18 中被合并进主线，因其设计简洁、性能高效而被广泛应用于容器技术（如 Docker）和嵌入式系统（如 OpenWrt）。\n核心概念 OverlayFS 主要涉及四个目录层级：\nLower Dir (底层目录): 通常是只读的。 在 OpenWrt 中，这通常对应于压缩的只读固件部分（SquashFS）。 可以有多个 Lower 层。\nUpper Dir (上层目录): 是可写的。 所有对文件系统的修改（新建、修改、删除）都会记录在这里。 在 OpenWrt 中，这通常对应于 JFFS2 或 UBIFS 分区。\nWork Dir (工作目录): 一个对用户不可见的空目录，OverlayFS 使用它来准备文件操作（如原子性保证）。 必须与 Upper Dir 在同一个文件系统下。\nMerged Dir (合并目录): 这是用户最终看到的挂载点。 它展示了 Lower 和 Upper 合并后的视图。\n工作原理 读取 (Read): 如果文件在 Upper 层存在，直接读取 Upper 层的文件。 如果文件仅在 Lower 层存在，读取 Lower 层的文件。 如果两层都有，Upper 层的文件会“遮盖”住 Lower 层的文件。\n">
+<title>OverlayFS</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/hugo-stack/p/overlayfs/'>
+
+<link rel="stylesheet" href="/hugo-stack/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="OverlayFS">
+<meta property='og:description' content="OverlayFS 简介 OverlayFS (Overlay Filesystem) 是一种联合文件系统（Union Filesystem），它允许用户将一个文件系统（通常是可写的）“覆盖”在另一个文件系统（通常是只读的）之上。对于用户来说，这两个文件系统看起来像是一个合并后的单一目录树。\nOverlayFS 在 Linux 内核 3.18 中被合并进主线，因其设计简洁、性能高效而被广泛应用于容器技术（如 Docker）和嵌入式系统（如 OpenWrt）。\n核心概念 OverlayFS 主要涉及四个目录层级：\nLower Dir (底层目录): 通常是只读的。 在 OpenWrt 中，这通常对应于压缩的只读固件部分（SquashFS）。 可以有多个 Lower 层。\nUpper Dir (上层目录): 是可写的。 所有对文件系统的修改（新建、修改、删除）都会记录在这里。 在 OpenWrt 中，这通常对应于 JFFS2 或 UBIFS 分区。\nWork Dir (工作目录): 一个对用户不可见的空目录，OverlayFS 使用它来准备文件操作（如原子性保证）。 必须与 Upper Dir 在同一个文件系统下。\nMerged Dir (合并目录): 这是用户最终看到的挂载点。 它展示了 Lower 和 Upper 合并后的视图。\n工作原理 读取 (Read): 如果文件在 Upper 层存在，直接读取 Upper 层的文件。 如果文件仅在 Lower 层存在，读取 Lower 层的文件。 如果两层都有，Upper 层的文件会“遮盖”住 Lower 层的文件。\n">
+<meta property='og:url' content='https://charles-7777.github.io/hugo-stack/p/overlayfs/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='overlay' /><meta property='article:published_time' content='2025-07-29T09:52:54&#43;08:00'/><meta property='article:modified_time' content='2025-12-12T16:08:56&#43;08:00'/>
+<meta name="twitter:title" content="OverlayFS">
+<meta name="twitter:description" content="OverlayFS 简介 OverlayFS (Overlay Filesystem) 是一种联合文件系统（Union Filesystem），它允许用户将一个文件系统（通常是可写的）“覆盖”在另一个文件系统（通常是只读的）之上。对于用户来说，这两个文件系统看起来像是一个合并后的单一目录树。\nOverlayFS 在 Linux 内核 3.18 中被合并进主线，因其设计简洁、性能高效而被广泛应用于容器技术（如 Docker）和嵌入式系统（如 OpenWrt）。\n核心概念 OverlayFS 主要涉及四个目录层级：\nLower Dir (底层目录): 通常是只读的。 在 OpenWrt 中，这通常对应于压缩的只读固件部分（SquashFS）。 可以有多个 Lower 层。\nUpper Dir (上层目录): 是可写的。 所有对文件系统的修改（新建、修改、删除）都会记录在这里。 在 OpenWrt 中，这通常对应于 JFFS2 或 UBIFS 分区。\nWork Dir (工作目录): 一个对用户不可见的空目录，OverlayFS 使用它来准备文件操作（如原子性保证）。 必须与 Upper Dir 在同一个文件系统下。\nMerged Dir (合并目录): 这是用户最终看到的挂载点。 它展示了 Lower 和 Upper 合并后的视图。\n工作原理 读取 (Read): 如果文件在 Upper 层存在，直接读取 Upper 层的文件。 如果文件仅在 Lower 层存在，读取 Lower 层的文件。 如果两层都有，Upper 层的文件会“遮盖”住 Lower 层的文件。\n">
+    <link rel="shortcut icon" href="/hugo-stack/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/hugo-stack/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/hugo-stack"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://www.douyin.com/'
+                        target="_blank"
+                        title="douyin"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-tiktok"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 7.917v4.034a9.948 9.948 0 0 1 -5 -1.951v4.5a6.5 6.5 0 1 1 -8 -6.326v4.326a2.5 2.5 0 1 0 4 2v-11.5h4.083a6.005 6.005 0 0 0 4.917 4.917z" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/hugo-stack/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#overlayfs-简介">OverlayFS 简介</a>
+      <ol>
+        <li><a href="#核心概念">核心概念</a></li>
+        <li><a href="#工作原理">工作原理</a></li>
+      </ol>
+    </li>
+    <li><a href="#openwrt-中的-overlayfs-应用">OpenWrt 中的 OverlayFS 应用</a>
+      <ol>
+        <li><a href="#openwrt-的文件系统架构">OpenWrt 的文件系统架构</a></li>
+        <li><a href="#挂载机制">挂载机制</a></li>
+        <li><a href="#实际操作与管理">实际操作与管理</a>
+          <ol>
+            <li><a href="#查看挂载状态">查看挂载状态</a></li>
+            <li><a href="#恢复出厂设置-firstboot">恢复出厂设置 (Firstboot)</a></li>
+            <li><a href="#扩容-extroot">扩容 (Extroot)</a></li>
+          </ol>
+        </li>
+        <li><a href="#常见问题">常见问题</a></li>
+      </ol>
+    </li>
+    <li><a href="#总结">总结</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/hugo-stack/categories/openwrt/" >
+                Openwrt
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/hugo-stack/p/overlayfs/">OverlayFS</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2025-07-29 09:52</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2025-12-12 16:08</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 2 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    306 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h2 id="overlayfs-简介">OverlayFS 简介
+</h2><p><strong>OverlayFS</strong> (Overlay Filesystem) 是一种联合文件系统（Union Filesystem），它允许用户将一个文件系统（通常是可写的）“覆盖”在另一个文件系统（通常是只读的）之上。对于用户来说，这两个文件系统看起来像是一个合并后的单一目录树。</p>
+<p>OverlayFS 在 Linux 内核 3.18 中被合并进主线，因其设计简洁、性能高效而被广泛应用于容器技术（如 Docker）和嵌入式系统（如 OpenWrt）。</p>
+<h3 id="核心概念">核心概念
+</h3><p>OverlayFS 主要涉及四个目录层级：</p>
+<ul>
+<li>
+<p><strong>Lower Dir (底层目录)</strong>:
+通常是只读的。
+在 OpenWrt 中，这通常对应于压缩的只读固件部分（SquashFS）。
+可以有多个 Lower 层。</p>
+</li>
+<li>
+<p><strong>Upper Dir (上层目录)</strong>:
+是可写的。
+所有对文件系统的修改（新建、修改、删除）都会记录在这里。
+在 OpenWrt 中，这通常对应于 JFFS2 或 UBIFS 分区。</p>
+</li>
+<li>
+<p><strong>Work Dir (工作目录)</strong>:
+一个对用户不可见的空目录，OverlayFS 使用它来准备文件操作（如原子性保证）。
+必须与 Upper Dir 在同一个文件系统下。</p>
+</li>
+<li>
+<p><strong>Merged Dir (合并目录)</strong>:
+这是用户最终看到的挂载点。
+它展示了 Lower 和 Upper 合并后的视图。</p>
+</li>
+</ul>
+<h3 id="工作原理">工作原理
+</h3><ul>
+<li>
+<p><strong>读取 (Read)</strong>:
+如果文件在 Upper 层存在，直接读取 Upper 层的文件。
+如果文件仅在 Lower 层存在，读取 Lower 层的文件。
+如果两层都有，Upper 层的文件会“遮盖”住 Lower 层的文件。</p>
+</li>
+<li>
+<p><strong>写入 (Write)</strong>:</p>
+<ul>
+<li><strong>修改文件</strong>: 当尝试修改一个位于 Lower 层的文件时，OverlayFS 会触发 <strong>Copy-Up</strong> 操作，将文件从 Lower 层复制到 Upper 层，然后对 Upper 层的文件进行修改。</li>
+<li><strong>新建文件</strong>: 直接在 Upper 层创建。</li>
+</ul>
+</li>
+<li>
+<p><strong>删除 (Delete)</strong>:
+如果删除的是 Upper 层的文件，直接删除。
+如果删除的是 Lower 层的文件，OverlayFS 会在 Upper 层创建一个特殊的 <strong>Whiteout</strong> 文件（通常是字符设备 0/0），用于标记该文件已被“遮盖”（即删除），从而在 Merged 视图中不可见。</p>
+</li>
+</ul>
+<hr>
+<h2 id="openwrt-中的-overlayfs-应用">OpenWrt 中的 OverlayFS 应用
+</h2><p>OpenWrt 是 OverlayFS 最经典的落地场景之一。它利用 OverlayFS 完美解决了嵌入式设备存储空间有限且需要系统恢复能力的矛盾。</p>
+<h3 id="openwrt-的文件系统架构">OpenWrt 的文件系统架构
+</h3><p>OpenWrt 的固件通常包含两个主要部分：</p>
+<ul>
+<li>
+<p><strong><code>/rom</code> (Read-Only)</strong>:
+这是一个 SquashFS 文件系统，包含了系统启动所需的所有基础文件、内核模块和默认配置。
+它是高度压缩的，且在运行时是<strong>只读</strong>的。这保证了系统核心文件的安全性，无论用户如何误操作，都可以恢复出厂设置。</p>
+</li>
+<li>
+<p><strong><code>/overlay</code> (Read-Write)</strong>:
+这是一个 JFFS2 (对于 NOR Flash) 或 UBIFS (对于 NAND Flash) 文件系统，或者是 ext4 (对于 SD 卡/硬盘)。
+它用于存储用户的配置更改、安装的软件包等。</p>
+</li>
+</ul>
+<h3 id="挂载机制">挂载机制
+</h3><p>当 OpenWrt 启动时，它会执行以下逻辑（简化版）：</p>
+<ul>
+<li>挂载 SquashFS 分区到 <code>/rom</code>。</li>
+<li>挂载可写分区（如 JFFS2）到 <code>/overlay</code>。</li>
+<li>使用 OverlayFS 将 <code>/overlay</code>（Upper）覆盖在 <code>/rom</code>（Lower）之上，并将结果挂载到根目录 <code>/</code>。</li>
+</ul>
+<p><strong>挂载命令示例</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">mount -t overlay overlay -o <span class="nv">lowerdir</span><span class="o">=</span>/rom,upperdir<span class="o">=</span>/overlay/upper,workdir<span class="o">=</span>/overlay/work /
+</span></span></code></pre></td></tr></table>
+</div>
+</div><blockquote>
+<p>(注：OpenWrt 的实际挂载过程由 <code>mount_root</code> 和 <code>preinit</code> 脚本处理，细节可能因版本而异，早期版本使用 <code>mini_fo</code>，现代版本均使用 <code>overlayfs</code>)*</p></blockquote>
+<h3 id="实际操作与管理">实际操作与管理
+</h3><h4 id="查看挂载状态">查看挂载状态
+</h4><p>在 OpenWrt 终端中输入 <code>df -h</code> 或 <code>mount</code> 可以看到 OverlayFS 的结构：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">root@OpenWrt:~# df -h
+</span></span><span class="line"><span class="cl">Filesystem                Size      Used Available Use% Mounted on
+</span></span><span class="line"><span class="cl">/dev/root                 2.5M      2.5M         <span class="m">0</span> 100% /rom
+</span></span><span class="line"><span class="cl">tmpfs                    61.8M    168.0K     61.6M   0% /tmp
+</span></span><span class="line"><span class="cl">/dev/mtdblock3            5.0M    424.0K      4.6M   8% /overlay
+</span></span><span class="line"><span class="cl">overlayfs:/overlay        5.0M    424.0K      4.6M   8% /
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>可以看到 <code>/</code> 的类型是 <code>overlayfs:/overlay</code>，它的大小等于 <code>/overlay</code> 分区的大小。</p>
+<h4 id="恢复出厂设置-firstboot">恢复出厂设置 (Firstboot)
+</h4><p>由于 OverlayFS 的特性，恢复出厂设置变得非常简单：只需要<strong>清空 <code>/overlay</code> 分区</strong>即可。</p>
+<p>当 <code>/overlay</code> 被清空后，Upper 层没有了任何文件，系统重启后，OverlayFS 呈现的完全是 Lower 层（即 <code>/rom</code>）的内容，系统就回到了初始状态。</p>
+<p>命令：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">firstboot -y
+</span></span><span class="line"><span class="cl">reboot
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="扩容-extroot">扩容 (Extroot)
+</h4><p>OpenWrt 设备的内置 Flash 通常很小（如 16MB）。利用 OverlayFS，我们可以轻松实现扩容（Extroot）：</p>
+<ul>
+<li>插入一个 USB U盘。</li>
+<li>将 U盘格式化为 ext4。</li>
+<li>将 U盘挂载为 <code>/overlay</code>。</li>
+<li>这样，系统的可用空间就变成了 U盘的大小，可以安装大量的软件包。</li>
+</ul>
+<h3 id="常见问题">常见问题
+</h3><p><strong>空间不足</strong>: 如果 <code>/overlay</code> 满了，系统可能无法保存配置或安装软件。此时删除文件实际上是在 Upper 层操作。
+<strong>文件被遮挡</strong>: 如果你在 <code>/rom</code> 中修改了源码重新编译固件，但刷机后发现文件没变，可能是因为 <code>/overlay</code> 中存在旧的修改版本遮挡了新的 <code>/rom</code> 文件。刷机时通常建议选择“不保留配置”来清空 <code>/overlay</code>。</p>
+<h2 id="总结">总结
+</h2><p>OverlayFS 是 OpenWrt 灵活性的基石。它通过分层机制，既保证了系统底层的稳定性（只读的 <code>/rom</code>），又提供了用户所需的灵活性（可写的 <code>/overlay</code>），并且实现了极低成本的“恢复出厂设置”功能。理解 OverlayFS 对于深入玩转 OpenWrt（如定制固件、扩容、调试）至关重要。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/hugo-stack/tags/overlay/">Overlay</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/hugo-stack/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/hugo-stack/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/hugo-stack/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/hugo-stack/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        let rightSideBar = document.querySelector(".right-sidebar");
+        if (!rightSideBar) {
+            return;
+        }
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop
+        rightSideBar.appendChild(btn)
+        
+        window.onscroll = function() {
+            
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        };
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>

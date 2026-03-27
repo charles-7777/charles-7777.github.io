@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Math on </title>
+        <link>https://charles-7777.github.io/hugo-stack/tags/math/</link>
+        <description>Recent content in Math on </description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <copyright>Charles Lv</copyright>
+        <lastBuildDate>Fri, 06 Mar 2026 13:38:55 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/tags/math/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Ramsey问题</title>
+        <link>https://charles-7777.github.io/hugo-stack/p/ramsey%E9%97%AE%E9%A2%98/</link>
+        <pubDate>Fri, 06 Mar 2026 13:23:46 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/p/ramsey%E9%97%AE%E9%A2%98/</guid>
+        <description>&lt;p&gt;拉姆齐理论（Ramsey Theory）是组合数学中的一个分支，它的核心思想可以概括为：&lt;strong&gt;“完全的无序是不可能的”&lt;/strong&gt;。无论一个系统有多么庞大和混乱，只要系统足够大，其中必定包含某种高度有序的子结构。&lt;/p&gt;
+&lt;p&gt;拉姆齐问题最著名的通俗表达是&lt;strong&gt;派对问题&lt;/strong&gt;（六人集会问题）：
+假设在一个派对上有 6 个人，这 6 个人中，要么必定有 3 个人互相认识，要么必定有 3 个人互相都不认识。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;我们需要证明：对于 6 个顶点的完全图 $K_6$，如果将其边涂成红色或蓝色，必然存在一个红色三角形或蓝色三角形。
+&lt;strong&gt;证明过程：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;在图 $K_6$ 中任意选择一个顶点，记为 $v$。&lt;/li&gt;
+&lt;li&gt;除去 $v$ 之外，还有 5 个顶点，因此 $v$ 必然连接着 5 条边。&lt;/li&gt;
+&lt;li&gt;根据&lt;strong&gt;抽屉原理（鸽巢原理）&lt;/strong&gt;，在这 5 条边中，至少有 $\lceil 5/2 \rceil = 3$ 条边是相同颜色的。不妨假设有 3 条边是红色的。&lt;/li&gt;
+&lt;li&gt;假设这 3 条红边分别连接顶点 $A$、$B$ 和 $C$。&lt;/li&gt;
+&lt;li&gt;现在考察顶点 $A, B, C$ 之间的 3 条边（边 $AB, BC, CA$）：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;如果这 3 条边中&lt;strong&gt;有一条&lt;/strong&gt;是红色的（例如 $AB$ 是红色），那么顶点 $v, A, B$ 就构成了一个&lt;strong&gt;红色三角形&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;如果这 3 条边&lt;strong&gt;全都是&lt;/strong&gt;蓝色的，那么顶点 $A, B, C$ 本身就构成了一个&lt;strong&gt;蓝色三角形&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;&lt;/blockquote&gt;
+&lt;p&gt;在图论的语言中，拉姆齐定理可以表述为：对于给定的任意整数 $r$ 和 $s$，存在一个最小的正整数 $N$，使得对于完全图 $K_N$（即 $N$ 个顶点，且任意两个顶点之间都有边相连的图）的每一条边任意涂上红色或蓝色，必然能找到一个由 $r$ 个顶点组成的完全图（其所有边都是红色），或者找到一个由 $s$ 个顶点组成的完全图（其所有边都是蓝色）。&lt;/p&gt;
+&lt;p&gt;这个最小的整数 $N$ 就被称为&lt;strong&gt;拉姆齐数（Ramsey Number）&lt;/strong&gt;，记作 $R(r, s)$。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://zhuanlan.zhihu.com/p/682320458&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Ramsey定理&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+</description>
+        </item>
+        <item>
+        <title>变分法证明等周问题</title>
+        <link>https://charles-7777.github.io/hugo-stack/p/%E5%8F%98%E5%88%86%E6%B3%95%E8%AF%81%E6%98%8E%E7%AD%89%E5%91%A8%E9%97%AE%E9%A2%98/</link>
+        <pubDate>Sat, 28 Feb 2026 20:47:04 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/p/%E5%8F%98%E5%88%86%E6%B3%95%E8%AF%81%E6%98%8E%E7%AD%89%E5%91%A8%E9%97%AE%E9%A2%98/</guid>
+        <description>&lt;h2 id=&#34;问题描述&#34;&gt;问题描述
+&lt;/h2&gt;&lt;p&gt;等周问题是变分法中的一个经典问题：&lt;strong&gt;在平面上，给定周长 $L$ 的所有闭合曲线中，哪一条曲线围成的面积最大？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;直观上我们知道答案是圆，下面我们将使用变分法（Variational Calculus）严格推导这一结论。&lt;/p&gt;
+&lt;h2 id=&#34;数学建模&#34;&gt;数学建模
+&lt;/h2&gt;&lt;p&gt;假设平面闭合曲线由参数方程表示：
+&lt;/p&gt;
+$$
+\begin{cases}
+x = x(t) \\
+y = y(t)
+\end{cases}
+\quad t \in [t_0, t_1]
+$$&lt;p&gt;
+且 $x(t_0) = x(t_1), y(t_0) = y(t_1)$。&lt;/p&gt;
+&lt;h3 id=&#34;目标泛函面积-a&#34;&gt;目标泛函：面积 $A$
+&lt;/h3&gt;&lt;p&gt;根据&lt;strong&gt;格林公式 (Green&amp;rsquo;s Theorem)&lt;/strong&gt;，闭合曲线围成的面积 $A$ 可以表示为：
+&lt;/p&gt;
+$$
+A = \frac{1}{2} \oint (x dy - y dx) = \frac{1}{2} \int_{t_0}^{t_1} (x y&#39; - y x&#39;) \, dt
+$$&lt;p&gt;
+其中 $x&amp;rsquo; = \frac{dx}{dt}, y&amp;rsquo; = \frac{dy}{dt}$。&lt;/p&gt;
+&lt;h3 id=&#34;约束条件周长-l&#34;&gt;约束条件：周长 $L$
+&lt;/h3&gt;&lt;p&gt;曲线的弧长（周长）固定为 $L$：
+&lt;/p&gt;
+$$
+L = \int_{t_0}^{t_1} \sqrt{x&#39;^2 + y&#39;^2} \, dt
+$$&lt;h2 id=&#34;拉格朗日乘子法&#34;&gt;拉格朗日乘子法
+&lt;/h2&gt;&lt;p&gt;这是一个&lt;strong&gt;等周变分问题&lt;/strong&gt;（Isoperimetric Problem），我们需要在约束条件 $L$ 下求泛函 $A$ 的极值。
+通过引入拉格朗日乘子，将原本复杂的多约束优化问题转化为无约束优化问题，从而简化求解过程。
+引入&lt;strong&gt;拉格朗日乘子 (Lagrange Multiplier)&lt;/strong&gt; $\lambda$，构造新的辅助泛函 $J$：
+&lt;/p&gt;
+$$
+J = A + \lambda L = \int_{t_0}^{t_1} \left[ \frac{1}{2}(x y&#39; - y x&#39;) + \lambda \sqrt{x&#39;^2 + y&#39;^2} \right] \, dt
+$$&lt;p&gt;定义被积函数（Lagrangian）为 $F$：
+&lt;/p&gt;
+$$
+F(x, y, x&#39;, y&#39;) = \frac{1}{2}(x y&#39; - y x&#39;) + \lambda \sqrt{x&#39;^2 + y&#39;^2}
+$$&lt;h2 id=&#34;欧拉-拉格朗日方程-euler-lagrange-equation&#34;&gt;欧拉-拉格朗日方程 (Euler-Lagrange Equation)
+&lt;/h2&gt;&lt;p&gt;为了使 $J$ 取得极值，$x(t)$ 和 $y(t)$ 必须同时满足欧拉-拉格朗日方程组：&lt;/p&gt;
+$$
+\begin{cases}
+\frac{\partial F}{\partial x} - \frac{d}{dt} \left( \frac{\partial F}{\partial x&#39;} \right) = 0 \\[10pt]
+\frac{\partial F}{\partial y} - \frac{d}{dt} \left( \frac{\partial F}{\partial y&#39;} \right) = 0
+\end{cases}
+$$&lt;h3 id=&#34;计算偏导数&#34;&gt;计算偏导数
+&lt;/h3&gt;&lt;p&gt;对于 $x$ 的方程：
+&lt;/p&gt;
+$$
+\frac{\partial F}{\partial x} = \frac{1}{2}y&#39;
+$$&lt;p&gt;
+&lt;/p&gt;
+$$
+\frac{\partial F}{\partial x&#39;} = -\frac{1}{2}y + \lambda \frac{x&#39;}{\sqrt{x&#39;^2 + y&#39;^2}}
+$$&lt;p&gt;对于 $y$ 的方程：
+&lt;/p&gt;
+$$
+\frac{\partial F}{\partial y} = -\frac{1}{2}x&#39;
+$$&lt;p&gt;
+&lt;/p&gt;
+$$
+\frac{\partial F}{\partial y&#39;} = \frac{1}{2}x + \lambda \frac{y&#39;}{\sqrt{x&#39;^2 + y&#39;^2}}
+$$&lt;h3 id=&#34;代入-e-l-方程&#34;&gt;代入 E-L 方程
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;方程 1 (关于 $x$):&lt;/strong&gt;
+&lt;/p&gt;
+$$
+\frac{1}{2}y&#39; - \frac{d}{dt} \left( -\frac{1}{2}y + \lambda \frac{x&#39;}{\sqrt{x&#39;^2 + y&#39;^2}} \right) = 0
+$$&lt;p&gt;
+&lt;/p&gt;
+$$
+\frac{1}{2}y&#39; - \left( -\frac{1}{2}y&#39; + \frac{d}{dt} \left( \lambda \frac{x&#39;}{\sqrt{x&#39;^2 + y&#39;^2}} \right) \right) = 0
+$$&lt;p&gt;
+&lt;/p&gt;
+$$
+y&#39; - \lambda \frac{d}{dt} \left( \frac{x&#39;}{\sqrt{x&#39;^2 + y&#39;^2}} \right) = 0 \quad \text{......(1)}
+$$&lt;p&gt;&lt;strong&gt;方程 2 (关于 $y$):&lt;/strong&gt;
+&lt;/p&gt;
+$$
+-\frac{1}{2}x&#39; - \frac{d}{dt} \left( \frac{1}{2}x + \lambda \frac{y&#39;}{\sqrt{x&#39;^2 + y&#39;^2}} \right) = 0
+$$&lt;p&gt;
+&lt;/p&gt;
+$$
+-\frac{1}{2}x&#39; - \left( \frac{1}{2}x&#39; + \frac{d}{dt} \left( \lambda \frac{y&#39;}{\sqrt{x&#39;^2 + y&#39;^2}} \right) \right) = 0
+$$&lt;p&gt;
+&lt;/p&gt;
+$$
+-x&#39; - \lambda \frac{d}{dt} \left( \frac{y&#39;}{\sqrt{x&#39;^2 + y&#39;^2}} \right) = 0 \quad \text{......(2)}
+$$&lt;h2 id=&#34;积分求解&#34;&gt;积分求解
+&lt;/h2&gt;&lt;p&gt;对 (1) 式关于 $t$ 积分：
+&lt;/p&gt;
+$$
+y - \lambda \frac{x&#39;}{\sqrt{x&#39;^2 + y&#39;^2}} = C_1 \quad \Rightarrow \quad y - C_1 = \lambda \frac{x&#39;}{\sqrt{x&#39;^2 + y&#39;^2}}
+$$&lt;p&gt;对 (2) 式关于 $t$ 积分：
+&lt;/p&gt;
+$$
+-x - \lambda \frac{y&#39;}{\sqrt{x&#39;^2 + y&#39;^2}} = -C_2 \quad \Rightarrow \quad x - C_2 = -\lambda \frac{y&#39;}{\sqrt{x&#39;^2 + y&#39;^2}}
+$$&lt;p&gt;
+(这里为了形式统一，积分常数设为 $-C_2$)&lt;/p&gt;
+&lt;p&gt;我们得到了两个方程：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;$y - C_1 = \lambda \frac{x&amp;rsquo;}{\sqrt{x&amp;rsquo;^2 + y&amp;rsquo;^2}}$&lt;/li&gt;
+&lt;li&gt;$x - C_2 = -\lambda \frac{y&amp;rsquo;}{\sqrt{x&amp;rsquo;^2 + y&amp;rsquo;^2}}$&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;将两式平方并相加：
+&lt;/p&gt;
+$$
+(x - C_2)^2 + (y - C_1)^2 = \lambda^2 \left( \frac{y&#39;^2}{x&#39;^2 + y&#39;^2} + \frac{x&#39;^2}{x&#39;^2 + y&#39;^2} \right)
+$$&lt;p&gt;
+&lt;/p&gt;
+$$
+(x - C_2)^2 + (y - C_1)^2 = \lambda^2 \left( \frac{x&#39;^2 + y&#39;^2}{x&#39;^2 + y&#39;^2} \right)
+$$&lt;p&gt;最终得到：
+&lt;/p&gt;
+$$
+(x - C_2)^2 + (y - C_1)^2 = \lambda^2
+$$&lt;h2 id=&#34;结论&#34;&gt;结论
+&lt;/h2&gt;&lt;p&gt;方程 $(x - C_2)^2 + (y - C_1)^2 = \lambda^2$ 正是一个&lt;strong&gt;圆&lt;/strong&gt;的方程。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;圆心坐标为 $(C_2, C_1)$&lt;/li&gt;
+&lt;li&gt;半径为 $R = |\lambda|$&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;因此，在周长固定的闭合曲线中，围成面积最大的曲线是圆。&lt;/strong&gt;&lt;/p&gt;
+</description>
+        </item>
+        <item>
+        <title>变分法</title>
+        <link>https://charles-7777.github.io/hugo-stack/p/%E5%8F%98%E5%88%86%E6%B3%95/</link>
+        <pubDate>Tue, 24 Feb 2026 19:57:13 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/p/%E5%8F%98%E5%88%86%E6%B3%95/</guid>
+        <description>&lt;h2 id=&#34;变分法的由来&#34;&gt;变分法的由来
+&lt;/h2&gt;&lt;p&gt;变分法（Calculus of Variations）的历史可以追溯到 17 世纪末的一个著名数学挑战。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;1696 年的挑战&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;瑞士数学家&lt;strong&gt;约翰·伯努利 (Johann Bernoulli)&lt;/strong&gt; 向全欧洲的数学家提出了著名的“&lt;strong&gt;最速降线问题 (Brachistochrone problem)&lt;/strong&gt;”：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;设在垂直平面内有两点 $A$ 和 $B$（$A$ 高于 $B$，且不在同一铅垂线上）。一个质点只受重力作用，从 $A$ 点沿曲线下滑到 $B$ 点，问沿什么曲线下滑所需的时间最短？&lt;/p&gt;&lt;/blockquote&gt;
+&lt;p&gt;当时，伽利略曾错误地认为是圆弧，而约翰·伯努利期待着从他的同行那里得到解答。牛顿、莱布尼茨、洛必达和约翰的哥哥雅各布·伯努利都解决了这个问题（答案是旋轮线/摆线）。这个问题的解决标志着变分法的诞生——它不再是求函数的极值（如微积分中的 $dy/dx=0$），而是求&lt;strong&gt;泛函&lt;/strong&gt;的极值（即寻找一个函数，使得某个积分量达到极值）。&lt;/p&gt;
+&lt;p&gt;随后，欧拉和拉格朗日将这些特例推广为一般性的理论，形成了今天的变分法。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;变分法的基本原理&#34;&gt;变分法的基本原理
+&lt;/h2&gt;&lt;h3 id=&#34;泛函-functional&#34;&gt;泛函 (Functional)
+&lt;/h3&gt;&lt;p&gt;普通微积分处理的是&lt;strong&gt;函数&lt;/strong&gt; $y=f(x)$，输入一个数 $x$，输出一个数 $y$。&lt;/p&gt;
+&lt;p&gt;变分法处理的是&lt;strong&gt;泛函&lt;/strong&gt; $J[y]$，输入一个&lt;strong&gt;函数&lt;/strong&gt; $y(x)$，输出一个&lt;strong&gt;数&lt;/strong&gt; $J$。&lt;/p&gt;
+&lt;p&gt;[泛函]：Functional  [算子]：Operator  [变换]：Transformation  [函数]：Function  [映射]：Mapping&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;函数 (Function)&lt;/strong&gt; 是一种特殊的&lt;strong&gt;映射&lt;/strong&gt;，要求定义域中的&lt;strong&gt;每一个&lt;/strong&gt;元素都对应值域中的&lt;strong&gt;唯一一个&lt;/strong&gt;元素。在现代数学中，&lt;strong&gt;函数&lt;/strong&gt;和&lt;strong&gt;映射&lt;/strong&gt;常常被视为同义词，可以互换使用。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;泛函 (Functional)&lt;/strong&gt; 是一种特殊的&lt;strong&gt;函数&lt;/strong&gt;，其定义域是一个&lt;strong&gt;函数空间&lt;/strong&gt;（即元素是函数），值域是&lt;strong&gt;数域&lt;/strong&gt;（实数或复数）。&lt;/p&gt;
+&lt;p&gt;eg:$F[f] = \int_{0}^{1} f(x)\ ; $ $L[y] = \int_{x_1}^{x_2} \sqrt{1 + (y&amp;rsquo;)^2} , dx$(弧长)&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;算子 (Operator)&lt;/strong&gt; 是一种特殊的&lt;strong&gt;函数&lt;/strong&gt;或&lt;strong&gt;映射&lt;/strong&gt;，其定义域和值域通常都是&lt;strong&gt;函数空间&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;变换 (Transformation)&lt;/strong&gt; 这个词的含义非常广泛，通常指&lt;strong&gt;同一个空间内&lt;/strong&gt;的映射，或者指一种具体的映射&lt;strong&gt;过程&lt;/strong&gt;或&lt;strong&gt;操作&lt;/strong&gt;。 它常常可以与&lt;strong&gt;映射&lt;/strong&gt;和&lt;strong&gt;算子&lt;/strong&gt;互换使用，但更强调“改变”或“转换”的动作本身。&lt;/p&gt;
+&lt;p&gt;最常见的泛函形式是积分型泛函：&lt;/p&gt;
+$$
+J[y] = \int_{x_1}^{x_2} F(x, y, y&#39;) \, dx 
+$$&lt;p&gt;其中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;  $x$ 是自变量。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;  $y = y(x)$ 是我们要寻找的未知函数。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;  $y&amp;rsquo; = \frac{dy}{dx}$ 是 $y$ 的导数。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;  $F(x, y, y&amp;rsquo;)$ 是已知的函数形式（称为拉格朗日量）。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;  边界条件通常固定为 $y(x_1) = y_1$ 和 $y(x_2) = y_2$。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;欧拉-拉格朗日方程-euler-lagrange-equation&#34;&gt;欧拉-拉格朗日方程 (Euler-Lagrange Equation)
+&lt;/h3&gt;&lt;p&gt;为了找到使泛函 $J[y]$ 取得极值（极大值或极小值）的函数 $y(x)$，该函数必须满足一个微分方程。这个方程被称为&lt;strong&gt;欧拉-拉格朗日方程&lt;/strong&gt;：&lt;/p&gt;
+$$
+\frac{\partial F}{\partial y} - \frac{d}{dx} \left( \frac{\partial F}{\partial y&#39;} \right) = 0
+$$&lt;p&gt;&lt;strong&gt;直观理解&lt;/strong&gt;：这相当于微积分中求极值的条件 $f&amp;rsquo;(x)=0$ 在无限维函数空间中的推广。凡是能使作用量（积分）取极值的路径，都必须满足在这个方程。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;计算实例&#34;&gt;计算实例
+&lt;/h2&gt;&lt;h3 id=&#34;例子一两点之间直线最短&#34;&gt;例子一：两点之间直线最短
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;问题&lt;/strong&gt;：在平面上，求连接两点 $(x_1, y_1)$ 和 $(x_2, y_2)$ 的曲线中，长度最短的那条。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;1. 建立泛函&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;平面上微元长度为 $ds = \sqrt{dx^2 + dy^2} = \sqrt{1 + (y&amp;rsquo;)^2} , dx$。&lt;/p&gt;
+&lt;p&gt;总长度 $L$ 为：&lt;/p&gt;
+&lt;p&gt;$ L[y] = \int_{x_1}^{x_2} \sqrt{1 + (y&amp;rsquo;)^2} , dx $&lt;/p&gt;
+&lt;p&gt;这里被积函数 $F(x, y, y&amp;rsquo;) = \sqrt{1 + (y&amp;rsquo;)^2}$。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;2. 应用 E-L 方程&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;  $\frac{\partial F}{\partial y} = 0$ （因为 $F$ 中不显含 $y$）&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;  $\frac{\partial F}{\partial y&amp;rsquo;} = \frac{1}{2\sqrt{1 + (y&amp;rsquo;)^2}} \cdot 2y&amp;rsquo; = \frac{y&amp;rsquo;}{\sqrt{1 + (y&amp;rsquo;)^2}}$&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;代入方程 $\frac{\partial F}{\partial y} - \frac{d}{dx} (\frac{\partial F}{\partial y&amp;rsquo;}) = 0$：&lt;/p&gt;
+&lt;p&gt;$ 0 - \frac{d}{dx} \left( \frac{y&amp;rsquo;}{\sqrt{1 + (y&amp;rsquo;)^2}} \right) = 0 $&lt;/p&gt;
+&lt;p&gt;这意味着括号内的项是常数 $C$：&lt;/p&gt;
+&lt;p&gt;$ \frac{y&amp;rsquo;}{\sqrt{1 + (y&amp;rsquo;)^2}} = C $&lt;/p&gt;
+&lt;p&gt;这意味着 $y&amp;rsquo;$ 必须是常数（记为 $a$）。&lt;/p&gt;
+&lt;p&gt;$ y&amp;rsquo; = a \implies y = ax + b $&lt;/p&gt;
+&lt;p&gt;这正是&lt;strong&gt;直线&lt;/strong&gt;的方程。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;例子二最速降线问题-brachistochrone&#34;&gt;例子二：最速降线问题 (Brachistochrone)
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;问题&lt;/strong&gt;：质点在重力作用下从 $(0,0)$ 滑到 $(x_2, y_2)$，求时间最短的路径。设向下为 $y$ 轴正方向。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;1. 建立泛函&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;根据能量守恒 $\frac{1}{2}mv^2 = mgy \implies v = \sqrt{2gy}$。&lt;/p&gt;
+&lt;p&gt;时间 $t = \int \frac{ds}{v} = \int \frac{\sqrt{1+(y&amp;rsquo;)^2}dx}{\sqrt{2gy}}$。&lt;/p&gt;
+&lt;p&gt;忽略常数 $\frac{1}{\sqrt{2g}}$，我们要极小化的泛函为：&lt;/p&gt;
+&lt;p&gt;$ J[y] = \int_{0}^{x_2} \sqrt{\frac{1 + (y&amp;rsquo;)^2}{y}} , dx $&lt;/p&gt;
+&lt;p&gt;这里 $F = \sqrt{\frac{1 + (y&amp;rsquo;)^2}{y}}$。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;2. 应用 E-L 方程（贝尔特拉米恒等式）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;由于 $F$ 不显含 $x$（即 $\frac{\partial F}{\partial x} = 0$），我们可以使用 E-L 方程的一个简化形式 —— &lt;strong&gt;贝尔特拉米恒等式 (Beltrami Identity)&lt;/strong&gt;：&lt;/p&gt;
+&lt;p&gt;$ F - y&amp;rsquo; \frac{\partial F}{\partial y&amp;rsquo;} = C $&lt;/p&gt;
+&lt;p&gt;代入 $F$：&lt;/p&gt;
+&lt;p&gt;$ \sqrt{\frac{1 + (y&amp;rsquo;)^2}{y}} - y&amp;rsquo; \cdot \left( \frac{1}{\sqrt{y(1 + (y&amp;rsquo;)^2)}} \cdot y&amp;rsquo; \right) = C $&lt;/p&gt;
+&lt;p&gt;$ \sqrt{\frac{1 + (y&amp;rsquo;)^2}{y}} - \frac{(y&amp;rsquo;)^2}{\sqrt{y(1 + (y&amp;rsquo;)^2)}} = C $&lt;/p&gt;
+&lt;p&gt;通分整理得到（分子变为 $1+(y&amp;rsquo;)^2 - (y&amp;rsquo;)^2 = 1$）：&lt;/p&gt;
+&lt;p&gt;$ \frac{1}{\sqrt{y(1 + (y&amp;rsquo;)^2)}} = C $&lt;/p&gt;
+&lt;p&gt;平方整理：&lt;/p&gt;
+&lt;p&gt;$ y(1 + (y&amp;rsquo;)^2) = K \quad (\text{令 } K = 1/C^2) $&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;3. 求解微分方程&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;令 $y&amp;rsquo; = \cot \theta$（三角换元法）：&lt;/p&gt;
+&lt;p&gt;$ y(1 + \cot^2 \theta) = K \implies y = K \sin^2 \theta = \frac{K}{2}(1 - \cos 2\theta) $&lt;/p&gt;
+&lt;p&gt;由 $dy/dx = \cot \theta$，得 $dx = dy / \cot \theta = \tan \theta , dy$。&lt;/p&gt;
+&lt;p&gt;将 $y$ 的表达式微分代入积分可得 $x$ 的参数方程。最终得到&lt;strong&gt;旋轮线 (Cycloid)&lt;/strong&gt; 方程：&lt;/p&gt;
+$$
+\begin{cases}
+x = R (\phi - \sin \phi) \\
+y = R (1 - \cos \phi)
+\end{cases}
+$$&lt;hr&gt;
+&lt;h3 id=&#34;例子三费马原理-fermats-principle---光路最短&#34;&gt;例子三：费马原理 (Fermat&amp;rsquo;s Principle - 光路最短)
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：光线在两点间传播时，总是沿着&lt;strong&gt;光程 (Optical Path Length)&lt;/strong&gt; 极值的路径传播。&lt;/p&gt;
+&lt;p&gt;光程 $L = \int n(x, y) , ds$。&lt;/p&gt;
+&lt;p&gt;其中 $n(x,y)$ 是折射率。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;问题&lt;/strong&gt;：证明在折射率 $n$ 随 $y$ 变化的介质中，光线遵循斯涅尔定律 (Snell&amp;rsquo;s Law)。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;1. 建立泛函&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;$ J[y] = \int n(y) , ds = \int_{x_1}^{x_2} n(y) \sqrt{1 + (y&amp;rsquo;)^2} , dx $&lt;/p&gt;
+&lt;p&gt;这里 $F(y, y&amp;rsquo;) = n(y) \sqrt{1 + (y&amp;rsquo;)^2}$。注意 $n$ 是 $y$ 的函数。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;2. 应用 E-L 方程&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;因为 $F$ 不显含 $x$，再次使用&lt;strong&gt;贝尔特拉米恒等式&lt;/strong&gt;：&lt;/p&gt;
+&lt;p&gt;$ F - y&amp;rsquo; \frac{\partial F}{\partial y&amp;rsquo;} = C $&lt;/p&gt;
+&lt;p&gt;$ n(y)\sqrt{1+(y&amp;rsquo;)^2} - y&amp;rsquo; \left( n(y) \frac{y&amp;rsquo;}{\sqrt{1+(y&amp;rsquo;)^2}} \right) = C $&lt;/p&gt;
+&lt;p&gt;提取公因式 $\frac{n(y)}{\sqrt{1+(y&amp;rsquo;)^2}}$ 并整理：&lt;/p&gt;
+&lt;p&gt;$ \frac{n(y) [1+(y&amp;rsquo;)^2 - (y&amp;rsquo;)^2]}{\sqrt{1+(y&amp;rsquo;)^2}} = C \implies \frac{n(y)}{\sqrt{1+(y&amp;rsquo;)^2}} = C $&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;3. 物理诠释&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在几何上，导数 $y&amp;rsquo; = \tan \phi$（切线斜率），其中 $\phi$ 是切线与 x 轴夹角。&lt;/p&gt;
+&lt;p&gt;则 $\sqrt{1+(y&amp;rsquo;)^2} = \sqrt{1+\tan^2 \phi} = \sec \phi = \frac{1}{\cos \phi}$。&lt;/p&gt;
+&lt;p&gt;代入上式：&lt;/p&gt;
+&lt;p&gt;$ n(y) \cos \phi = C $&lt;/p&gt;
+&lt;p&gt;如果我们定义入射角 $i$ 为光线与&lt;strong&gt;法线&lt;/strong&gt;（垂直于 x 轴，即 y 轴方向）的夹角，那么 $\phi = 90^\circ - i$，此时 $\cos\phi = \sin i$。&lt;/p&gt;
+&lt;p&gt;方程变为：&lt;/p&gt;
+&lt;p&gt;$ n(y) \sin i = \text{Constant} $&lt;/p&gt;
+&lt;p&gt;这正是著名的&lt;strong&gt;斯涅尔折射定律&lt;/strong&gt; ($n_1 \sin i_1 = n_2 \sin i_2$) 的连续介质形式。&lt;/p&gt;
+</description>
+        </item>
+        <item>
+        <title>样本方差</title>
+        <link>https://charles-7777.github.io/hugo-stack/p/%E6%A0%B7%E6%9C%AC%E6%96%B9%E5%B7%AE/</link>
+        <pubDate>Wed, 31 Dec 2025 15:17:20 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/p/%E6%A0%B7%E6%9C%AC%E6%96%B9%E5%B7%AE/</guid>
+        <description>&lt;h2 id=&#34;均值与期望&#34;&gt;均值与期望
+&lt;/h2&gt;&lt;h3 id=&#34;离散随机变量&#34;&gt;离散随机变量
+&lt;/h3&gt;&lt;h3 id=&#34;均值期望&#34;&gt;均值（期望）
+&lt;/h3&gt;&lt;p&gt;设离散随机变量 $X$ 的概率分布函数为 $P(X = x_i) = p_i$，则其&lt;strong&gt;数学期望&lt;/strong&gt;（均值）定义为：
+&lt;/p&gt;
+$$
+\mu = E[X] = \sum_{i=1}^{\infty} x_i p_i
+$$&lt;h3 id=&#34;方差&#34;&gt;方差
+&lt;/h3&gt;&lt;p&gt;离散随机变量 $X$ 的&lt;strong&gt;方差&lt;/strong&gt;定义为：
+&lt;/p&gt;
+$$
+\sigma^2 = D(X) = E[(X - E[X])^2] = \sum_{i} (x_i - E[X])^2 p_i
+$$&lt;p&gt;
+也可等价表示为：
+&lt;/p&gt;
+$$
+D(X) = E[X^2] - (E[X])^2
+$$&lt;hr&gt;
+&lt;h3 id=&#34;连续随机变量&#34;&gt;连续随机变量
+&lt;/h3&gt;&lt;h3 id=&#34;均值期望-1&#34;&gt;均值（期望）
+&lt;/h3&gt;&lt;p&gt;设连续随机变量 $X$ 的概率密度函数为 $f(x)$，则其&lt;strong&gt;期望&lt;/strong&gt;为：
+&lt;/p&gt;
+$$
+\mu = E[X] = \int_{-\infty}^{\infty} x f(x) \, dx
+$$&lt;h3 id=&#34;方差-1&#34;&gt;方差
+&lt;/h3&gt;&lt;p&gt;连续随机变量 $X$ 的&lt;strong&gt;方差&lt;/strong&gt;为：
+&lt;/p&gt;
+$$
+\sigma^2 = D(X) = E[(X - E[X])^2] = \int_{-\infty}^{\infty} (x - E[X])^2 f(x) \, dx
+$$&lt;p&gt;
+同样有简化公式：
+&lt;/p&gt;
+$$
+D(X) = E[X^2] - (E[X])^2
+$$&lt;hr&gt;
+&lt;h3 id=&#34;样本方差&#34;&gt;样本方差
+&lt;/h3&gt;&lt;p&gt;给定一个容量为 $n$ 的样本 $x_1, x_2, \dots, x_n$，其&lt;strong&gt;样本均值&lt;/strong&gt;为：
+&lt;/p&gt;
+$$
+\bar{X} = \frac{1}{n} \sum_{i=1}^{n} x_i
+$$&lt;p&gt;
+&lt;strong&gt;样本方差&lt;/strong&gt;（无偏估计）定义为：
+&lt;/p&gt;
+$$
+s^2 = \frac{1}{n - 1} \sum_{i=1}^{n} (x_i - \bar{X})^2
+$$&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;注&lt;/strong&gt;：分母使用 $n-1$（而非 $n$）是为了使 $s^2$ 成为总体方差 $\sigma^2$ 的无偏估计量，这一修正称为 &lt;strong&gt;贝塞尔修正&lt;/strong&gt;（Bessel&amp;rsquo;s correction）。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;无偏估计简介&#34;&gt;无偏估计简介
+&lt;/h2&gt;&lt;p&gt;在统计学中，我们常常无法获取整个总体的数据，只能通过&lt;strong&gt;样本&lt;/strong&gt;来推断总体的某些特征（如均值、方差等）。用于推断总体参数的样本函数称为&lt;strong&gt;估计量&lt;/strong&gt;。一个重要的评价标准是该估计量是否“&lt;strong&gt;无偏&lt;/strong&gt;”。&lt;/p&gt;
+&lt;p&gt;设 $\theta$ 是某个总体参数（例如总体均值 $\mu$ 或总体方差 $\sigma^2$），$\hat{\theta}$ 是基于样本构造的估计量。如果满足：
+&lt;/p&gt;
+$$
+E[\hat{\theta}] = \theta
+$$&lt;p&gt;
+则称 $\hat{\theta}$ 是 $\theta$ 的&lt;strong&gt;无偏估计量&lt;/strong&gt;（unbiased estimator）。&lt;/p&gt;
+&lt;p&gt;换句话说：&lt;strong&gt;无偏估计的期望等于它所要估计的真实参数值&lt;/strong&gt;。这意味着，如果我们反复从总体中抽样并计算该估计量，其平均值会趋近于真实参数。&lt;/p&gt;
+&lt;h3 id=&#34;无偏估计常见例子&#34;&gt;无偏估计常见例子
+&lt;/h3&gt;&lt;h4 id=&#34;样本均值是总体均值的无偏估计&#34;&gt;样本均值是总体均值的无偏估计
+&lt;/h4&gt;&lt;p&gt;设总体均值为 $\mu$，样本为 $x_1, x_2, \dots, x_n$，样本均值为：
+&lt;/p&gt;
+$$
+\bar{x} = \frac{1}{n} \sum_{i=1}^{n} x_i
+$$&lt;p&gt;
+可以证明：
+&lt;/p&gt;
+$$
+E[\bar{x}] = E[\frac{1}{n} \sum_{i=1}^{n} x_i] =\frac{1}{n} \sum_{i=1}^{n} E[x_i] = \frac{1}{n} n \mu = \mu
+$$&lt;p&gt;
+因此，$\bar{x}$ 是 $\mu$ 的无偏估计。&lt;/p&gt;
+&lt;h4 id=&#34;样本方差是总体方差的无偏估计&#34;&gt;样本方差是总体方差的无偏估计
+&lt;/h4&gt;&lt;p&gt;总体方差定义为 $\sigma^2 = E[(X - \mu)^2]$。若使用：
+&lt;/p&gt;
+$$
+s^2 = \frac{1}{n - 1} \sum_{i=1}^{n} (x_i - \bar{x})^2
+$$&lt;p&gt;
+则有：
+&lt;/p&gt;
+$$
+E[s^2] = \sigma^2
+$$&lt;p&gt;
+所以 $s^2$ 是 $\sigma^2$ 的&lt;strong&gt;无偏估计&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;为什么样本方差是总体方差的无偏估计&#34;&gt;为什么样本方差是总体方差的无偏估计
+&lt;/h2&gt;&lt;p&gt;如果已知随机变量 $ X $ 的期望为 $ \mu $，那么可以如下计算方差 $ \sigma^2 $：
+&lt;/p&gt;
+$$
+\sigma^2 = E[(X - \mu)^2]
+$$&lt;p&gt;上面的式子需要知道 $ X $ 的具体分布是什么（在现实应用中往往不知道准确分布），计算起来也比较复杂。&lt;/p&gt;
+&lt;p&gt;所以实践中常常采样之后，用下面这个 $ S^2 $ 来近似 $ \sigma^2 $：&lt;/p&gt;
+$$
+S^2 = \frac{1}{n} \sum_{i=1}^{n} (x_i - \mu)^2
+$$&lt;p&gt;其实现实中，往往连 $ X $ 的期望 $ \mu $ 也不清楚，只知道样本的均值：&lt;/p&gt;
+$$
+\bar{X} = \frac{1}{n} \sum_{i=1}^{n} x_i
+$$&lt;p&gt;那可以这么来计算 $ s^2 $：&lt;/p&gt;
+$$
+s^2 = \frac{1}{n - 1} \sum_{i=1}^{n} (x_i - \bar{X})^2
+$$$$
+\begin{aligned}
+E(s^2) &amp;= E\left(\frac{1}{n-1} \sum_{i=1}^{n} (x_i - \bar{X})^2\right) \\
+&amp;= E\left[\frac{1}{n-1} \sum_{i=1}^{n} (x_i)^2 - \frac{2}{n-1} \sum_{i=1}^{n} (x_i)(\bar{x}) + \frac{1}{n-1} \sum_{i=1}^{n} (\bar{X})^2\right] \\
+&amp;= E\left[\frac{1}{n-1} \sum_{i=1}^{n} \left\{ (x_i)^2 - 2(\bar{X})^2 + (\bar{X})^2 \right\} \right] \\
+&amp;= E\left[\frac{1}{n-1} \sum_{i=1}^{n} \left\{ (x_i)^2 - (\bar{X})^2 \right\} \right] \\
+&amp;= E\left[\frac{1}{n-1} \sum_{i=1}^{n} \left\{ (x_i)^2 - E[(\bar{X})^2]\right\} \right] \\
+&amp;= \frac{1}{n-1}  \sum_{i=1}^{n} \left\{ E[(x_i)^2] - E[(\bar{x})^2] \right\} \\
+&amp;= \frac{1}{n-1} \sum_{i=1}^{n} \left\{ D[(x_i)] + (E[x_i])^2 - (D[\bar{X}] + (E[\bar{X}])^2)  \right\} \\
+&amp;= \frac{1}{n-1}  n \left\{ (\sigma^2 + \mu^2)- (\frac{1}{n} \sigma^2 + \mu^2 ) \right\} \\
+&amp;=\sigma^2
+\end{aligned}
+$$&lt;p&gt;
+$D(X) = E[X^2] - (E[X])^2$
+$D[\bar{X}]=D[\frac{1}{n} \sum_{i=1}^{n} x_i]= \frac{1}{n^2} \sum_{i=1}^{n} D[x_i] = \frac{1}{n^2} n \sigma^2 = \frac{1}{n} \sigma^2 $
+故样本方差是总体方差的无偏估计，分母使用 $n-1$（而非 $n$）是为了使 $s^2$ 成为总体方差 $\sigma^2$ 的无偏估计量，这一修正称为 &lt;strong&gt;贝塞尔修正&lt;/strong&gt;（Bessel&amp;rsquo;s correction）&lt;/p&gt;
+&lt;p&gt;从自由度的方面看，n 个样本$x_1$ ~ $x_n$ , 但加入了一个约束$\bar{X} = \frac{1}{n} \sum_{i=1}^{n} x_i$, 在已知 $n-1$ 个样本和 $\bar{X}$ 的情况下，第n个也就确定了(一个n维向量，若有一个线性约束$k_1x_1 +&amp;hellip;+k_nx_n=c$,则其中任意一个向量可以由其余向量线性表出，且这n个向量的秩维n-1),所以$s^2$的自由度就是n-1了，也正是因为除以了正确的自由度，才得到了无偏的方差统计量。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

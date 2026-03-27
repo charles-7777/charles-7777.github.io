@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 参考文件：Wi-Fi Protected Setup Specification v2.0.9, Wi-Fi Alliance, 2024\ngraph LR Registrar[Registrar] Enrollee[Enrollee] AP[AP] Registrar -- &#34;E&#34; --- Enrollee Registrar -- &#34;M&#34; --- AP Enrollee -- &#34;A&#34; --- AP Registrar可能是独⽴的设备或是与AP在同⼀设备上的逻辑功能模块。如果Registrar是独⽴的设备，则与AP可以通过WiFi或以太⽹进⾏连接。\nEnrollee是wifi STA设备。与AP的接⼝A是基于WiFi连接实现的。这⾥所说的WiFi连接，是WPS协议定义的特殊的WiFi连接过程，其⽬的是传递配置参数。当参数传递完毕后，这个连接将会断开。\nEnrollee和Registrar之间的接⼝E，是认证和配置传递的接⼝。认证是通过PIN码实现的。\nRegistrar和AP之间的接⼝M，原理和接⼝E类似，实现Registrar对AP的配置，这时的AP⾓⾊与Enrollee类似\nStandalone AP (APs with built-in Registrar capabilities)\nEnternal Registrar\n在 WPS 中，PIN 是设备的身份凭证，每个支持 WPS 的设备（无论是 Enrollee 还是 Registrar）都有一个 PIN： Enrollee PIN：印在设备标签上或显示在屏幕上（如打印机、摄像头）。 Registrar PIN：如果 Registrar 支持“主动输入模式”，它也可能有一个 PIN（常见于 AP 内置的 Web 界面中）。\n🧩 场景分析：当使用 外部 Registrar 时，PIN 如何工作？\n">
+<title>Wi-Fi Protected Setup (WPS) 协议介绍</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/hugo-stack/p/wi-fi-protected-setup-wps-%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/'>
+
+<link rel="stylesheet" href="/hugo-stack/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Wi-Fi Protected Setup (WPS) 协议介绍">
+<meta property='og:description' content=" 参考文件：Wi-Fi Protected Setup Specification v2.0.9, Wi-Fi Alliance, 2024\ngraph LR Registrar[Registrar] Enrollee[Enrollee] AP[AP] Registrar -- &#34;E&#34; --- Enrollee Registrar -- &#34;M&#34; --- AP Enrollee -- &#34;A&#34; --- AP Registrar可能是独⽴的设备或是与AP在同⼀设备上的逻辑功能模块。如果Registrar是独⽴的设备，则与AP可以通过WiFi或以太⽹进⾏连接。\nEnrollee是wifi STA设备。与AP的接⼝A是基于WiFi连接实现的。这⾥所说的WiFi连接，是WPS协议定义的特殊的WiFi连接过程，其⽬的是传递配置参数。当参数传递完毕后，这个连接将会断开。\nEnrollee和Registrar之间的接⼝E，是认证和配置传递的接⼝。认证是通过PIN码实现的。\nRegistrar和AP之间的接⼝M，原理和接⼝E类似，实现Registrar对AP的配置，这时的AP⾓⾊与Enrollee类似\nStandalone AP (APs with built-in Registrar capabilities)\nEnternal Registrar\n在 WPS 中，PIN 是设备的身份凭证，每个支持 WPS 的设备（无论是 Enrollee 还是 Registrar）都有一个 PIN： Enrollee PIN：印在设备标签上或显示在屏幕上（如打印机、摄像头）。 Registrar PIN：如果 Registrar 支持“主动输入模式”，它也可能有一个 PIN（常见于 AP 内置的 Web 界面中）。\n🧩 场景分析：当使用 外部 Registrar 时，PIN 如何工作？\n">
+<meta property='og:url' content='https://charles-7777.github.io/hugo-stack/p/wi-fi-protected-setup-wps-%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='wifi' /><meta property='article:published_time' content='2026-03-17T19:27:21&#43;08:00'/><meta property='article:modified_time' content='2026-03-17T19:31:18&#43;08:00'/>
+<meta name="twitter:title" content="Wi-Fi Protected Setup (WPS) 协议介绍">
+<meta name="twitter:description" content=" 参考文件：Wi-Fi Protected Setup Specification v2.0.9, Wi-Fi Alliance, 2024\ngraph LR Registrar[Registrar] Enrollee[Enrollee] AP[AP] Registrar -- &#34;E&#34; --- Enrollee Registrar -- &#34;M&#34; --- AP Enrollee -- &#34;A&#34; --- AP Registrar可能是独⽴的设备或是与AP在同⼀设备上的逻辑功能模块。如果Registrar是独⽴的设备，则与AP可以通过WiFi或以太⽹进⾏连接。\nEnrollee是wifi STA设备。与AP的接⼝A是基于WiFi连接实现的。这⾥所说的WiFi连接，是WPS协议定义的特殊的WiFi连接过程，其⽬的是传递配置参数。当参数传递完毕后，这个连接将会断开。\nEnrollee和Registrar之间的接⼝E，是认证和配置传递的接⼝。认证是通过PIN码实现的。\nRegistrar和AP之间的接⼝M，原理和接⼝E类似，实现Registrar对AP的配置，这时的AP⾓⾊与Enrollee类似\nStandalone AP (APs with built-in Registrar capabilities)\nEnternal Registrar\n在 WPS 中，PIN 是设备的身份凭证，每个支持 WPS 的设备（无论是 Enrollee 还是 Registrar）都有一个 PIN： Enrollee PIN：印在设备标签上或显示在屏幕上（如打印机、摄像头）。 Registrar PIN：如果 Registrar 支持“主动输入模式”，它也可能有一个 PIN（常见于 AP 内置的 Web 界面中）。\n🧩 场景分析：当使用 外部 Registrar 时，PIN 如何工作？\n">
+    <link rel="shortcut icon" href="/hugo-stack/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/hugo-stack/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/hugo-stack"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://www.douyin.com/'
+                        target="_blank"
+                        title="douyin"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-tiktok"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 7.917v4.034a9.948 9.948 0 0 1 -5 -1.951v4.5a6.5 6.5 0 1 1 -8 -6.326v4.326a2.5 2.5 0 1 0 4 2v-11.5h4.083a6.005 6.005 0 0 0 4.917 4.917z" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/hugo-stack/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/hugo-stack/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/hugo-stack/categories/wifi/" >
+                Wifi
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/hugo-stack/p/wi-fi-protected-setup-wps-%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/">Wi-Fi Protected Setup (WPS) 协议介绍</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-03-17 19:27</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-03-17 19:31</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 2 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    255 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <blockquote>
+<p><a class="link" href="https://www.wi-fi.org/system/files/Wi-Fi%20Protected%20Setup%20Specification%20v2.0.9.pdf"  target="_blank" rel="noopener"
+    >参考文件：Wi-Fi Protected Setup Specification v2.0.9, Wi-Fi Alliance, 2024</a></p></blockquote>
+<pre class="mermaid">
+  graph LR
+    Registrar[Registrar]
+    Enrollee[Enrollee]
+    AP[AP]
+
+    Registrar -- &#34;E&#34; --- Enrollee
+    Registrar -- &#34;M&#34; --- AP
+    Enrollee -- &#34;A&#34; --- AP
+</pre>
+<ul>
+<li>
+<p>Registrar可能是独⽴的设备或是与AP在同⼀设备上的逻辑功能模块。如果Registrar是独⽴的设备，则与AP可以通过WiFi或以太⽹进⾏连接。</p>
+</li>
+<li>
+<p>Enrollee是wifi STA设备。与AP的接⼝A是基于WiFi连接实现的。这⾥所说的WiFi连接，是WPS协议定义的特殊的WiFi连接过程，其⽬的是传递配置参数。当参数传递完毕后，这个连接将会断开。</p>
+</li>
+<li>
+<p>Enrollee和Registrar之间的接⼝E，是认证和配置传递的接⼝。认证是通过PIN码实现的。</p>
+</li>
+<li>
+<p>Registrar和AP之间的接⼝M，原理和接⼝E类似，实现Registrar对AP的配置，这时的AP⾓⾊与Enrollee类似</p>
+</li>
+<li>
+<p><strong>Standalone AP</strong> (APs with built-in Registrar capabilities)</p>
+</li>
+<li>
+<p><strong>Enternal Registrar</strong></p>
+</li>
+</ul>
+<hr>
+<p>在 WPS 中，PIN 是设备的身份凭证，每个支持 WPS 的设备（无论是 Enrollee 还是 Registrar）都有一个 PIN：
+Enrollee PIN：印在设备标签上或显示在屏幕上（如打印机、摄像头）。
+Registrar PIN：如果 Registrar 支持“主动输入模式”，它也可能有一个 PIN（常见于 AP 内置的 Web 界面中）。</p>
+<p>🧩 <strong>场景分析</strong>：<strong>当使用 外部 Registrar 时，PIN 如何工作？</strong></p>
+<p>假设：
+Enrollee：一台新 Wi-Fi 打印机（有固定 PIN，比如 12345670）。
+AP：一个普通的无线路由器（可能没有内置 Registrar，或用户选择不用）。
+外部 Registrar：用户的智能手机（运行 WPS 管理 App）。</p>
+<p>✅ 正确流程如下：
+用户操作外部 Registrar（手机）：
+打开手机上的 WPS App。
+选择“添加新设备” → “通过 PIN 方式”。
+手动输入打印机（Enrollee）的 PIN 码（12345670）到手机 App 中。
+手机（外部 Registrar）通过 UPnP 告诉 AP：
+“我要开始一个 PIN 注册流程，Enrollee 的 PIN 是 12345670。”
+AP 启动 WPS 监听模式，等待 Enrollee 连接。
+打印机（Enrollee）发起连接：
+用户按下打印机上的 WPS 按钮（或启动配网模式）。
+打印机广播 WPS 请求，与 AP 建立 EAP-WSC 交换。
+AP 充当代理，转发消息：
+AP 收到打印机的 WPS 消息后，不自己验证 PIN，而是通过 UPnP 将消息转发给手机（外部 Registrar）。
+手机使用之前输入的 PIN (12345670) 与打印机协商密钥、验证身份。
+凭证下发：
+验证成功后，手机生成网络凭证（SSID + PSK），通过 UPnP 发给 AP。
+AP 再将凭证通过 WPS 协议发送给打印机。</p>
+<p>❌ <strong>常见误解：“在 AP 上输入外部设备的 PIN”</strong></p>
+<p>这种说法通常是以下两种情况的混淆：</p>
+<p><strong>情况 1</strong>：<strong>你其实用的是 内部 Registrar</strong></p>
+<p>很多家用路由器 Web 界面里有个 “WPS PIN 添加设备” 的输入框。
+这时 AP 自己就是 Registrar！你是在 内部 Registrar 中输入 Enrollee 的 PIN。
+这 不是 外部 Registrar 场景。</p>
+<p><strong>情况 2</strong>：<strong>误以为 AP 是操作主体</strong>
+在外部 Registrar 模式下，所有用户交互（包括输入 PIN）都发生在外部设备（如手机/PC）上。
+AP 只是默默转发数据，不会弹出任何 PIN 输入界面（除非它同时启用了内部 Registrar，但这会造成冲突，规范不推荐）。</p>
+<p>🔐 补充：AP 有 PIN 吗？</p>
+<p>有的！但用途不同：
+AP 的 PIN 通常用于 当 AP 作为 Enrollee 时（例如：将一个新 AP 加入现有 Mesh 网络）。
+或者，当 内部 Registrar 被外部 Enrollee 主动连接时，外部设备需要输入 AP 的 PIN 来完成配对（较少见）。</p>
+<p>但在 外部 Registrar 管理其他 Enrollee 的场景中，AP 的 PIN 不参与流程。</p>
+<p>✅ 总结
+“谁是 Registrar，谁就管 PIN。”</p>
+<p>外部 Registrar 在手机上？那就在手机输 PIN。
+内部 Registrar 在路由器里？那就在路由器 Web 界面输 PIN。</p>
+<p>这样设计保证了灵活性：你可以用体验更好的手机 App 来管理配网，而不需要去记路由器的管理地址和密码。</p>
+<hr>
+<blockquote>
+<p><a class="link" href="https://raw.gitcode.com/Open-source-documentation-tutorial/3c3e7/raw/main/WiFi-WPS%E8%AF%A6%E7%BB%86%E4%BA%A4%E4%BA%92%E8%BF%87%E7%A8%8B.pdf"  target="_blank" rel="noopener"
+    >WiFi-WPS详细交互过程.pdf</a></p></blockquote>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/hugo-stack/tags/wifi/">Wifi</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/hugo-stack/p/wi-fi-%E9%80%9F%E7%8E%87%E8%AE%A1%E7%AE%97/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Wi-Fi 速率计算</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/hugo-stack/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/hugo-stack/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/hugo-stack/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/hugo-stack/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        let rightSideBar = document.querySelector(".right-sidebar");
+        if (!rightSideBar) {
+            return;
+        }
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop
+        rightSideBar.appendChild(btn)
+        
+        window.onscroll = function() {
+            
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        };
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true ,look: 'handDrawn'});
+    </script>

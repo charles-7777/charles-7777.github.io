@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Pages on </title>
+        <link>https://charles-7777.github.io/hugo-stack/page/</link>
+        <description>Recent content in Pages on </description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <copyright>Charles Lv</copyright>
+        <lastBuildDate>Wed, 04 Mar 2026 15:48:31 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/hugo-stack/page/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Cats&amp;Tags</title>
+        <link>https://charles-7777.github.io/hugo-stack/cats-tags/</link>
+        <pubDate>Tue, 28 May 2019 00:00:00 +0000</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/cats-tags/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>归档</title>
+        <link>https://charles-7777.github.io/hugo-stack/archives/</link>
+        <pubDate>Tue, 28 May 2019 00:00:00 +0000</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/archives/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title></title>
+        <link>https://charles-7777.github.io/hugo-stack/updatelog/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/updatelog/</guid>
+        <description>&lt;!-- # &lt;center&gt;  更新日志  --&gt;
+&lt;h1 style=&#34;color: #add8e6; text-align: center;&#34;&gt;更新日志&lt;/h1&gt;
+&lt;table class=&#34;updates-table&#34;&gt;
+  &lt;thead&gt;&lt;tr&gt;&lt;th&gt;更新内容&lt;/th&gt;&lt;th&gt;时间&lt;/th&gt;&lt;th&gt;备注&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+  &lt;tbody&gt;
+    
+      &lt;tr class=&#34;done&#34;&gt;
+        &lt;td&gt;添加新页面&lt;/td&gt;
+        &lt;td&gt;2025-7-29&lt;/td&gt;
+        &lt;td&gt;更新日志&lt;/td&gt;
+      &lt;/tr&gt;
+    
+      &lt;tr class=&#34;&#34;&gt;
+        &lt;td&gt;添加新笔记&lt;/td&gt;
+        &lt;td&gt;&lt;/td&gt;
+        &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+    
+  &lt;/tbody&gt;
+&lt;/table&gt;</description>
+        </item>
+        <item>
+        <title>关于</title>
+        <link>https://charles-7777.github.io/hugo-stack/%E5%85%B3%E4%BA%8E/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/%E5%85%B3%E4%BA%8E/</guid>
+        <description>&lt;!-- This is a test page for i18n support. --&gt;</description>
+        </item>
+        <item>
+        <title>链接</title>
+        <link>https://charles-7777.github.io/hugo-stack/%E9%93%BE%E6%8E%A5/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/%E9%93%BE%E6%8E%A5/</guid>
+        <description>&lt;!-- To use this feature, add `links` section to frontmatter.
+
+This page&#39;s frontmatter:
+
+```yaml
+links:
+  - title: GitHub
+    description: GitHub is the world&#39;s largest software development platform.
+    website: https://github.com
+    image: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+  - title: TypeScript
+    description: TypeScript is a typed superset of JavaScript that compiles to plain JavaScript.
+    website: https://www.typescriptlang.org
+    image: ts-logo-128.jpg
+```
+
+`image` field accepts both local and external images. --&gt;</description>
+        </item>
+        <item>
+        <title>搜索</title>
+        <link>https://charles-7777.github.io/hugo-stack/search/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+        
+        <guid>https://charles-7777.github.io/hugo-stack/search/</guid>
+        <description></description>
+        </item>
+        
+    </channel>
+</rss>
