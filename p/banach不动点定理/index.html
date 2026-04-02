@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="问题描述 等周问题是变分法中的一个经典问题：在平面上，给定周长 $L$ 的所有闭合曲线中，哪一条曲线围成的面积最大？\n直观上我们知道答案是圆，下面我们将使用变分法（Variational Calculus）严格推导这一结论。\n数学建模 假设平面闭合曲线由参数方程表示： $$ \\begin{cases} x = x(t) \\\\ y = y(t) \\end{cases} \\quad t \\in [t_0, t_1] $$ 且 $x(t_0) = x(t_1), y(t_0) = y(t_1)$。\n目标泛函：面积 $A$ 根据格林公式 (Green&rsquo;s Theorem)，闭合曲线围成的面积 $A$ 可以表示为： $$ A = \\frac{1}{2} \\oint (x dy - y dx) = \\frac{1}{2} \\int_{t_0}^{t_1} (x y' - y x') \\, dt $$ 其中 $x&rsquo; = \\frac{dx}{dt}, y&rsquo; = \\frac{dy}{dt}$。\n约束条件：周长 $L$ 曲线的弧长（周长）固定为 $L$： ">
-<title>变分法证明等周问题</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="巴拿赫不动点定理（Banach Fixed-Point Theorem），又称为压缩映射定理，是泛函分析和拓扑学中一个极其基础且强大的工具。它不仅在纯数学中占有核心地位，在应用数学、计算数学、计算科学乃至经济学中都有着极其广泛的应用。\n简而言之，该定理保证了在特定的空间中，某种特定类型的变换总会“稳定”在唯一的一个点上，并且给我们提供了一种通过不断迭代来寻找这个“稳定点”的通用方法。\n核心概念与前提 在正式给出定理之前，我们需要先了解几个数学分析和拓扑学中的基础概念：\n度量空间 (Metric Space) 度量空间是一个赋予了“距离”概念的集合。具体来说，它是一个二元组 $(X, d)$，其中 $X$ 是一个非空集合，$d$ 是一个定义在 $X \\times X$ 上的实值函数（称为度量或距离），满足以下四个性质（对于任意 $x, y, z \\in X$）：\n非负性：$d(x, y) \\ge 0$ 不可分性：$d(x, y) = 0$ 当且仅当 $x = y$ 对称性：$d(x, y) = d(y, x)$ 三角不等式：$d(x, z) \\le d(x, y) + d(y, z)$ 柯西列 (Cauchy Sequence) 在度量空间 $(X, d)$ 中，如果一个序列 $(x_n)$ 满足以下条件：\n$$ \\forall \\varepsilon > 0, \\exists N \\in \\mathbb{N}, s.t. \\forall m, n \\geq N: d(x_m, x_n) < \\varepsilon $$那么这个序列就被称为柯西列。直观地说，随着项数的增加，柯西列中的元素彼此之间会变得“极其靠近”。\n">
+<title>Banach不动点定理</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/p/%E5%8F%98%E5%88%86%E6%B3%95%E8%AF%81%E6%98%8E%E7%AD%89%E5%91%A8%E9%97%AE%E9%A2%98/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/banach%E4%B8%8D%E5%8A%A8%E7%82%B9%E5%AE%9A%E7%90%86/'>
 
-<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="变分法证明等周问题">
-<meta property='og:description' content="问题描述 等周问题是变分法中的一个经典问题：在平面上，给定周长 $L$ 的所有闭合曲线中，哪一条曲线围成的面积最大？\n直观上我们知道答案是圆，下面我们将使用变分法（Variational Calculus）严格推导这一结论。\n数学建模 假设平面闭合曲线由参数方程表示： $$ \\begin{cases} x = x(t) \\\\ y = y(t) \\end{cases} \\quad t \\in [t_0, t_1] $$ 且 $x(t_0) = x(t_1), y(t_0) = y(t_1)$。\n目标泛函：面积 $A$ 根据格林公式 (Green&rsquo;s Theorem)，闭合曲线围成的面积 $A$ 可以表示为： $$ A = \\frac{1}{2} \\oint (x dy - y dx) = \\frac{1}{2} \\int_{t_0}^{t_1} (x y' - y x') \\, dt $$ 其中 $x&rsquo; = \\frac{dx}{dt}, y&rsquo; = \\frac{dy}{dt}$。\n约束条件：周长 $L$ 曲线的弧长（周长）固定为 $L$： ">
-<meta property='og:url' content='https://charles-7777.github.io/p/%E5%8F%98%E5%88%86%E6%B3%95%E8%AF%81%E6%98%8E%E7%AD%89%E5%91%A8%E9%97%AE%E9%A2%98/'>
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Banach不动点定理">
+<meta property='og:description' content="巴拿赫不动点定理（Banach Fixed-Point Theorem），又称为压缩映射定理，是泛函分析和拓扑学中一个极其基础且强大的工具。它不仅在纯数学中占有核心地位，在应用数学、计算数学、计算科学乃至经济学中都有着极其广泛的应用。\n简而言之，该定理保证了在特定的空间中，某种特定类型的变换总会“稳定”在唯一的一个点上，并且给我们提供了一种通过不断迭代来寻找这个“稳定点”的通用方法。\n核心概念与前提 在正式给出定理之前，我们需要先了解几个数学分析和拓扑学中的基础概念：\n度量空间 (Metric Space) 度量空间是一个赋予了“距离”概念的集合。具体来说，它是一个二元组 $(X, d)$，其中 $X$ 是一个非空集合，$d$ 是一个定义在 $X \\times X$ 上的实值函数（称为度量或距离），满足以下四个性质（对于任意 $x, y, z \\in X$）：\n非负性：$d(x, y) \\ge 0$ 不可分性：$d(x, y) = 0$ 当且仅当 $x = y$ 对称性：$d(x, y) = d(y, x)$ 三角不等式：$d(x, z) \\le d(x, y) + d(y, z)$ 柯西列 (Cauchy Sequence) 在度量空间 $(X, d)$ 中，如果一个序列 $(x_n)$ 满足以下条件：\n$$ \\forall \\varepsilon > 0, \\exists N \\in \\mathbb{N}, s.t. \\forall m, n \\geq N: d(x_m, x_n) < \\varepsilon $$那么这个序列就被称为柯西列。直观地说，随着项数的增加，柯西列中的元素彼此之间会变得“极其靠近”。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/banach%E4%B8%8D%E5%8A%A8%E7%82%B9%E5%AE%9A%E7%90%86/'>
 <meta property='og:site_name' content=''>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='math' /><meta property='article:published_time' content='2026-02-28T20:47:04&#43;08:00'/><meta property='article:modified_time' content='2026-02-28T20:53:28&#43;08:00'/>
-<meta name="twitter:title" content="变分法证明等周问题">
-<meta name="twitter:description" content="问题描述 等周问题是变分法中的一个经典问题：在平面上，给定周长 $L$ 的所有闭合曲线中，哪一条曲线围成的面积最大？\n直观上我们知道答案是圆，下面我们将使用变分法（Variational Calculus）严格推导这一结论。\n数学建模 假设平面闭合曲线由参数方程表示： $$ \\begin{cases} x = x(t) \\\\ y = y(t) \\end{cases} \\quad t \\in [t_0, t_1] $$ 且 $x(t_0) = x(t_1), y(t_0) = y(t_1)$。\n目标泛函：面积 $A$ 根据格林公式 (Green&rsquo;s Theorem)，闭合曲线围成的面积 $A$ 可以表示为： $$ A = \\frac{1}{2} \\oint (x dy - y dx) = \\frac{1}{2} \\int_{t_0}^{t_1} (x y' - y x') \\, dt $$ 其中 $x&rsquo; = \\frac{dx}{dt}, y&rsquo; = \\frac{dy}{dt}$。\n约束条件：周长 $L$ 曲线的弧长（周长）固定为 $L$： ">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='math' /><meta property='article:published_time' content='2026-04-02T10:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-04-02T17:31:43&#43;08:00'/>
+<meta name="twitter:title" content="Banach不动点定理">
+<meta name="twitter:description" content="巴拿赫不动点定理（Banach Fixed-Point Theorem），又称为压缩映射定理，是泛函分析和拓扑学中一个极其基础且强大的工具。它不仅在纯数学中占有核心地位，在应用数学、计算数学、计算科学乃至经济学中都有着极其广泛的应用。\n简而言之，该定理保证了在特定的空间中，某种特定类型的变换总会“稳定”在唯一的一个点上，并且给我们提供了一种通过不断迭代来寻找这个“稳定点”的通用方法。\n核心概念与前提 在正式给出定理之前，我们需要先了解几个数学分析和拓扑学中的基础概念：\n度量空间 (Metric Space) 度量空间是一个赋予了“距离”概念的集合。具体来说，它是一个二元组 $(X, d)$，其中 $X$ 是一个非空集合，$d$ 是一个定义在 $X \\times X$ 上的实值函数（称为度量或距离），满足以下四个性质（对于任意 $x, y, z \\in X$）：\n非负性：$d(x, y) \\ge 0$ 不可分性：$d(x, y) = 0$ 当且仅当 $x = y$ 对称性：$d(x, y) = d(y, x)$ 三角不等式：$d(x, z) \\le d(x, y) + d(y, z)$ 柯西列 (Cauchy Sequence) 在度量空间 $(X, d)$ 中，如果一个序列 $(x_n)$ 满足以下条件：\n$$ \\forall \\varepsilon > 0, \\exists N \\in \\mathbb{N}, s.t. \\forall m, n \\geq N: d(x_m, x_n) < \\varepsilon $$那么这个序列就被称为柯西列。直观地说，随着项数的增加，柯西列中的元素彼此之间会变得“极其靠近”。\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -291,22 +291,21 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#问题描述">问题描述</a></li>
-    <li><a href="#数学建模">数学建模</a>
+    <li><a href="#核心概念与前提">核心概念与前提</a></li>
+    <li><a href="#巴拿赫不动点定理">巴拿赫不动点定理</a>
       <ol>
-        <li><a href="#目标泛函面积-a">目标泛函：面积 $A$</a></li>
-        <li><a href="#约束条件周长-l">约束条件：周长 $L$</a></li>
+        <li><a href="#定理的证明">定理的证明</a></li>
       </ol>
     </li>
-    <li><a href="#拉格朗日乘子法">拉格朗日乘子法</a></li>
-    <li><a href="#欧拉-拉格朗日方程-euler-lagrange-equation">欧拉-拉格朗日方程 (Euler-Lagrange Equation)</a>
+    <li><a href="#定理的广泛应用">定理的广泛应用</a>
       <ol>
-        <li><a href="#计算偏导数">计算偏导数</a></li>
-        <li><a href="#代入-e-l-方程">代入 E-L 方程</a></li>
+        <li><a href="#常微分方程的解-皮卡-林德勒夫定理">常微分方程的解 (皮卡-林德勒夫定理)</a></li>
+        <li><a href="#求解代数方程-迭代法求根">求解代数方程 (迭代法求根)</a></li>
+        <li><a href="#动态规划与强化学习">动态规划与强化学习</a></li>
+        <li><a href="#分形几何-迭代函数系统">分形几何 (迭代函数系统)</a></li>
+        <li><a href="#总结">总结</a></li>
       </ol>
     </li>
-    <li><a href="#积分求解">积分求解</a></li>
-    <li><a href="#结论">结论</a></li>
   </ol>
 </nav>
         </div>
@@ -334,7 +333,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/%E5%8F%98%E5%88%86%E6%B3%95%E8%AF%81%E6%98%8E%E7%AD%89%E5%91%A8%E9%97%AE%E9%A2%98/">变分法证明等周问题</a>
+            <a href="/p/banach%E4%B8%8D%E5%8A%A8%E7%82%B9%E5%AE%9A%E7%90%86/">Banach不动点定理</a>
         </h2>
     
         
@@ -356,11 +355,11 @@
   <path d="M3 11h16" />
   <path d="M18 16.496v1.504l1 1" />
 </svg>
-                <time class="article-time--published">2026-02-28 20:47</time>
+                <time class="article-time--published">2026-04-02 10:00</time>
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-02-28 20:53</time>
+            <time class="article-lastmod">2026-04-02 17:31</time>
         </div>
         
 
@@ -384,7 +383,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    456 字
+                    616 字
                 </time>
             </div>
         
@@ -404,127 +403,125 @@
     <section class="article-content">
     
     
-    <h2 id="问题描述">问题描述
-</h2><p>等周问题是变分法中的一个经典问题：<strong>在平面上，给定周长 $L$ 的所有闭合曲线中，哪一条曲线围成的面积最大？</strong></p>
-<p>直观上我们知道答案是圆，下面我们将使用变分法（Variational Calculus）严格推导这一结论。</p>
-<h2 id="数学建模">数学建模
-</h2><p>假设平面闭合曲线由参数方程表示：
-</p>
-$$
-\begin{cases}
-x = x(t) \\
-y = y(t)
-\end{cases}
-\quad t \in [t_0, t_1]
-$$<p>
-且 $x(t_0) = x(t_1), y(t_0) = y(t_1)$。</p>
-<h3 id="目标泛函面积-a">目标泛函：面积 $A$
-</h3><p>根据<strong>格林公式 (Green&rsquo;s Theorem)</strong>，闭合曲线围成的面积 $A$ 可以表示为：
-</p>
-$$
-A = \frac{1}{2} \oint (x dy - y dx) = \frac{1}{2} \int_{t_0}^{t_1} (x y' - y x') \, dt
-$$<p>
-其中 $x&rsquo; = \frac{dx}{dt}, y&rsquo; = \frac{dy}{dt}$。</p>
-<h3 id="约束条件周长-l">约束条件：周长 $L$
-</h3><p>曲线的弧长（周长）固定为 $L$：
-</p>
-$$
-L = \int_{t_0}^{t_1} \sqrt{x'^2 + y'^2} \, dt
-$$<h2 id="拉格朗日乘子法">拉格朗日乘子法
-</h2><p>这是一个<strong>等周变分问题</strong>（Isoperimetric Problem），我们需要在约束条件 $L$ 下求泛函 $A$ 的极值。
-通过引入拉格朗日乘子，将原本复杂的多约束优化问题转化为无约束优化问题，从而简化求解过程。
-引入<strong>拉格朗日乘子 (Lagrange Multiplier)</strong> $\lambda$，构造新的辅助泛函 $J$：
-</p>
-$$
-J = A + \lambda L = \int_{t_0}^{t_1} \left[ \frac{1}{2}(x y' - y x') + \lambda \sqrt{x'^2 + y'^2} \right] \, dt
-$$<p>定义被积函数（Lagrangian）为 $F$：
-</p>
-$$
-F(x, y, x', y') = \frac{1}{2}(x y' - y x') + \lambda \sqrt{x'^2 + y'^2}
-$$<h2 id="欧拉-拉格朗日方程-euler-lagrange-equation">欧拉-拉格朗日方程 (Euler-Lagrange Equation)
-</h2><p>为了使 $J$ 取得极值，$x(t)$ 和 $y(t)$ 必须同时满足欧拉-拉格朗日方程组：</p>
-$$
-\begin{cases}
-\frac{\partial F}{\partial x} - \frac{d}{dt} \left( \frac{\partial F}{\partial x'} \right) = 0 \\[10pt]
-\frac{\partial F}{\partial y} - \frac{d}{dt} \left( \frac{\partial F}{\partial y'} \right) = 0
-\end{cases}
-$$<h3 id="计算偏导数">计算偏导数
-</h3><p>对于 $x$ 的方程：
-</p>
-$$
-\frac{\partial F}{\partial x} = \frac{1}{2}y'
-$$<p>
-</p>
-$$
-\frac{\partial F}{\partial x'} = -\frac{1}{2}y + \lambda \frac{x'}{\sqrt{x'^2 + y'^2}}
-$$<p>对于 $y$ 的方程：
-</p>
-$$
-\frac{\partial F}{\partial y} = -\frac{1}{2}x'
-$$<p>
-</p>
-$$
-\frac{\partial F}{\partial y'} = \frac{1}{2}x + \lambda \frac{y'}{\sqrt{x'^2 + y'^2}}
-$$<h3 id="代入-e-l-方程">代入 E-L 方程
-</h3><p><strong>方程 1 (关于 $x$):</strong>
-</p>
-$$
-\frac{1}{2}y' - \frac{d}{dt} \left( -\frac{1}{2}y + \lambda \frac{x'}{\sqrt{x'^2 + y'^2}} \right) = 0
-$$<p>
-</p>
-$$
-\frac{1}{2}y' - \left( -\frac{1}{2}y' + \frac{d}{dt} \left( \lambda \frac{x'}{\sqrt{x'^2 + y'^2}} \right) \right) = 0
-$$<p>
-</p>
-$$
-y' - \lambda \frac{d}{dt} \left( \frac{x'}{\sqrt{x'^2 + y'^2}} \right) = 0 \quad \text{......(1)}
-$$<p><strong>方程 2 (关于 $y$):</strong>
-</p>
-$$
--\frac{1}{2}x' - \frac{d}{dt} \left( \frac{1}{2}x + \lambda \frac{y'}{\sqrt{x'^2 + y'^2}} \right) = 0
-$$<p>
-</p>
-$$
--\frac{1}{2}x' - \left( \frac{1}{2}x' + \frac{d}{dt} \left( \lambda \frac{y'}{\sqrt{x'^2 + y'^2}} \right) \right) = 0
-$$<p>
-</p>
-$$
--x' - \lambda \frac{d}{dt} \left( \frac{y'}{\sqrt{x'^2 + y'^2}} \right) = 0 \quad \text{......(2)}
-$$<h2 id="积分求解">积分求解
-</h2><p>对 (1) 式关于 $t$ 积分：
-</p>
-$$
-y - \lambda \frac{x'}{\sqrt{x'^2 + y'^2}} = C_1 \quad \Rightarrow \quad y - C_1 = \lambda \frac{x'}{\sqrt{x'^2 + y'^2}}
-$$<p>对 (2) 式关于 $t$ 积分：
-</p>
-$$
--x - \lambda \frac{y'}{\sqrt{x'^2 + y'^2}} = -C_2 \quad \Rightarrow \quad x - C_2 = -\lambda \frac{y'}{\sqrt{x'^2 + y'^2}}
-$$<p>
-(这里为了形式统一，积分常数设为 $-C_2$)</p>
-<p>我们得到了两个方程：</p>
+    <p>巴拿赫不动点定理（Banach Fixed-Point Theorem），又称为压缩映射定理，是泛函分析和拓扑学中一个极其基础且强大的工具。它不仅在纯数学中占有核心地位，在应用数学、计算数学、计算科学乃至经济学中都有着极其广泛的应用。</p>
+<p>简而言之，该定理保证了在特定的空间中，某种特定类型的变换总会“稳定”在唯一的一个点上，并且给我们提供了一种通过不断迭代来寻找这个“稳定点”的通用方法。</p>
+<h2 id="核心概念与前提">核心概念与前提
+</h2><p>在正式给出定理之前，我们需要先了解几个数学分析和拓扑学中的基础概念：</p>
+<p><strong>度量空间 (Metric Space)</strong>
+度量空间是一个赋予了“距离”概念的集合。具体来说，它是一个二元组 $(X, d)$，其中 $X$ 是一个非空集合，$d$ 是一个定义在 $X \times X$ 上的实值函数（称为度量或距离），满足以下四个性质（对于任意 $x, y, z \in X$）：</p>
 <ol>
-<li>$y - C_1 = \lambda \frac{x&rsquo;}{\sqrt{x&rsquo;^2 + y&rsquo;^2}}$</li>
-<li>$x - C_2 = -\lambda \frac{y&rsquo;}{\sqrt{x&rsquo;^2 + y&rsquo;^2}}$</li>
+<li><strong>非负性</strong>：$d(x, y) \ge 0$</li>
+<li><strong>不可分性</strong>：$d(x, y) = 0$ 当且仅当 $x = y$</li>
+<li><strong>对称性</strong>：$d(x, y) = d(y, x)$</li>
+<li><strong>三角不等式</strong>：$d(x, z) \le d(x, y) + d(y, z)$</li>
 </ol>
-<p>将两式平方并相加：
-</p>
+<p><strong>柯西列 (Cauchy Sequence)</strong>
+在度量空间 $(X, d)$ 中，如果一个序列 $(x_n)$ 满足以下条件：</p>
 $$
-(x - C_2)^2 + (y - C_1)^2 = \lambda^2 \left( \frac{y'^2}{x'^2 + y'^2} + \frac{x'^2}{x'^2 + y'^2} \right)
-$$<p>
+\forall \varepsilon > 0, \exists N \in \mathbb{N}, s.t. \forall m, n \geq N: d(x_m, x_n) < \varepsilon
+$$<p>那么这个序列就被称为柯西列。直观地说，随着项数的增加，柯西列中的元素彼此之间会变得“极其靠近”。</p>
+<p><strong>完备度量空间 (Complete Metric Space)</strong>
+如果在一个度量空间里，<strong>所有的柯西列都收敛于该空间内的一个点</strong>，那么这个空间就是“完备”的（即空间里没有“漏洞”）。常见的实数集 $\mathbb{R}$ 和欧几里得空间 $\mathbb{R}^n$ 就是完备度量空间，而有理数集 $\mathbb{Q}$ 则不是，因为一些由有理数构成的柯西列最终逼近的值可能是无理数（比如 $\sqrt{2}$），这个极限点不在有理数空间内部。</p>
+<p><strong>压缩映射 (Contraction Mapping)</strong>
+假设有一个映射 $T: X \to X$。如果有这样一个常数 $q$（其中 $0 \le q &lt; 1$），使得对于空间 $X$ 中的任意两个点 $x$ 和 $y$，都满足：
 </p>
-$$
-(x - C_2)^2 + (y - C_1)^2 = \lambda^2 \left( \frac{x'^2 + y'^2}{x'^2 + y'^2} \right)
-$$<p>最终得到：
+$$d(T(x), T(y)) \le q \cdot d(x, y)$$<p>
+（其中 $d$ 为空间中的距离函数）
+那么 $T$ 就被称为一个压缩映射。通俗来讲，经过这个映射处理后，任意两点之间的距离都会严格按比例缩小。</p>
+<h2 id="巴拿赫不动点定理">巴拿赫不动点定理
+</h2><p><strong>定理内容：</strong>
+设 $(X, d)$ 是一个非空的完备度量空间，且 $T: X \to X$ 是一个压缩映射。那么：</p>
+<ol>
+<li>$T$ 在 $X$ 中存在唯一的一个不动点 $x^*$，即满足 $T(x^*) = x^*$。</li>
+<li>对于 $X$ 中的任意初始点 $x_0$，由迭代公式 $x_{n+1} = T(x_n)$ 生成的序列 $(x_n)$，必将收敛于该唯一的不动点 $x^*$。</li>
+</ol>
+<p>这个定理的美妙之处在于其<strong>构造性</strong>。它不仅告诉你“解存在且唯一”，还给了你一套找解的算法：随便挑一个起点开始，不断地把结果重新放进去算，最后一定会无限逼近那个唯一的答案。</p>
+<h3 id="定理的证明">定理的证明
+</h3><p>巴拿赫不动点定理的证明非常经典，主要分为四个步骤：构造迭代序列、证明其为柯西列、证明极限是不动点、证明不动点的唯一性。</p>
+<p><strong>第一步：构造迭代序列</strong>
+在空间 $X$ 中任取任意一个初始点 $x_0$，我们通过迭代定义一个序列 $(x_n)$：
 </p>
-$$
-(x - C_2)^2 + (y - C_1)^2 = \lambda^2
-$$<h2 id="结论">结论
-</h2><p>方程 $(x - C_2)^2 + (y - C_1)^2 = \lambda^2$ 正是一个<strong>圆</strong>的方程。</p>
-<ul>
-<li>圆心坐标为 $(C_2, C_1)$</li>
-<li>半径为 $R = |\lambda|$</li>
-</ul>
-<p><strong>因此，在周长固定的闭合曲线中，围成面积最大的曲线是圆。</strong></p>
+$$x_1 = T(x_0)$$<p>
+</p>
+$$x_2 = T(x_1) = T^2(x_0)$$<p>
+</p>
+$$\vdots$$<p>
+</p>
+$$x_n = T(x_{n-1}) = T^n(x_0)$$<p><strong>第二步：证明 $(x_n)$ 是柯西列</strong>
+首先评估相邻两项的距离，根据压缩性质有：
+</p>
+$$d(x_1, x_2) = d(T(x_0), T(x_1)) \le q \cdot d(x_0, x_1)$$<p>
+继续递推，对于任意 $n \ge 1$：
+</p>
+$$d(x_n, x_{n+1}) \le q^n \cdot d(x_0, x_1)$$<p>对于任意的 $m &gt; n$，利用三角不等式：
+</p>
+$$d(x_n, x_m) \le d(x_n, x_{n+1}) + d(x_{n+1}, x_{n+2}) + \dots + d(x_{m-1}, x_m)$$<p>
+</p>
+$$\le (q^n + q^{n+1} + \dots + q^{m-1}) \cdot d(x_0, x_1)$$<p>
+</p>
+$$= q^n \frac{1 - q^{m-n}}{1 - q} \cdot d(x_0, x_1)$$<p>
+由于 $0 \le q &lt; 1$，放大后得到：
+</p>
+$$d(x_n, x_m) \le \frac{q^n}{1 - q} \cdot d(x_0, x_1)$$<p>
+当 $n \to \infty$ 时，$q^n \to 0$。因此 $d(x_n, x_m) \to 0$。这就证明了序列 $(x_n)$ 是一个柯西列。</p>
+<p><strong>第三步：证明柯西列的极限是不动点</strong>
+由于 $(X, d)$ 是完备的度量空间，柯西列必在该空间内收敛。设其极限为 $x^*$，即 $\lim_{n \to \infty} x_n = x^*$。
+我们需要证明 $T(x^*) = x^*$。由于 $T$ 是压缩映射，它必然是连续的，利用连续性的性质：
+</p>
+$$T(x^*) = T(\lim_{n \to \infty} x_n) = \lim_{n \to \infty} T(x_n) = \lim_{n \to \infty} x_{n+1} = x^*$$<p>
+因此，$x^*$ 确实是 $T$ 的一个不动点。</p>
+<p><strong>第四步：证明不动点的唯一性</strong>
+使用反证法，假设存在两个不同的不动点 $x^<em>$ 和 $y^</em>$ （即 $T(x^<em>) = x^</em>$ 且 $T(y^<em>) = y^</em>$）。
+计算两点之间的距离：
+</p>
+$$d(x^*, y^*) = d(T(x^*), T(y^*)) \le q \cdot d(x^*, y^*)$$<p>
+因为 $x^* \neq y^*$，所以它们之间的距离 $d(x^*, y^*) &gt; 0$。两边同除以 $d(x^*, y^*)$ 得到：
+</p>
+$$1 \le q$$<p>
+但这与压缩映射定义中 $q &lt; 1$ 的限制矛盾。所以假设不成立，该不动点必须唯一。</p>
+<h2 id="定理的广泛应用">定理的广泛应用
+</h2><p>巴拿赫不动点定理之所以伟大，是因为它可以用来解决各个领域中的存在唯一性问题。</p>
+<h3 id="常微分方程的解-皮卡-林德勒夫定理">常微分方程的解 (皮卡-林德勒夫定理)
+</h3><p>在微积分和常微分方程理论中，皮卡-林德勒夫定理（Picard-Lindelöf Theorem）用于证明一阶常微分方程初值问题的解存在且唯一。其本质正是通过构造一个积分算子（Picard 算子），并证明在适当的连续函数空间中，这个算子是一个压缩映射，因此对应的常微分方程具有唯一解。</p>
+<p><strong>构造与证明简要：</strong>
+考虑初值问题方程：$y&rsquo;(t) = f(t, y(t))$，且初始条件为 $y(t_0) = y_0$。
+我们可以对其两边积分，将微分方程转换为等价的积分方程：
+</p>
+$$y(t) = y_0 + \int_{t_0}^t f(s, y(s)) ds$$<p>
+我们定义一个皮卡算子 $T$，它作用于连续函数 $y(t)$ 上：
+</p>
+$$(Ty)(t) = y_0 + \int_{t_0}^t f(s, y(s)) ds$$<p>
+寻找常微分方程的解，等价于寻找这个函数空间中的不动点 $Ty = y$。只要函数 $f$ 满足李普希茨（Lipschitz）条件，对于足够小的时间区间 $[t_0-\delta, t_0+\delta]$，积分算子 $T$ 这个映射必然满足收缩系数 $q &lt; 1$。由于闭区间上的连续函数空间是一个完备度量空间，根据巴拿赫不动点定理，微分方程必有唯一解。</p>
+<h3 id="求解代数方程-迭代法求根">求解代数方程 (迭代法求根)
+</h3><p>在数值分析中，要寻找方程 $f(x) = 0$ 的根，我们经常将其改写为 $x = g(x)$ 的形式。如果我们能保证 $g(x)$ 在根的某个邻域内是一个压缩映射（通常要求 $|g&rsquo;(x)| &lt; 1$），我们就可以从一个初始猜测值开始，不断使用 $x_{n+1} = g(x_n)$ 进行迭代。著名的牛顿法在满足条件时，其收敛性依然可以由不动点定理的变体来保证。</p>
+<p><strong>具体例子：</strong>
+求解方程 $\cos(x) - x = 0$。
+将其转化为找不动点的问题 $x = \cos(x)$。定义 $g(x) = \cos(x)$，考虑空间为闭区间 $X = [0, 1]$。
+在这个区间上对任意 $x$，求导得 $|g&rsquo;(x)| = |-\sin(x)| \le \sin(1) \approx 0.841 &lt; 1$。
+根据拉格朗日中值定理，对任意 $x, y \in [0, 1]$：
+</p>
+$$d(g(x), g(y)) = |g(x) - g(y)| = |g'(\xi)||x - y| \le 0.841 \cdot d(x, y)$$<p>
+这个 $g$ 显然是在完备空间 $X$ 上的压缩映射。随便你在计算器上敲下 $[0,1]$ 内的哪个数字，然后不停按 <code>cos</code> 键迭代，根据定理，结果必然会收敛到 $0.739085&hellip;$ 这个唯一的定点上。</p>
+<h3 id="动态规划与强化学习">动态规划与强化学习
+</h3><p>在计算机科学和运筹学中，马尔可夫决策过程 (MDP) 和强化学习的基础是贝尔曼方程 (Bellman Equation)。计算最优策略时使用的“价值迭代 (Value Iteration)”能够收敛到最优价值函数，其深层数学原理正是：贝尔曼最优算子是无穷范数下的压缩映射。因此，无限次迭代必定能够收敛到唯一的最优解。</p>
+<p><strong>原理论证：</strong>
+贝尔曼最优算子 $B$ 作用于状态价值函数 $V(s)$ 上的定义为：
+</p>
+$$(B V)(s) = \max_a \left[ R(s,a) + \gamma \sum_{s'} P(s'|s,a) V(s') \right]$$<p>
+这里采取无穷范数度量（最大值范数） $ | \cdot | _ \infty $。我们来考察算子对于两个不同价值估计 $V$ 和 $U$ 的距离缩小作用：
+</p>
+$$ \| B V - B U \|_\infty = \max_s \left| \max_a \left[ R + \gamma \sum P \cdot V \right] - \max_a \left[ R + \gamma \sum P \cdot U \right] \right| $$<p>
+运用不等式 $|\max X - \max Y| \le \max |X - Y|$，我们可以将其放缩为：
+</p>
+$$ \le \max_{s,a} \left| \gamma \sum_{s'} P(s'|s,a) (V(s') - U(s')) \right| \le \gamma \| V - U \|_\infty \cdot \max_{s,a} \sum_{s'} P(s'|s,a) $$<p>
+由于所有可能的下一状态转移概率之和为 $1$，不等式化简为：
+</p>
+$$ \| B V - B U \|_\infty \le \gamma \| V - U \|_\infty $$<p>
+由于折扣因子 $\gamma &lt; 1$，证明了贝尔曼最优算子 $B$ 是一个严格的压缩映射。因此，强化学习的价值迭代算法 $V_{k+1} = B(V_k)$ 注定会无视初始预估错误，完美收敛到唯一最优解。</p>
+<h3 id="分形几何-迭代函数系统">分形几何 (迭代函数系统)
+</h3><p>如果你看过美丽的谢尔宾斯基三角形或是各种形态逼真的计算机生成分形树，它们往往由一组“迭代函数系统 (IFS)”生成。由于IFS中的每个函数都是压缩的，把一整个图像集合视作“点”，由巴拿赫不动点定理可知，这种变换最终收敛于一个极其复杂的几何图形——这被称为该系统的“吸引子”。</p>
+<h3 id="总结">总结
+</h3><p>巴拿赫不动点定理展示了数学中“从抽象理论到具体算法”的典范。通过一个简单的“压缩”性质和“完备”前提，它就架起了一座连接纯粹存在论与实际计算方法之间的坚实桥梁。无论是研究宇宙边界的动态模型、训练游戏中的AI，还是仅仅想要求解一个非线性方程，不动点定理的幽灵总在背后默默工作。</p>
 
 </section>
 
@@ -596,12 +593,12 @@ $$<h2 id="结论">结论
             
                 
 <article class="">
-    <a href="/p/banach%E4%B8%8D%E5%8A%A8%E7%82%B9%E5%AE%9A%E7%90%86/">
+    <a href="/p/ramsey%E9%97%AE%E9%A2%98/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">Banach不动点定理</h2>
+            <h2 class="article-title">Ramsey问题</h2>
         </div>
     </a>
 </article>
@@ -609,12 +606,12 @@ $$<h2 id="结论">结论
             
                 
 <article class="">
-    <a href="/p/ramsey%E9%97%AE%E9%A2%98/">
+    <a href="/p/%E5%8F%98%E5%88%86%E6%B3%95%E8%AF%81%E6%98%8E%E7%AD%89%E5%91%A8%E9%97%AE%E9%A2%98/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">Ramsey问题</h2>
+            <h2 class="article-title">变分法证明等周问题</h2>
         </div>
     </a>
 </article>
