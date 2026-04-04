@@ -28,6 +28,11 @@ pip config debug&lt;br&gt;
 python -m site&lt;br&gt;
 pip config set site.cache-dir D:\PipCache&lt;br&gt;
 pip cache info&lt;/p&gt;
+&lt;p&gt;pip 还可以暂时手动指定安装源
+pip install open-webui &amp;ndash;no-cache-dir -i &lt;a class=&#34;link&#34; href=&#34;https://pypi.tuna.tsinghua.edu.cn/simple&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://pypi.tuna.tsinghua.edu.cn/simple&lt;/a&gt;
+pip install open-webui -i &lt;a class=&#34;link&#34; href=&#34;https://pypi.tuna.tsinghua.edu.cn/simple&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://pypi.tuna.tsinghua.edu.cn/simple&lt;/a&gt;&lt;/p&gt;
 </description>
         </item>
         <item>
