@@ -7,7 +7,31 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Fri, 03 Apr 2026 00:47:44 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sat, 04 Apr 2026 22:52:47 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Python便携版安装</title>
+        <link>https://charles-7777.github.io/p/python%E4%BE%BF%E6%90%BA%E7%89%88%E5%AE%89%E8%A3%85/</link>
+        <pubDate>Sat, 04 Apr 2026 22:47:34 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/python%E4%BE%BF%E6%90%BA%E7%89%88%E5%AE%89%E8%A3%85/</guid>
+        <description>&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.python.org/ftp/python/3.11.7/python-3.11.7-embed-amd64.zip&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://www.python.org/ftp/python/3.11.7/python-3.11.7-embed-amd64.zip&lt;/a&gt; 下载到D盘解压&lt;br&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://bootstrap.pypa.io/pip/get-pip.py&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://bootstrap.pypa.io/pip/get-pip.py&lt;/a&gt; 下载到D:\python-3.11.7-embed-amd64&lt;br&gt;
+将D:\python-3.11.7-embed-amd64 和 D:\python-3.11.7-embed-amd64\Scripts 添加到系统环境变量 &lt;br&gt;
+python get-pip.py&lt;br&gt;
+修改D:\python-3.11.7-embed-amd64\python311._pth文件，将import site前的#号去掉，即让其生效  不注释；
+pip config debug&lt;br&gt;
+创建D:\python-3.11.7-embed-amd64\pip.ini&lt;br&gt;
+pip config set site.index-url &lt;a class=&#34;link&#34; href=&#34;http://mirrors.aliyun.com/pypi/simple/&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;http://mirrors.aliyun.com/pypi/simple/&lt;/a&gt;&lt;br&gt;
+pip config set site.trusted-host mirrors.aliyun.com&lt;br&gt;
+pip config debug&lt;br&gt;
+python -m site&lt;br&gt;
+pip config set site.cache-dir D:\PipCache&lt;br&gt;
+pip cache info&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>U-Boot启动流程详解</title>
         <link>https://charles-7777.github.io/p/u-boot%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E8%AF%A6%E8%A7%A3/</link>
         <pubDate>Fri, 03 Apr 2026 00:33:55 +0800</pubDate>
