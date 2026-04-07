@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="ctstate ctstate 是 conntrack 对“当前报文相对连接跟踪条目”的分类标签（用于规则匹配），主要依据：\n是否绕过跟踪（raw 表 NOTRACK / nftables bypass）\n是否命中 conntrack 条目（original/reply 方向）\n是否已见 reply（常见关键位：SEEN_REPLY）\n是否命中 expectation 或可被关联（helper / ICMP 错误嵌套头）\n协议跟踪器是否接受该报文（否则可能是 INVALID）\nctstate 含义（策略视角） 典型判定要点 NEW 新流量/新建条目 查表未命中但允许创建；或条目存在但尚未见 reply（UDP 常见） ESTABLISHED 已有双向迹象 命中条目且已见 reply（常见依据：SEEN_REPLY=1） RELATED 与既有连接相关 命中 expectation（helper 预告）或 ICMP 错误可关联回已有条目 INVALID 无法可靠追踪/归属 解析失败/状态机不接受/分片校验问题/不可匹配等 UNTRACKED 明确不走 conntrack raw 表命中 NOTRACK 或 nftables bypass iptables/ebtables 示例 iptables：\n1 2 3 4 5 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT iptables -A INPUT -m conntrack --ctstate INVALID -j DROP iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT nftables：\n">
-<title>nf_conntrack 的 ctstate</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="TCP 本身没有“包”的概念 在我们深入讨论之前，最重要的一点是：TCP 是一种面向字节流（Stream-Oriented）的协议，它本身没有“粘包”问题，因为它根本不认识“包”。\n我们可以把 TCP 连接想象成一根两端对等的水管。发送方（A端）往水管里倒水，可以一次倒一桶，也可以连续倒很多杯。对于接收方（B端）来说，它只能看到一股连续不断的水流从水管里流出，它并不知道A端是分几次、每次用多大的容器倒的水。\nTCP 的核心承诺是：\n可靠性：保证所有字节都会被对方收到。 有序性：保证字节的顺序与发送时的顺序一致。 但它不承诺保留发送方应用层写入操作的边界。 换句话说，你在发送端调用了三次 send()，每次发送一个“消息包”，接收端完全可能通过一次 recv() 就接收到了这三个“消息包”的全部内容（粘包），或者只接收到第一个“消息包”的一部分（拆包）。\n因此，所谓的“粘包”或“拆包”问题，并非 TCP 的缺陷，而是应用层在处理无边界的字节流时遇到的挑战。\n为什么会“粘”在一起？ 既然是应用层的问题，那为什么会产生这种现象呢？主要有以下几个内核层面的原因：\nNagle 算法：为了提高网络效率，TCP 协议栈的 Nagle 算法会等待一小段时间，将多个小的发送请求合并成一个大的 TCP 段（Segment）再发送出去。 TCP 接收缓冲区：接收方收到的 TCP 段会存放在接收缓冲区。当应用层调用 recv() 时，如果缓冲区里已经到达了多个 TCP 段的数据，recv() 可能会一次性读取出来。 MSS/MTU 限制：如果应用层要发送的数据大于最大段大小（MSS），TCP 会自动将其拆分成多个 TCP 段。接收方需要多次读取才能获得一个完整的应用层消息。 内核 vs 应用层：明确分工\n内核负责：丢包重传、乱序重排、重复去重、流量控制、拥塞控制。内核把不可靠的 IP 网络，封装成可靠的 TCP 字节流。 应用层负责：消息边界（解决粘包）、业务逻辑、加密压缩。 一句话：内核保证可靠传输，应用层定义消息边界。\n问题的本质：如何在字节流中定义消息边界 既然 TCP 是无边界的，那么解决方案的核心就在于：发送方和接收方必须在应用层共同遵守一个协议，用来清晰地定义一条消息从哪里开始，到哪里结束。\n一旦接收方知道了消息的边界，它就可以从 TCP 字节流中准确地分割出一条条完整的消息。下面是三种最经典的实现方案。\n三大经典应用层解决方案 固定长度协议 (Fixed-Length Framing) 这是最简单直接的一种方法。\n原理：发送方和接收方约定，每一条应用层消息都具有固定的长度，例如 64 字节。 处理流程： 发送方：将消息封装成 64 字节。如果消息不足，则用特殊字符（如空格、\\0）填充。 接收方：每次都从 TCP 流中读取 64 字节。一旦读满，就认为这是一个完整的消息。 优点：实现极其简单，没有复杂的解析逻辑。 缺点：灵活性极差，会造成带宽浪费（当消息远小于固定长度时），也无法处理大于固定长度的消息。 适用场景：适用于消息长度恒定不变的特定场景（如某些传感器数据）。 特殊分隔符协议 (Delimiter-based Framing) 这种方法通过一个特殊的标记来划分消息。\n">
+<title>TCP粘包</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/p/nf_conntrack-%E7%9A%84-ctstate/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/tcp%E7%B2%98%E5%8C%85/'>
 
-<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="nf_conntrack 的 ctstate">
-<meta property='og:description' content="ctstate ctstate 是 conntrack 对“当前报文相对连接跟踪条目”的分类标签（用于规则匹配），主要依据：\n是否绕过跟踪（raw 表 NOTRACK / nftables bypass）\n是否命中 conntrack 条目（original/reply 方向）\n是否已见 reply（常见关键位：SEEN_REPLY）\n是否命中 expectation 或可被关联（helper / ICMP 错误嵌套头）\n协议跟踪器是否接受该报文（否则可能是 INVALID）\nctstate 含义（策略视角） 典型判定要点 NEW 新流量/新建条目 查表未命中但允许创建；或条目存在但尚未见 reply（UDP 常见） ESTABLISHED 已有双向迹象 命中条目且已见 reply（常见依据：SEEN_REPLY=1） RELATED 与既有连接相关 命中 expectation（helper 预告）或 ICMP 错误可关联回已有条目 INVALID 无法可靠追踪/归属 解析失败/状态机不接受/分片校验问题/不可匹配等 UNTRACKED 明确不走 conntrack raw 表命中 NOTRACK 或 nftables bypass iptables/ebtables 示例 iptables：\n1 2 3 4 5 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT iptables -A INPUT -m conntrack --ctstate INVALID -j DROP iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT nftables：\n">
-<meta property='og:url' content='https://charles-7777.github.io/p/nf_conntrack-%E7%9A%84-ctstate/'>
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="TCP粘包">
+<meta property='og:description' content="TCP 本身没有“包”的概念 在我们深入讨论之前，最重要的一点是：TCP 是一种面向字节流（Stream-Oriented）的协议，它本身没有“粘包”问题，因为它根本不认识“包”。\n我们可以把 TCP 连接想象成一根两端对等的水管。发送方（A端）往水管里倒水，可以一次倒一桶，也可以连续倒很多杯。对于接收方（B端）来说，它只能看到一股连续不断的水流从水管里流出，它并不知道A端是分几次、每次用多大的容器倒的水。\nTCP 的核心承诺是：\n可靠性：保证所有字节都会被对方收到。 有序性：保证字节的顺序与发送时的顺序一致。 但它不承诺保留发送方应用层写入操作的边界。 换句话说，你在发送端调用了三次 send()，每次发送一个“消息包”，接收端完全可能通过一次 recv() 就接收到了这三个“消息包”的全部内容（粘包），或者只接收到第一个“消息包”的一部分（拆包）。\n因此，所谓的“粘包”或“拆包”问题，并非 TCP 的缺陷，而是应用层在处理无边界的字节流时遇到的挑战。\n为什么会“粘”在一起？ 既然是应用层的问题，那为什么会产生这种现象呢？主要有以下几个内核层面的原因：\nNagle 算法：为了提高网络效率，TCP 协议栈的 Nagle 算法会等待一小段时间，将多个小的发送请求合并成一个大的 TCP 段（Segment）再发送出去。 TCP 接收缓冲区：接收方收到的 TCP 段会存放在接收缓冲区。当应用层调用 recv() 时，如果缓冲区里已经到达了多个 TCP 段的数据，recv() 可能会一次性读取出来。 MSS/MTU 限制：如果应用层要发送的数据大于最大段大小（MSS），TCP 会自动将其拆分成多个 TCP 段。接收方需要多次读取才能获得一个完整的应用层消息。 内核 vs 应用层：明确分工\n内核负责：丢包重传、乱序重排、重复去重、流量控制、拥塞控制。内核把不可靠的 IP 网络，封装成可靠的 TCP 字节流。 应用层负责：消息边界（解决粘包）、业务逻辑、加密压缩。 一句话：内核保证可靠传输，应用层定义消息边界。\n问题的本质：如何在字节流中定义消息边界 既然 TCP 是无边界的，那么解决方案的核心就在于：发送方和接收方必须在应用层共同遵守一个协议，用来清晰地定义一条消息从哪里开始，到哪里结束。\n一旦接收方知道了消息的边界，它就可以从 TCP 字节流中准确地分割出一条条完整的消息。下面是三种最经典的实现方案。\n三大经典应用层解决方案 固定长度协议 (Fixed-Length Framing) 这是最简单直接的一种方法。\n原理：发送方和接收方约定，每一条应用层消息都具有固定的长度，例如 64 字节。 处理流程： 发送方：将消息封装成 64 字节。如果消息不足，则用特殊字符（如空格、\\0）填充。 接收方：每次都从 TCP 流中读取 64 字节。一旦读满，就认为这是一个完整的消息。 优点：实现极其简单，没有复杂的解析逻辑。 缺点：灵活性极差，会造成带宽浪费（当消息远小于固定长度时），也无法处理大于固定长度的消息。 适用场景：适用于消息长度恒定不变的特定场景（如某些传感器数据）。 特殊分隔符协议 (Delimiter-based Framing) 这种方法通过一个特殊的标记来划分消息。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/tcp%E7%B2%98%E5%8C%85/'>
 <meta property='og:site_name' content=''>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-01-19T17:42:15&#43;08:00'/><meta property='article:modified_time' content='2026-01-20T17:09:47&#43;08:00'/>
-<meta name="twitter:title" content="nf_conntrack 的 ctstate">
-<meta name="twitter:description" content="ctstate ctstate 是 conntrack 对“当前报文相对连接跟踪条目”的分类标签（用于规则匹配），主要依据：\n是否绕过跟踪（raw 表 NOTRACK / nftables bypass）\n是否命中 conntrack 条目（original/reply 方向）\n是否已见 reply（常见关键位：SEEN_REPLY）\n是否命中 expectation 或可被关联（helper / ICMP 错误嵌套头）\n协议跟踪器是否接受该报文（否则可能是 INVALID）\nctstate 含义（策略视角） 典型判定要点 NEW 新流量/新建条目 查表未命中但允许创建；或条目存在但尚未见 reply（UDP 常见） ESTABLISHED 已有双向迹象 命中条目且已见 reply（常见依据：SEEN_REPLY=1） RELATED 与既有连接相关 命中 expectation（helper 预告）或 ICMP 错误可关联回已有条目 INVALID 无法可靠追踪/归属 解析失败/状态机不接受/分片校验问题/不可匹配等 UNTRACKED 明确不走 conntrack raw 表命中 NOTRACK 或 nftables bypass iptables/ebtables 示例 iptables：\n1 2 3 4 5 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT iptables -A INPUT -m conntrack --ctstate INVALID -j DROP iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT nftables：\n">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-04-07T20:30:04&#43;08:00'/><meta property='article:modified_time' content='2026-04-07T20:43:59&#43;08:00'/>
+<meta name="twitter:title" content="TCP粘包">
+<meta name="twitter:description" content="TCP 本身没有“包”的概念 在我们深入讨论之前，最重要的一点是：TCP 是一种面向字节流（Stream-Oriented）的协议，它本身没有“粘包”问题，因为它根本不认识“包”。\n我们可以把 TCP 连接想象成一根两端对等的水管。发送方（A端）往水管里倒水，可以一次倒一桶，也可以连续倒很多杯。对于接收方（B端）来说，它只能看到一股连续不断的水流从水管里流出，它并不知道A端是分几次、每次用多大的容器倒的水。\nTCP 的核心承诺是：\n可靠性：保证所有字节都会被对方收到。 有序性：保证字节的顺序与发送时的顺序一致。 但它不承诺保留发送方应用层写入操作的边界。 换句话说，你在发送端调用了三次 send()，每次发送一个“消息包”，接收端完全可能通过一次 recv() 就接收到了这三个“消息包”的全部内容（粘包），或者只接收到第一个“消息包”的一部分（拆包）。\n因此，所谓的“粘包”或“拆包”问题，并非 TCP 的缺陷，而是应用层在处理无边界的字节流时遇到的挑战。\n为什么会“粘”在一起？ 既然是应用层的问题，那为什么会产生这种现象呢？主要有以下几个内核层面的原因：\nNagle 算法：为了提高网络效率，TCP 协议栈的 Nagle 算法会等待一小段时间，将多个小的发送请求合并成一个大的 TCP 段（Segment）再发送出去。 TCP 接收缓冲区：接收方收到的 TCP 段会存放在接收缓冲区。当应用层调用 recv() 时，如果缓冲区里已经到达了多个 TCP 段的数据，recv() 可能会一次性读取出来。 MSS/MTU 限制：如果应用层要发送的数据大于最大段大小（MSS），TCP 会自动将其拆分成多个 TCP 段。接收方需要多次读取才能获得一个完整的应用层消息。 内核 vs 应用层：明确分工\n内核负责：丢包重传、乱序重排、重复去重、流量控制、拥塞控制。内核把不可靠的 IP 网络，封装成可靠的 TCP 字节流。 应用层负责：消息边界（解决粘包）、业务逻辑、加密压缩。 一句话：内核保证可靠传输，应用层定义消息边界。\n问题的本质：如何在字节流中定义消息边界 既然 TCP 是无边界的，那么解决方案的核心就在于：发送方和接收方必须在应用层共同遵守一个协议，用来清晰地定义一条消息从哪里开始，到哪里结束。\n一旦接收方知道了消息的边界，它就可以从 TCP 字节流中准确地分割出一条条完整的消息。下面是三种最经典的实现方案。\n三大经典应用层解决方案 固定长度协议 (Fixed-Length Framing) 这是最简单直接的一种方法。\n原理：发送方和接收方约定，每一条应用层消息都具有固定的长度，例如 64 字节。 处理流程： 发送方：将消息封装成 64 字节。如果消息不足，则用特殊字符（如空格、\\0）填充。 接收方：每次都从 TCP 流中读取 64 字节。一旦读满，就认为这是一个完整的消息。 优点：实现极其简单，没有复杂的解析逻辑。 缺点：灵活性极差，会造成带宽浪费（当消息远小于固定长度时），也无法处理大于固定长度的消息。 适用场景：适用于消息长度恒定不变的特定场景（如某些传感器数据）。 特殊分隔符协议 (Delimiter-based Framing) 这种方法通过一个特殊的标记来划分消息。\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -291,9 +291,19 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#ctstate">ctstate</a></li>
-    <li><a href="#iptablesebtables-示例">iptables/ebtables 示例</a></li>
-    <li><a href="#快速验证">快速验证</a></li>
+    <li><a href="#tcp-本身没有包的概念">TCP 本身没有“包”的概念</a></li>
+    <li><a href="#为什么会粘在一起">为什么会“粘”在一起？</a></li>
+    <li><a href="#问题的本质如何在字节流中定义消息边界">问题的本质：如何在字节流中定义消息边界</a></li>
+    <li><a href="#三大经典应用层解决方案">三大经典应用层解决方案</a>
+      <ol>
+        <li><a href="#固定长度协议-fixed-length-framing">固定长度协议 (Fixed-Length Framing)</a></li>
+        <li><a href="#特殊分隔符协议-delimiter-based-framing">特殊分隔符协议 (Delimiter-based Framing)</a></li>
+        <li><a href="#自定义消息结构长度前缀协议-length-prefixed-framing--tlv">自定义消息结构：长度前缀协议 (Length-Prefixed Framing / TLV)</a></li>
+      </ol>
+    </li>
+    <li><a href="#方案对比总结">方案对比总结</a></li>
+    <li><a href="#为什么-udp-没有粘包问题">为什么 UDP 没有粘包问题？</a></li>
+    <li><a href="#总结">总结</a></li>
   </ol>
 </nav>
         </div>
@@ -321,7 +331,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/nf_conntrack-%E7%9A%84-ctstate/">nf_conntrack 的 ctstate</a>
+            <a href="/p/tcp%E7%B2%98%E5%8C%85/">TCP粘包</a>
         </h2>
     
         
@@ -343,11 +353,11 @@
   <path d="M3 11h16" />
   <path d="M18 16.496v1.504l1 1" />
 </svg>
-                <time class="article-time--published">2026-01-19 17:42</time>
+                <time class="article-time--published">2026-04-07 20:30</time>
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-01-20 17:09</time>
+            <time class="article-lastmod">2026-04-07 20:43</time>
         </div>
         
 
@@ -371,7 +381,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    180 字
+                    177 字
                 </time>
             </div>
         
@@ -391,118 +401,142 @@
     <section class="article-content">
     
     
-    <h2 id="ctstate">ctstate
-</h2><p><code>ctstate</code> 是 conntrack 对“当前报文相对连接跟踪条目”的分类标签（用于规则匹配），主要依据：</p>
+    <h2 id="tcp-本身没有包的概念">TCP 本身没有“包”的概念
+</h2><p>在我们深入讨论之前，最重要的一点是：<strong>TCP 是一种面向字节流（Stream-Oriented）的协议，它本身没有“粘包”问题，因为它根本不认识“包”。</strong></p>
+<p>我们可以把 TCP 连接想象成一根两端对等的水管。发送方（A端）往水管里倒水，可以一次倒一桶，也可以连续倒很多杯。对于接收方（B端）来说，它只能看到一股连续不断的水流从水管里流出，它并不知道A端是分几次、每次用多大的容器倒的水。</p>
+<p>TCP 的核心承诺是：</p>
 <ul>
-<li>
-<p>是否绕过跟踪（raw 表 <code>NOTRACK</code> / nftables bypass）</p>
+<li><strong>可靠性</strong>：保证所有字节都会被对方收到。</li>
+<li><strong>有序性</strong>：保证字节的顺序与发送时的顺序一致。</li>
+</ul>
+<p><strong>但它不承诺保留发送方应用层写入操作的边界。</strong> 换句话说，你在发送端调用了三次 <code>send()</code>，每次发送一个“消息包”，接收端完全可能通过一次 <code>recv()</code> 就接收到了这三个“消息包”的全部内容（粘包），或者只接收到第一个“消息包”的一部分（拆包）。</p>
+<p>因此，所谓的“粘包”或“拆包”问题，并非 TCP 的缺陷，而是应用层在处理无边界的字节流时遇到的挑战。</p>
+<h2 id="为什么会粘在一起">为什么会“粘”在一起？
+</h2><p>既然是应用层的问题，那为什么会产生这种现象呢？主要有以下几个内核层面的原因：</p>
+<ol>
+<li><strong>Nagle 算法</strong>：为了提高网络效率，TCP 协议栈的 Nagle 算法会等待一小段时间，将多个小的发送请求合并成一个大的 TCP 段（Segment）再发送出去。</li>
+<li><strong>TCP 接收缓冲区</strong>：接收方收到的 TCP 段会存放在接收缓冲区。当应用层调用 <code>recv()</code> 时，如果缓冲区里已经到达了多个 TCP 段的数据，<code>recv()</code> 可能会一次性读取出来。</li>
+<li><strong>MSS/MTU 限制</strong>：如果应用层要发送的数据大于最大段大小（MSS），TCP 会自动将其拆分成多个 TCP 段。接收方需要多次读取才能获得一个完整的应用层消息。</li>
+</ol>
+<blockquote>
+<p><strong>内核 vs 应用层：明确分工</strong></p>
+<ul>
+<li><strong>内核负责</strong>：丢包重传、乱序重排、重复去重、流量控制、拥塞控制。内核把不可靠的 IP 网络，封装成可靠的 TCP 字节流。</li>
+<li><strong>应用层负责</strong>：消息边界（解决粘包）、业务逻辑、加密压缩。</li>
+</ul>
+<p><strong>一句话：内核保证可靠传输，应用层定义消息边界。</strong></p></blockquote>
+<h2 id="问题的本质如何在字节流中定义消息边界">问题的本质：如何在字节流中定义消息边界
+</h2><p>既然 TCP 是无边界的，那么解决方案的核心就在于：<strong>发送方和接收方必须在应用层共同遵守一个协议，用来清晰地定义一条消息从哪里开始，到哪里结束。</strong></p>
+<p>一旦接收方知道了消息的边界，它就可以从 TCP 字节流中准确地分割出一条条完整的消息。下面是三种最经典的实现方案。</p>
+<h2 id="三大经典应用层解决方案">三大经典应用层解决方案
+</h2><h3 id="固定长度协议-fixed-length-framing">固定长度协议 (Fixed-Length Framing)
+</h3><p>这是最简单直接的一种方法。</p>
+<ul>
+<li><strong>原理</strong>：发送方和接收方约定，每一条应用层消息都具有固定的长度，例如 64 字节。</li>
+<li><strong>处理流程</strong>：
+<ul>
+<li><strong>发送方</strong>：将消息封装成 64 字节。如果消息不足，则用特殊字符（如空格、<code>\0</code>）填充。</li>
+<li><strong>接收方</strong>：每次都从 TCP 流中读取 64 字节。一旦读满，就认为这是一个完整的消息。</li>
+</ul>
 </li>
-<li>
-<p>是否命中 conntrack 条目（original/reply 方向）</p>
+<li><strong>优点</strong>：实现极其简单，没有复杂的解析逻辑。</li>
+<li><strong>缺点</strong>：灵活性极差，会造成带宽浪费（当消息远小于固定长度时），也无法处理大于固定长度的消息。</li>
+<li><strong>适用场景</strong>：适用于消息长度恒定不变的特定场景（如某些传感器数据）。</li>
+</ul>
+<h3 id="特殊分隔符协议-delimiter-based-framing">特殊分隔符协议 (Delimiter-based Framing)
+</h3><p>这种方法通过一个特殊的标记来划分消息。</p>
+<ul>
+<li><strong>原理</strong>：发送方和接收方约定一个不会在正常消息内容中出现的特殊字符或字符串序列（例如 <code>\r\n</code>）作为消息的边界。</li>
+<li><strong>处理流程</strong>：
+<ul>
+<li><strong>发送方</strong>：在每条消息的末尾添加这个特殊的分隔符。</li>
+<li><strong>接收方</strong>：不断从 TCP 流中读取数据并进行扫描，直到找到分隔符为止。从上一个分隔符到当前分隔符之间的数据，就是一条完整的消息。</li>
+</ul>
 </li>
-<li>
-<p>是否已见 reply（常见关键位：<code>SEEN_REPLY</code>）</p>
-</li>
-<li>
-<p>是否命中 expectation 或可被关联（helper / ICMP 错误嵌套头）</p>
-</li>
-<li>
-<p>协议跟踪器是否接受该报文（否则可能是 <code>INVALID</code>）</p>
+<li><strong>真实案例</strong>：<strong>HTTP/1.1</strong> 协议使用 <code>\r\n</code> 作为每行请求头/响应头的分隔符，并使用一个空的 <code>\r\n\r\n</code> 来标记整个头部的结束。</li>
+<li><strong>优点</strong>：实现相对简单，灵活性比固定长度协议高很多。</li>
+<li><strong>缺点</strong>：
+<ul>
+<li><strong>转义问题</strong>：如果消息内容本身包含了分隔符，就必须对内容中的分隔符进行转义，否则会导致消息被错误解析。</li>
+<li><strong>效率问题</strong>：接收方需要逐字节扫描数据以查找分隔符，当消息很大时可能会有性能开销。</li>
+</ul>
 </li>
 </ul>
-<div class="table-wrapper"><table>
+<h3 id="自定义消息结构长度前缀协议-length-prefixed-framing--tlv">自定义消息结构：长度前缀协议 (Length-Prefixed Framing / TLV)
+</h3><p>这是现代网络编程中最常用、最灵活、最可靠的方案，是解决粘包问题的<strong>工业标准方案</strong>。</p>
+<ul>
+<li><strong>原理</strong>：在每条可变长度的消息数据（<strong>Value</strong>）前，附加一个固定长度的头部。这个头部中包含<strong>类型（Type）</strong> 和<strong>长度（Length）</strong> 字段，明确地说明了消息类型和紧随其后的 Body 部分有多长。因此该方案也常被称为 <strong>TLV (Type-Length-Value)</strong> 格式。</li>
+<li>优点：
+<ul>
+<li>边界清晰：通过长度前缀，可以精确地知道每条消息的边界，无需扫描内容。</li>
+<li>高效灵活：可以传输任意长度的数据，没有数据浪费，解析效率高。</li>
+<li>扩展性强：Header 中的 Type 字段可以区分消息类型，Length 字段便于解析，非常便于未来对协议进行扩展。</li>
+</ul>
+</li>
+<li>缺点：实现上比分隔符和固定长度协议稍复杂，需要处理好半包读取。</li>
+</ul>
+<h2 id="方案对比总结">方案对比总结
+</h2><div class="table-wrapper"><table>
   <thead>
       <tr>
-          <th>ctstate</th>
-          <th>含义（策略视角）</th>
-          <th>典型判定要点</th>
+          <th style="text-align: left">方案</th>
+          <th style="text-align: left">优点</th>
+          <th style="text-align: left">缺点</th>
+          <th style="text-align: left">适用场景</th>
       </tr>
   </thead>
   <tbody>
       <tr>
-          <td><code>NEW</code></td>
-          <td>新流量/新建条目</td>
-          <td>查表未命中但允许创建；或条目存在但尚未见 reply（UDP 常见）</td>
+          <td style="text-align: left"><strong>固定长度</strong></td>
+          <td style="text-align: left">实现极简单</td>
+          <td style="text-align: left">空间浪费，长度难选</td>
+          <td style="text-align: left">所有消息等长的极简场景</td>
       </tr>
       <tr>
-          <td><code>ESTABLISHED</code></td>
-          <td>已有双向迹象</td>
-          <td>命中条目且已见 reply（常见依据：<code>SEEN_REPLY=1</code>）</td>
+          <td style="text-align: left"><strong>分隔符</strong></td>
+          <td style="text-align: left">可读性好，直观</td>
+          <td style="text-align: left">需要转义，扫描略慢</td>
+          <td style="text-align: left">文本协议（如 HTTP, Redis）</td>
       </tr>
       <tr>
-          <td><code>RELATED</code></td>
-          <td>与既有连接相关</td>
-          <td>命中 expectation（helper 预告）或 ICMP 错误可关联回已有条目</td>
-      </tr>
-      <tr>
-          <td><code>INVALID</code></td>
-          <td>无法可靠追踪/归属</td>
-          <td>解析失败/状态机不接受/分片校验问题/不可匹配等</td>
-      </tr>
-      <tr>
-          <td><code>UNTRACKED</code></td>
-          <td>明确不走 conntrack</td>
-          <td>raw 表命中 <code>NOTRACK</code> 或 nftables bypass</td>
+          <td style="text-align: left"><strong>TLV (长度前缀)</strong></td>
+          <td style="text-align: left">灵活、高效、二进制安全</td>
+          <td style="text-align: left">实现稍复杂</td>
+          <td style="text-align: left">生产环境、高性能场景首选</td>
       </tr>
   </tbody>
 </table></div>
-<h2 id="iptablesebtables-示例">iptables/ebtables 示例
-</h2><p>iptables：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span><span class="lnt">5
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">iptables -A INPUT -p tcp --dport <span class="m">22</span> -m conntrack --ctstate NEW -j ACCEPT
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>nftables：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span><span class="lnt">5
-</span><span class="lnt">6
-</span><span class="lnt">7
-</span><span class="lnt">8
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 如果你的系统还没有 filter 表/INPUT 链
-</span></span><span class="line"><span class="cl">nft add table inet filter
-</span></span><span class="line"><span class="cl">nft &#39;add chain inet filter input { type filter hook input priority 0; policy accept; }&#39;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"># 添加规则
-</span></span><span class="line"><span class="cl">nft add rule inet filter input ct state established,related accept
-</span></span><span class="line"><span class="cl">nft add rule inet filter input ct state invalid drop
-</span></span><span class="line"><span class="cl">nft add rule inet filter input tcp dport 22 ct state new accept
-</span></span></code></pre></td></tr></table>
-</div>
-</div><h2 id="快速验证">快速验证
-</h2><ul>
+<hr>
+<h2 id="为什么-udp-没有粘包问题">为什么 UDP 没有粘包问题？
+</h2><p>这是一个很好的对比问题。UDP 是<strong>数据报协议</strong>，不是流式协议。</p>
+<ul>
 <li>
-<p><code>conntrack -L</code>：看是否存在条目/超时</p>
+<p><strong>原因</strong>：UDP 的头部有一个 <strong>16位的长度字段</strong>，明确指示了这个数据报的字节数。内核据此知道每个数据报的起止位置，因此<strong>保留消息边界</strong>。</p>
 </li>
 <li>
-<p><code>conntrack -E</code>：实时看是否创建、何时出现 reply</p>
-</li>
-<li>
-<p><code>/proc/net/nf_conntrack</code>：内核导出</p>
+<p><strong>结果</strong>：在 UDP 中，每次 <code>sendto()</code> 调用都严格对应一次 <code>recvfrom()</code> 调用，绝对不会发生粘包。但代价是 UDP 不保证可靠性（可能丢包、乱序）。</p>
 </li>
 </ul>
-<blockquote>
-<p>ctstate vs ctstatus</p>
-<p><code>ctstate</code>：对当前报文的分类
-<code>ctstatus</code>：条目内部标志位（如 <code>SEEN_REPLY</code>、<code>EXPECTED</code> 等），<code>ctstate</code> 通常由这些标志位综合得出</p></blockquote>
+<hr>
+<h2 id="总结">总结
+</h2><ul>
+<li>
+<p><strong>“TCP粘包”</strong>：问题不在于 TCP 协议本身，而在于它作为<strong>字节流协议</strong>不保留应用层消息边界。这是特性，不是缺陷。</p>
+</li>
+<li>
+<p><strong>解决思路清晰</strong>：解决粘包问题的唯一方法，是在<strong>应用层定义消息边界</strong>。</p>
+</li>
+<li>
+<p><strong>三种主流方案</strong>：固定长度、特殊分隔符、<strong>长度前缀（TLV）</strong>。其中 TLV 方案最通用、最强大，是现代网络编程的首选。</p>
+</li>
+<li>
+<p><strong>明确分工</strong>:</p>
+<ul>
+<li><strong>内核 (TCP协议栈)</strong> 负责：可靠传输（丢包重传、乱序重排、流量控制）。</li>
+<li><strong>应用层 (你的代码)</strong> 负责：消息边界（使用 TLV 等方案）和业务逻辑。</li>
+</ul>
+</li>
+</ul>
 
 </section>
 
@@ -548,19 +582,6 @@
             
                 
 <article class="">
-    <a href="/p/tcp%E7%B2%98%E5%8C%85/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">TCP粘包</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
     <a href="/p/u-boot%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E8%AF%A6%E8%A7%A3/">
         
         
@@ -580,6 +601,19 @@
 
         <div class="article-details">
             <h2 class="article-title">Linux内核信号处理机制原理</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/nf_conntrack-%E7%9A%84-ctstate/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">nf_conntrack 的 ctstate</h2>
         </div>
     </a>
 </article>
