@@ -7,7 +7,7 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Thu, 09 Apr 2026 20:47:51 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/linux/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Thu, 09 Apr 2026 20:49:47 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/linux/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Linux 收包流程</title>
         <link>https://charles-7777.github.io/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/</link>
         <pubDate>Thu, 09 Apr 2026 20:33:31 +0800</pubDate>
@@ -139,7 +139,9 @@
 &lt;hr&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://zhuanlan.zhihu.com/p/643195830&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;&lt;strong&gt;十年码农内功：网络收包详细过程&lt;/strong&gt;&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+    &gt;&lt;strong&gt;十年码农内功：网络收包详细过程&lt;/strong&gt;&lt;/a&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://zhuanlan.zhihu.com/p/690571077&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;strong&gt;linux6.9内核网络篇-收包源码分析&lt;/strong&gt;&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
 </description>
         </item>
         <item>
