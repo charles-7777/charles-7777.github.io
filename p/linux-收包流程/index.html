@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="什么是虚拟网卡？ 虚拟网卡是软件实现的网络接口，与物理网卡不同，它没有物理硬件，只存在于操作系统的内存中。虚拟网卡可以用来模拟网络环境，进行数据包的捕获、分析和处理。 TUN 和 TAP 的基本概念 Tun （Network TUNnel） TUN 是三层（网络层）的虚拟网络设备，主要用于 IP 数据包的处理。TUN 设备会模拟一个网络层接口，接收到的数据包会被传递给用户空间的程序进行处理，处理完的数据包会被发送回内核网络栈。\nTAP（Network TAP） TAP 是二层（数据链路层）的虚拟网络设备，主要用于以太网帧的处理。TAP 设备可以模拟一个以太网接口，能够接收和发送原始的以太网帧。这使得 TAP 设备非常适合用于桥接不同的网络环境，或者在虚拟机中模拟物理网卡。TAP是数据链路层的虚拟网络设备。\nTun和Tap的异同 Tun是三层的设备，该设备没有MAC地址，从字符设备上读取IP数据包，写入的也是IP数据包，因此不能进行二层的操作，例如发ARP包和以太网广播 Tab是二层的设备，该设备有MAC地址，处理的是数据链路层的数据帧，从字符设备上读取的是数据链路层的数据帧，写入的也是数据。\n在使用上面，两者都是通过字符设备的方式进行读取和写入，Tun是三层网络设备，而Tab是二层网络设备，Tun常用于VPN等技术，由于工作在IP层，无法与物理网卡做bridge，但可以通过三层交换（如 ip_forward）与物理网卡连通，Tab设备工作在第二层，收发的是MAC层数据包，拥有MAC层的功能，可以与物理网卡做bridge，支持MAC层广播 Tun和Tap应用场景 Tun是一个网络层设备，支持点到点的网络通信，常用于tunnel隧道和VPN的构建，tunnel技术是网络设备把网络层数据包封装到另一个协议中以跨过网络传送到另一个网络设备的处理过程，主要用于公网主机和私有网络互联互通。在Linux系统中支持多种隧道技术，其底层实现原理都是基于Tun设备。 TAP接口的典型应用场景是在虚拟化网络中。例如，我们通过KVM创建的多个VM（虚拟机），以LinuxBridge（桥接网络）互通；实际上即是通过像vnet0这样的TAP接口来接入LinuxBridge的。在这种场景下，KVM程序就是向TAP接口读写数据的用户空间程序。当VM0向本机的eth0接口发送数据，KVM会将数据发送到TAP接口vnet0，再通过LinuxBridge将数据转发到vnet1上。然后，KVM将数据发送到VM1的eth0口。 Tun 配置 1 2 3 4 5 6 7 8 \\# 创建网卡并配置IP ip tuntap add dev tun0 mode tun ip link set dev tun0 up ip addr add 10.0.0.1/24 dev tun0 ip route add 10.0.0.0/24 via 10.0.0.1 \\# 清除网卡 ip link set dev tun0 down ip tuntap del dev tun0 mode tun 转载自\n">
-<title>Linux虚拟网卡TUN和TAP</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 在服务端开发中，我们往往只需要调用简单的 recv() 或 read() 就可以自底向上获取网络数据。但在这些简单的 API 背后，隐藏着 Linux 极其精密复杂的网络子系统。\n收包七步走 可以将整个收包链路宏观地归纳为以下核心阶段：\n数据帧到达：数据帧从网络链路进入网卡物理介质。 DMA 搬运数据：网卡利用 DMA 技术将网络包写入系统内存 (Ring Buffer)。 硬中断触发：网卡向 CPU 发送硬件中断信号，通知有新数据到达。 硬中断响应：CPU 暂停当前任务，执行硬中断函数，随后发出软中断请求。 软中断处理 (ksoftirqd)：专门响应软中断的内核线程 ksoftirqd 开始工作，调用网卡驱动注册的 poll 轮询函数。 封装 sk_buff：网卡驱动从 Ring Buffer 摘下数据，将其封装为内核认识的 sk_buff 数据结构。 协议栈处理：经过网络层（IP）、传输层（TCP/UDP）解析，最终把数据追加到目标 Socket 的接收队列中，等待用户进程读取。 数据包的奇幻漂流 网卡接客与 DMA 搬运 当网络包通过光纤或双绞线到达网卡（NIC）时，网卡的 MAC 模块会对其进行初步过滤校验（比如检查 MAC 地址、FCS 校验等）。验证通过后，网卡并不会立刻打扰 CPU，而是通过 DMA (Direct Memory Access) 技术，直接将这些数据原封不动地写入到由系统预先分配好的内存空间 —— 即 Ring Buffer (环形缓冲区) 中。\n这里 Ring Buffer 的内存实际上是由内核在驱动初始化时分配好的，网卡知道对应的物理地址，这就是真正的“零拷贝”（硬件层到内存层）。\n硬中断 (Hard IRQ) 唤醒 CPU 网卡将数据放到 Ring Buffer 后，通过 PCIe 线上报一个硬件中断（Hard IRQ）通知 CPU 有活儿干了。\n">
+<title>Linux 收包流程</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/p/linux%E8%99%9A%E6%8B%9F%E7%BD%91%E5%8D%A1tun%E5%92%8Ctap/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/'>
 
-<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Linux虚拟网卡TUN和TAP">
-<meta property='og:description' content="什么是虚拟网卡？ 虚拟网卡是软件实现的网络接口，与物理网卡不同，它没有物理硬件，只存在于操作系统的内存中。虚拟网卡可以用来模拟网络环境，进行数据包的捕获、分析和处理。 TUN 和 TAP 的基本概念 Tun （Network TUNnel） TUN 是三层（网络层）的虚拟网络设备，主要用于 IP 数据包的处理。TUN 设备会模拟一个网络层接口，接收到的数据包会被传递给用户空间的程序进行处理，处理完的数据包会被发送回内核网络栈。\nTAP（Network TAP） TAP 是二层（数据链路层）的虚拟网络设备，主要用于以太网帧的处理。TAP 设备可以模拟一个以太网接口，能够接收和发送原始的以太网帧。这使得 TAP 设备非常适合用于桥接不同的网络环境，或者在虚拟机中模拟物理网卡。TAP是数据链路层的虚拟网络设备。\nTun和Tap的异同 Tun是三层的设备，该设备没有MAC地址，从字符设备上读取IP数据包，写入的也是IP数据包，因此不能进行二层的操作，例如发ARP包和以太网广播 Tab是二层的设备，该设备有MAC地址，处理的是数据链路层的数据帧，从字符设备上读取的是数据链路层的数据帧，写入的也是数据。\n在使用上面，两者都是通过字符设备的方式进行读取和写入，Tun是三层网络设备，而Tab是二层网络设备，Tun常用于VPN等技术，由于工作在IP层，无法与物理网卡做bridge，但可以通过三层交换（如 ip_forward）与物理网卡连通，Tab设备工作在第二层，收发的是MAC层数据包，拥有MAC层的功能，可以与物理网卡做bridge，支持MAC层广播 Tun和Tap应用场景 Tun是一个网络层设备，支持点到点的网络通信，常用于tunnel隧道和VPN的构建，tunnel技术是网络设备把网络层数据包封装到另一个协议中以跨过网络传送到另一个网络设备的处理过程，主要用于公网主机和私有网络互联互通。在Linux系统中支持多种隧道技术，其底层实现原理都是基于Tun设备。 TAP接口的典型应用场景是在虚拟化网络中。例如，我们通过KVM创建的多个VM（虚拟机），以LinuxBridge（桥接网络）互通；实际上即是通过像vnet0这样的TAP接口来接入LinuxBridge的。在这种场景下，KVM程序就是向TAP接口读写数据的用户空间程序。当VM0向本机的eth0接口发送数据，KVM会将数据发送到TAP接口vnet0，再通过LinuxBridge将数据转发到vnet1上。然后，KVM将数据发送到VM1的eth0口。 Tun 配置 1 2 3 4 5 6 7 8 \\# 创建网卡并配置IP ip tuntap add dev tun0 mode tun ip link set dev tun0 up ip addr add 10.0.0.1/24 dev tun0 ip route add 10.0.0.0/24 via 10.0.0.1 \\# 清除网卡 ip link set dev tun0 down ip tuntap del dev tun0 mode tun 转载自\n">
-<meta property='og:url' content='https://charles-7777.github.io/p/linux%E8%99%9A%E6%8B%9F%E7%BD%91%E5%8D%A1tun%E5%92%8Ctap/'>
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Linux 收包流程">
+<meta property='og:description' content=" 在服务端开发中，我们往往只需要调用简单的 recv() 或 read() 就可以自底向上获取网络数据。但在这些简单的 API 背后，隐藏着 Linux 极其精密复杂的网络子系统。\n收包七步走 可以将整个收包链路宏观地归纳为以下核心阶段：\n数据帧到达：数据帧从网络链路进入网卡物理介质。 DMA 搬运数据：网卡利用 DMA 技术将网络包写入系统内存 (Ring Buffer)。 硬中断触发：网卡向 CPU 发送硬件中断信号，通知有新数据到达。 硬中断响应：CPU 暂停当前任务，执行硬中断函数，随后发出软中断请求。 软中断处理 (ksoftirqd)：专门响应软中断的内核线程 ksoftirqd 开始工作，调用网卡驱动注册的 poll 轮询函数。 封装 sk_buff：网卡驱动从 Ring Buffer 摘下数据，将其封装为内核认识的 sk_buff 数据结构。 协议栈处理：经过网络层（IP）、传输层（TCP/UDP）解析，最终把数据追加到目标 Socket 的接收队列中，等待用户进程读取。 数据包的奇幻漂流 网卡接客与 DMA 搬运 当网络包通过光纤或双绞线到达网卡（NIC）时，网卡的 MAC 模块会对其进行初步过滤校验（比如检查 MAC 地址、FCS 校验等）。验证通过后，网卡并不会立刻打扰 CPU，而是通过 DMA (Direct Memory Access) 技术，直接将这些数据原封不动地写入到由系统预先分配好的内存空间 —— 即 Ring Buffer (环形缓冲区) 中。\n这里 Ring Buffer 的内存实际上是由内核在驱动初始化时分配好的，网卡知道对应的物理地址，这就是真正的“零拷贝”（硬件层到内存层）。\n硬中断 (Hard IRQ) 唤醒 CPU 网卡将数据放到 Ring Buffer 后，通过 PCIe 线上报一个硬件中断（Hard IRQ）通知 CPU 有活儿干了。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/'>
 <meta property='og:site_name' content=''>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2025-08-07T15:17:36&#43;08:00'/><meta property='article:modified_time' content='2025-08-07T15:26:17&#43;08:00'/>
-<meta name="twitter:title" content="Linux虚拟网卡TUN和TAP">
-<meta name="twitter:description" content="什么是虚拟网卡？ 虚拟网卡是软件实现的网络接口，与物理网卡不同，它没有物理硬件，只存在于操作系统的内存中。虚拟网卡可以用来模拟网络环境，进行数据包的捕获、分析和处理。 TUN 和 TAP 的基本概念 Tun （Network TUNnel） TUN 是三层（网络层）的虚拟网络设备，主要用于 IP 数据包的处理。TUN 设备会模拟一个网络层接口，接收到的数据包会被传递给用户空间的程序进行处理，处理完的数据包会被发送回内核网络栈。\nTAP（Network TAP） TAP 是二层（数据链路层）的虚拟网络设备，主要用于以太网帧的处理。TAP 设备可以模拟一个以太网接口，能够接收和发送原始的以太网帧。这使得 TAP 设备非常适合用于桥接不同的网络环境，或者在虚拟机中模拟物理网卡。TAP是数据链路层的虚拟网络设备。\nTun和Tap的异同 Tun是三层的设备，该设备没有MAC地址，从字符设备上读取IP数据包，写入的也是IP数据包，因此不能进行二层的操作，例如发ARP包和以太网广播 Tab是二层的设备，该设备有MAC地址，处理的是数据链路层的数据帧，从字符设备上读取的是数据链路层的数据帧，写入的也是数据。\n在使用上面，两者都是通过字符设备的方式进行读取和写入，Tun是三层网络设备，而Tab是二层网络设备，Tun常用于VPN等技术，由于工作在IP层，无法与物理网卡做bridge，但可以通过三层交换（如 ip_forward）与物理网卡连通，Tab设备工作在第二层，收发的是MAC层数据包，拥有MAC层的功能，可以与物理网卡做bridge，支持MAC层广播 Tun和Tap应用场景 Tun是一个网络层设备，支持点到点的网络通信，常用于tunnel隧道和VPN的构建，tunnel技术是网络设备把网络层数据包封装到另一个协议中以跨过网络传送到另一个网络设备的处理过程，主要用于公网主机和私有网络互联互通。在Linux系统中支持多种隧道技术，其底层实现原理都是基于Tun设备。 TAP接口的典型应用场景是在虚拟化网络中。例如，我们通过KVM创建的多个VM（虚拟机），以LinuxBridge（桥接网络）互通；实际上即是通过像vnet0这样的TAP接口来接入LinuxBridge的。在这种场景下，KVM程序就是向TAP接口读写数据的用户空间程序。当VM0向本机的eth0接口发送数据，KVM会将数据发送到TAP接口vnet0，再通过LinuxBridge将数据转发到vnet1上。然后，KVM将数据发送到VM1的eth0口。 Tun 配置 1 2 3 4 5 6 7 8 \\# 创建网卡并配置IP ip tuntap add dev tun0 mode tun ip link set dev tun0 up ip addr add 10.0.0.1/24 dev tun0 ip route add 10.0.0.0/24 via 10.0.0.1 \\# 清除网卡 ip link set dev tun0 down ip tuntap del dev tun0 mode tun 转载自\n">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-04-09T20:33:31&#43;08:00'/><meta property='article:modified_time' content='2026-04-09T20:47:51&#43;08:00'/>
+<meta name="twitter:title" content="Linux 收包流程">
+<meta name="twitter:description" content=" 在服务端开发中，我们往往只需要调用简单的 recv() 或 read() 就可以自底向上获取网络数据。但在这些简单的 API 背后，隐藏着 Linux 极其精密复杂的网络子系统。\n收包七步走 可以将整个收包链路宏观地归纳为以下核心阶段：\n数据帧到达：数据帧从网络链路进入网卡物理介质。 DMA 搬运数据：网卡利用 DMA 技术将网络包写入系统内存 (Ring Buffer)。 硬中断触发：网卡向 CPU 发送硬件中断信号，通知有新数据到达。 硬中断响应：CPU 暂停当前任务，执行硬中断函数，随后发出软中断请求。 软中断处理 (ksoftirqd)：专门响应软中断的内核线程 ksoftirqd 开始工作，调用网卡驱动注册的 poll 轮询函数。 封装 sk_buff：网卡驱动从 Ring Buffer 摘下数据，将其封装为内核认识的 sk_buff 数据结构。 协议栈处理：经过网络层（IP）、传输层（TCP/UDP）解析，最终把数据追加到目标 Socket 的接收队列中，等待用户进程读取。 数据包的奇幻漂流 网卡接客与 DMA 搬运 当网络包通过光纤或双绞线到达网卡（NIC）时，网卡的 MAC 模块会对其进行初步过滤校验（比如检查 MAC 地址、FCS 校验等）。验证通过后，网卡并不会立刻打扰 CPU，而是通过 DMA (Direct Memory Access) 技术，直接将这些数据原封不动地写入到由系统预先分配好的内存空间 —— 即 Ring Buffer (环形缓冲区) 中。\n这里 Ring Buffer 的内存实际上是由内核在驱动初始化时分配好的，网卡知道对应的物理地址，这就是真正的“零拷贝”（硬件层到内存层）。\n硬中断 (Hard IRQ) 唤醒 CPU 网卡将数据放到 Ring Buffer 后，通过 PCIe 线上报一个硬件中断（Hard IRQ）通知 CPU 有活儿干了。\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -291,11 +291,18 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#tun-和-tap-的基本概念">TUN 和 TAP 的基本概念</a></li>
-    <li><a href="#tun和tap的异同">Tun和Tap的异同</a></li>
-    <li><a href="#tun和tap应用场景">Tun和Tap应用场景</a></li>
-    <li><a href="#tun-配置">Tun 配置</a></li>
-    <li><a href="#参考资料">参考资料</a></li>
+    <li><a href="#收包七步走">收包七步走</a></li>
+    <li><a href="#数据包的奇幻漂流">数据包的奇幻漂流</a>
+      <ol>
+        <li><a href="#网卡接客与-dma-搬运">网卡接客与 DMA 搬运</a></li>
+        <li><a href="#硬中断-hard-irq-唤醒-cpu">硬中断 (Hard IRQ) 唤醒 CPU</a></li>
+        <li><a href="#ksoftirqd-与-napi-轮询接管-soft-irq"><code>ksoftirqd</code> 与 NAPI 轮询接管 (Soft IRQ)</a></li>
+        <li><a href="#生成灵魂数据结构sk_buff">生成灵魂数据结构：<code>sk_buff</code></a></li>
+        <li><a href="#协议栈的层层剥茧与-socket-投递">协议栈的层层剥茧与 Socket 投递</a></li>
+        <li><a href="#最终用户态的进程苏醒">最终：用户态的进程苏醒</a></li>
+      </ol>
+    </li>
+    <li><a href="#总结思考">总结思考</a></li>
   </ol>
 </nav>
         </div>
@@ -323,7 +330,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/linux%E8%99%9A%E6%8B%9F%E7%BD%91%E5%8D%A1tun%E5%92%8Ctap/">Linux虚拟网卡TUN和TAP</a>
+            <a href="/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/">Linux 收包流程</a>
         </h2>
     
         
@@ -345,11 +352,11 @@
   <path d="M3 11h16" />
   <path d="M18 16.496v1.504l1 1" />
 </svg>
-                <time class="article-time--published">2025-08-07 15:17</time>
+                <time class="article-time--published">2026-04-09 20:33</time>
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2025-08-07 15:26</time>
+            <time class="article-lastmod">2026-04-09 20:47</time>
         </div>
         
 
@@ -364,7 +371,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 1 分钟
+                    阅读时长: 2 分钟
                 </time>
             </div>
         
@@ -373,7 +380,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    113 字
+                    341 字
                 </time>
             </div>
         
@@ -393,60 +400,60 @@
     <section class="article-content">
     
     
-    <h1 id="什么是虚拟网卡">什么是虚拟网卡？
-</h1><p>虚拟网卡是软件实现的网络接口，与物理网卡不同，它没有物理硬件，只存在于操作系统的内存中。虚拟网卡可以用来模拟网络环境，进行数据包的捕获、分析和处理。
-<img src="https://cdn.jsdelivr.net/gh/charles-7777/ImageBed@main/blog/951914-20240613194921289-616890101.png"
-	
-	
-	
-	loading="lazy"
-	
-	
-></p>
-<h2 id="tun-和-tap-的基本概念">TUN 和 TAP 的基本概念
-</h2><ul>
-<li>
-<p>Tun （Network TUNnel）
-TUN 是三层（网络层）的虚拟网络设备，主要用于 IP 数据包的处理。TUN 设备会模拟一个网络层接口，接收到的数据包会被传递给用户空间的程序进行处理，处理完的数据包会被发送回内核网络栈。</p>
-</li>
-<li>
-<p>TAP（Network TAP）
-TAP 是二层（数据链路层）的虚拟网络设备，主要用于以太网帧的处理。TAP 设备可以模拟一个以太网接口，能够接收和发送原始的以太网帧。这使得 TAP 设备非常适合用于桥接不同的网络环境，或者在虚拟机中模拟物理网卡。TAP是数据链路层的虚拟网络设备。</p>
-</li>
-</ul>
-<h2 id="tun和tap的异同">Tun和Tap的异同
-</h2><p>Tun是三层的设备，该设备没有MAC地址，从字符设备上读取IP数据包，写入的也是IP数据包，因此不能进行二层的操作，例如发ARP包和以太网广播
-Tab是二层的设备，该设备有MAC地址，处理的是数据链路层的数据帧，从字符设备上读取的是数据链路层的数据帧，写入的也是数据。</p>
-<p>在使用上面，两者都是通过字符设备的方式进行读取和写入，Tun是三层网络设备，而Tab是二层网络设备，Tun常用于VPN等技术，由于工作在IP层，无法与物理网卡做bridge，但可以通过三层交换（如 ip_forward）与物理网卡连通，Tab设备工作在第二层，收发的是MAC层数据包，拥有MAC层的功能，可以与物理网卡做bridge，支持MAC层广播
-<img src="https://cdn.jsdelivr.net/gh/charles-7777/ImageBed@main/blog/951914-20240613195221480-414693358.png"
-	
-	
-	
-	loading="lazy"
-	
-	
-></p>
-<h2 id="tun和tap应用场景">Tun和Tap应用场景
-</h2><p>Tun是一个网络层设备，支持点到点的网络通信，常用于tunnel隧道和VPN的构建，tunnel技术是网络设备把网络层数据包封装到另一个协议中以跨过网络传送到另一个网络设备的处理过程，主要用于公网主机和私有网络互联互通。在Linux系统中支持多种隧道技术，其底层实现原理都是基于Tun设备。
-<img src="https://cdn.jsdelivr.net/gh/charles-7777/ImageBed@main/blog/951914-20240613195412140-1269419961.png"
-	
-	
-	
-	loading="lazy"
-	
-	
->
-TAP接口的典型应用场景是在虚拟化网络中。例如，我们通过KVM创建的多个VM（虚拟机），以LinuxBridge（桥接网络）互通；实际上即是通过像vnet0这样的TAP接口来接入LinuxBridge的。在这种场景下，KVM程序就是向TAP接口读写数据的用户空间程序。当VM0向本机的eth0接口发送数据，KVM会将数据发送到TAP接口vnet0，再通过LinuxBridge将数据转发到vnet1上。然后，KVM将数据发送到VM1的eth0口。
-<img src="https://cdn.jsdelivr.net/gh/charles-7777/ImageBed@main/blog/951914-20240613195718534-1283418141.png"
-	
-	
-	
-	loading="lazy"
-	
-	
-></p>
-<h2 id="tun-配置">Tun 配置
-</h2><div class="highlight"><div class="chroma">
+    <blockquote>
+<p>在服务端开发中，我们往往只需要调用简单的 <code>recv()</code> 或 <code>read()</code> 就可以自底向上获取网络数据。但在这些简单的 API 背后，隐藏着 Linux 极其精密复杂的网络子系统。</p></blockquote>
+<hr>
+<h2 id="收包七步走">收包七步走
+</h2><p>可以将整个收包链路宏观地归纳为以下核心阶段：</p>
+<ol>
+<li><strong>数据帧到达</strong>：数据帧从网络链路进入网卡物理介质。</li>
+<li><strong>DMA 搬运数据</strong>：网卡利用 DMA 技术将网络包写入系统内存 (Ring Buffer)。</li>
+<li><strong>硬中断触发</strong>：网卡向 CPU 发送硬件中断信号，通知有新数据到达。</li>
+<li><strong>硬中断响应</strong>：CPU 暂停当前任务，执行硬中断函数，随后发出软中断请求。</li>
+<li><strong>软中断处理 (<code>ksoftirqd</code>)</strong>：专门响应软中断的内核线程 <code>ksoftirqd</code> 开始工作，调用网卡驱动注册的 <code>poll</code> 轮询函数。</li>
+<li><strong>封装 <code>sk_buff</code></strong>：网卡驱动从 <strong>Ring Buffer</strong> 摘下数据，将其封装为内核认识的 <code>sk_buff</code> 数据结构。</li>
+<li><strong>协议栈处理</strong>：经过网络层（IP）、传输层（TCP/UDP）解析，最终把数据追加到目标 <strong>Socket</strong> 的接收队列中，等待用户进程读取。</li>
+</ol>
+<hr>
+<h2 id="数据包的奇幻漂流">数据包的奇幻漂流
+</h2><h3 id="网卡接客与-dma-搬运">网卡接客与 DMA 搬运
+</h3><p>当网络包通过光纤或双绞线到达网卡（NIC）时，网卡的 MAC 模块会对其进行初步过滤校验（比如检查 MAC 地址、FCS 校验等）。验证通过后，网卡并不会立刻打扰 CPU，而是通过 <strong>DMA (Direct Memory Access)</strong> 技术，直接将这些数据原封不动地写入到由系统预先分配好的内存空间 —— 即 <strong>Ring Buffer (环形缓冲区)</strong> 中。</p>
+<p>这里 Ring Buffer 的内存实际上是由内核在驱动初始化时分配好的，网卡知道对应的物理地址，这就是真正的“零拷贝”（硬件层到内存层）。</p>
+<h3 id="硬中断-hard-irq-唤醒-cpu">硬中断 (Hard IRQ) 唤醒 CPU
+</h3><p>网卡将数据放到 Ring Buffer 后，通过 PCIe 线上报一个硬件中断（Hard IRQ）通知 CPU 有活儿干了。</p>
+<p>CPU 收到中断后，会打断当前进程上下文，转而进入中断上下文，去执行网卡驱动注册的硬中断处理函数（通常对应类似 <code>ixgbe_msix_clean_rings</code> 的函数）。
+因为硬中断会屏蔽其他中断，为了保证系统响应速度，这部分代码必须<strong>极短、极快</strong>。内核网络栈采用的做法是：仅仅确认一下中断、清除硬件中断标志，然后<strong>触发一个软中断 (Soft IRQ)</strong>。</p>
+<ol>
+<li><strong>硬中断的极速退出</strong>：触发软中断的核心动作非常轻量，本质上仅仅是将 <code>NET_RX_SOFTIRQ</code> 的标志位置位。完成置标后，硬中断处理函数立刻 <code>return</code> 结束，以最快速度恢复系统的中断挂起响应能力。</li>
+<li><strong>软中断的无缝衔接</strong>：在离开硬中断上下文的底层函数 <code>irq_exit()</code> 中，内核会探查是否有处于挂起状态（已标记）的软中断需要处理。一旦发现，就会在退出硬中断的尾声，直接切入并执行软中断逻辑。</li>
+</ol>
+<blockquote>
+<p><strong>源码追踪</strong>：
+调用 <code>__napi_schedule()</code> 将当前的 NAPI (New API) 结构体挂载到当前 CPU 的 <code>softnet_data.poll_list</code> 上，随后触发 <code>NET_RX_SOFTIRQ</code> 软中断。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">static</span> <span class="kr">inline</span> <span class="kt">void</span> <span class="nf">__napi_schedule</span><span class="p">(</span><span class="k">struct</span> <span class="n">napi_struct</span> <span class="o">*</span><span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">list_add_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="n">n</span><span class="o">-&gt;</span><span class="n">poll_list</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">sd</span><span class="o">-&gt;</span><span class="n">poll_list</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">__raise_softirq_irqoff</span><span class="p">(</span><span class="n">NET_RX_SOFTIRQ</span><span class="p">);</span> <span class="c1">// 仅仅是置标志位
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div></blockquote>
+<h3 id="ksoftirqd-与-napi-轮询接管-soft-irq"><code>ksoftirqd</code> 与 NAPI 轮询接管 (Soft IRQ)
+</h3><p><strong><code>ksoftirqd/x</code> 是什么角色？</strong>
+<code>ksoftirqd/x</code> 它是一个<strong>内核线程</strong>（每个 CPU 核心一个，<code>x</code> 为核心编号）。
+在网络正常或低负载时，软中断往往会在刚才提到的硬中断退出阶段 (<code>irq_exit()</code>) 顺手被处理完。但若是遇到高并发大流量，软中断处理时间过长，为了防止系统一直处于中断上下文而“饿死”所有普通的用户进程，内核会<strong>主动中断顺手处理的行为</strong>，转而唤醒对应的后台内核线程 <code>ksoftirqd/x</code>，让它去接盘处理剩下的网络包。
+这种设计的精妙之处在于：<strong>将不可抢占的中断上下文，转移到了受系统统一调度的内核线程上下文中处理</strong>，从而保证了 CPU 的公平分配。</p>
+<p>当 <code>ksoftirqd</code> 被调度执行时，此处软中断真正的处理入口为 <code>net_rx_action()</code>。它会去遍历刚刚硬中断放入 <code>poll_list</code> 的设备，并调用它们各自注册的 <code>poll()</code> 函数（即 NAPI 机制）。NAPI 机制的魅力在于：在网络高负载时，通过一次中断转为连续的轮询处理，以此来避免网络风暴带来的中断过载。</p>
+<blockquote>
+<p><strong>源码追踪</strong>：</p>
+<div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
 </span><span class="lnt">2
@@ -458,30 +465,68 @@ TAP接口的典型应用场景是在虚拟化网络中。例如，我们通过KV
 </span><span class="lnt">8
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">\# 创建网卡并配置IP
-</span></span><span class="line"><span class="cl">ip tuntap add dev tun0 mode tun
-</span></span><span class="line"><span class="cl">ip link set dev tun0 up
-</span></span><span class="line"><span class="cl">ip addr add 10.0.0.1/24 dev tun0
-</span></span><span class="line"><span class="cl">ip route add 10.0.0.0/24 via 10.0.0.1
-</span></span><span class="line"><span class="cl">\# 清除网卡
-</span></span><span class="line"><span class="cl">ip link set dev tun0 down
-</span></span><span class="line"><span class="cl">ip tuntap del dev tun0 mode tun 
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">static</span> <span class="n">__latent_entropy</span> <span class="kt">void</span> <span class="nf">net_rx_action</span><span class="p">(</span><span class="k">struct</span> <span class="n">softirq_action</span> <span class="o">*</span><span class="n">h</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 遍历 poll_list 上的 napi 结构
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="nf">list_empty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">list</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">struct</span> <span class="n">napi_struct</span> <span class="o">*</span><span class="n">n</span> <span class="o">=</span> <span class="nf">list_first_entry</span><span class="p">(</span><span class="o">&amp;</span><span class="n">list</span><span class="p">,</span> <span class="k">struct</span> <span class="n">napi_struct</span><span class="p">,</span> <span class="n">poll_list</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 调用网卡驱动特定的 poll 函数 (如 ixgbe_poll)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="n">work</span> <span class="o">=</span> <span class="n">n</span><span class="o">-&gt;</span><span class="nf">poll</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">weight</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><blockquote>
-<p>转载自</p>
-<p><a class="link" href="https://www.cnblogs.com/yanchuanbin/p/18246678"  target="_blank" rel="noopener"
-    >Linux虚拟网卡TUN和TAP - 心若向阳花自开 - 博客园</a></p></blockquote>
-<h2 id="参考资料">参考资料
-</h2><ul>
-<li><a class="link" href="https://cloud.tencent.com/developer/tools/blog-entry?target=https%3A%2F%2Fwww.kernel.org%2Fdoc%2FDocumentation%2Fnetworking%2Ftuntap.txt&amp;objectId=2063424&amp;objectType=1&amp;isNewArticle=undefined"  target="_blank" rel="noopener"
-    >Universal TUN/TAP device driver</a></li>
-<li>Universal TUN/TAP device driver Frequently Asked Question</li>
-<li><a class="link" href="https://cloud.tencent.com/developer/tools/blog-entry?target=https%3A%2F%2Fbackreference.org%2F2010%2F03%2F26%2Ftuntap-interface-tutorial%2F&amp;objectId=2063424&amp;objectType=1&amp;isNewArticle=undefined"  target="_blank" rel="noopener"
-    >Tun/Tap interface tutorial</a></li>
-<li><a class="link" href="https://cloud.tencent.com/developer/tools/blog-entry?target=https%3A%2F%2Fgithub.com%2Fgregnietsky%2Fsimpletun%2Fblob%2Fmaster%2Fsimpletun.c&amp;objectId=2063424&amp;objectType=1&amp;isNewArticle=undefined"  target="_blank" rel="noopener"
-    >A simplistic, simple-minded, naive tunnelling program using tun/tap interfaces and TCP</a></li>
+</div></blockquote>
+<h3 id="生成灵魂数据结构sk_buff">生成灵魂数据结构：<code>sk_buff</code>
+</h3><p>在网卡驱动特定的 <code>poll()</code> 函数内部（比如 e1000 网卡的 <code>e1000_clean_rx_irq</code>），驱动会从 Ring Buffer 中读取之前 DMA 写入的数据帧。</p>
+<p>此时，内核会为这段数据分配一个核心数据结构：<code>sk_buff</code> (Socket Buffer)。<code>sk_buff</code> 是 Linux 网络内核的“通用货币”，无论是在 MAC 层、IP 层还是 TCP 层，它的指针通过加减头部空间的方式在各个协议层中穿梭，避免了层与层之间数据的内存拷贝。</p>
+<p>接下来，利用 <code>napi_gro_receive()</code> （通常伴随 GRO：Generic Receive Offload，合并多个零散包）或者直接 <code>netif_receive_skb()</code> 将 <code>sk_buff</code> 喂给上层的网络协议栈。</p>
+<h3 id="协议栈的层层剥茧与-socket-投递">协议栈的层层剥茧与 Socket 投递
+</h3><p>数据包进入 <code>netif_receive_skb()</code> 后，内核会根据 MAC 头部的以太网类型（比如 <code>ETH_P_IP</code>）将包交给对应的<strong>网络层 (IP 层)</strong> 处理。</p>
+<p><strong>IP 层 (<code>ip_rcv</code>)</strong>：</p>
+<ul>
+<li>验证 IP 头部、TTL 等。</li>
+<li>查询路由表，判断这个包是给本机的，还是需要转发的（Netfilter / iptables <code>PREROUTING</code> 链也是在此介入）。</li>
+<li>如果是送往本机，调用 <code>ip_local_deliver()</code>，最终剥离 IP 头，根据上层协议找到 UDP 或 TCP 处理函数。</li>
 </ul>
+<p><strong>传输层 (TCP: <code>tcp_v4_rcv</code> / UDP: <code>udp_rcv</code>)</strong>：
+以 TCP 为例：</p>
+<ul>
+<li>TCP 协议栈会根据包里的 <code>&lt;源 IP，源端口，目的 IP，目的端口&gt;</code> 查找到对应的 socket 实例。</li>
+<li>解析 TCP 报头、确认序列号、滑动窗口等复杂逻辑。</li>
+<li>核心处理函数 <code>tcp_rcv_established()</code> 会把除去所有头部后的纯净 Payload 数据放到 <strong>socket 的接收队列 (Receive Queue)</strong> 中。</li>
+</ul>
+<blockquote>
+<p><strong>源码追踪</strong>：投递到 Socket 队列中并唤醒用户进程</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// 将准备好的数据加入 sk_receive_queue
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">skb_queue_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sk</span><span class="o">-&gt;</span><span class="n">sk_receive_queue</span><span class="p">,</span> <span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 调用对应的回调唤醒处于阻塞态的用户进程 (如 epoll_wait / recv)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">sk</span><span class="o">-&gt;</span><span class="nf">sk_data_ready</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div></blockquote>
+<h3 id="最终用户态的进程苏醒">最终：用户态的进程苏醒
+</h3><p>当 <code>sk_data_ready()</code> 被调用时，如果进程之前因为调用 <code>recv()</code> 或 <code>epoll_wait()</code> 处于睡眠状态，它现在就会被唤醒。此时进程调度器再次选中该用户进程，从内核空间将 socket 接收队列里的数据拷贝到用户态的 Buffer 中。至此，整个网络包的接收流程才算圆满结束！</p>
+<hr>
+<h2 id="总结思考">总结思考
+</h2><ol>
+<li><strong>DMA + CPU 缓存协同</strong>：规避了最外设到内存的 CPU 拷贝开销。</li>
+<li><strong>NAPI（中断 + 轮询）</strong>：用“硬中断”保证低延迟通知，用“软中断+轮询（poll）”处理高并发网络包，完美平衡了资源消耗与吞吐量。</li>
+<li><strong><code>sk_buff</code> 元数据控制</strong>：各层协议处理过程中，数据体本身的内存不会发生流动拷贝，仅仅是首部指针在变化。</li>
+</ol>
+<hr>
+<blockquote>
+<p><a class="link" href="https://zhuanlan.zhihu.com/p/643195830"  target="_blank" rel="noopener"
+    ><strong>十年码农内功：网络收包详细过程</strong></a></p></blockquote>
 
 </section>
 
@@ -524,19 +569,6 @@ TAP接口的典型应用场景是在虚拟化网络中。例如，我们通过KV
     <h2 class="section-title">相关文章</h2>
     <div class="related-content">
         <div class="flex article-list--tile">
-            
-                
-<article class="">
-    <a href="/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">Linux 收包流程</h2>
-        </div>
-    </a>
-</article>
-
             
                 
 <article class="">
@@ -585,6 +617,19 @@ TAP接口的典型应用场景是在虚拟化网络中。例如，我们通过KV
 
         <div class="article-details">
             <h2 class="article-title">nf_conntrack 的 ctstate</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/socket-i/o/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Socket I/O</h2>
         </div>
     </a>
 </article>

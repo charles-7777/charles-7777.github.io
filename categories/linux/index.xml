@@ -7,7 +7,142 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Tue, 07 Apr 2026 20:43:59 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Thu, 09 Apr 2026 20:47:51 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Linux 收包流程</title>
+        <link>https://charles-7777.github.io/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/</link>
+        <pubDate>Thu, 09 Apr 2026 20:33:31 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/</guid>
+        <description>&lt;blockquote&gt;
+&lt;p&gt;在服务端开发中，我们往往只需要调用简单的 &lt;code&gt;recv()&lt;/code&gt; 或 &lt;code&gt;read()&lt;/code&gt; 就可以自底向上获取网络数据。但在这些简单的 API 背后，隐藏着 Linux 极其精密复杂的网络子系统。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;收包七步走&#34;&gt;收包七步走
+&lt;/h2&gt;&lt;p&gt;可以将整个收包链路宏观地归纳为以下核心阶段：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;数据帧到达&lt;/strong&gt;：数据帧从网络链路进入网卡物理介质。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;DMA 搬运数据&lt;/strong&gt;：网卡利用 DMA 技术将网络包写入系统内存 (Ring Buffer)。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;硬中断触发&lt;/strong&gt;：网卡向 CPU 发送硬件中断信号，通知有新数据到达。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;硬中断响应&lt;/strong&gt;：CPU 暂停当前任务，执行硬中断函数，随后发出软中断请求。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;软中断处理 (&lt;code&gt;ksoftirqd&lt;/code&gt;)&lt;/strong&gt;：专门响应软中断的内核线程 &lt;code&gt;ksoftirqd&lt;/code&gt; 开始工作，调用网卡驱动注册的 &lt;code&gt;poll&lt;/code&gt; 轮询函数。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;封装 &lt;code&gt;sk_buff&lt;/code&gt;&lt;/strong&gt;：网卡驱动从 &lt;strong&gt;Ring Buffer&lt;/strong&gt; 摘下数据，将其封装为内核认识的 &lt;code&gt;sk_buff&lt;/code&gt; 数据结构。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;协议栈处理&lt;/strong&gt;：经过网络层（IP）、传输层（TCP/UDP）解析，最终把数据追加到目标 &lt;strong&gt;Socket&lt;/strong&gt; 的接收队列中，等待用户进程读取。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;数据包的奇幻漂流&#34;&gt;数据包的奇幻漂流
+&lt;/h2&gt;&lt;h3 id=&#34;网卡接客与-dma-搬运&#34;&gt;网卡接客与 DMA 搬运
+&lt;/h3&gt;&lt;p&gt;当网络包通过光纤或双绞线到达网卡（NIC）时，网卡的 MAC 模块会对其进行初步过滤校验（比如检查 MAC 地址、FCS 校验等）。验证通过后，网卡并不会立刻打扰 CPU，而是通过 &lt;strong&gt;DMA (Direct Memory Access)&lt;/strong&gt; 技术，直接将这些数据原封不动地写入到由系统预先分配好的内存空间 —— 即 &lt;strong&gt;Ring Buffer (环形缓冲区)&lt;/strong&gt; 中。&lt;/p&gt;
+&lt;p&gt;这里 Ring Buffer 的内存实际上是由内核在驱动初始化时分配好的，网卡知道对应的物理地址，这就是真正的“零拷贝”（硬件层到内存层）。&lt;/p&gt;
+&lt;h3 id=&#34;硬中断-hard-irq-唤醒-cpu&#34;&gt;硬中断 (Hard IRQ) 唤醒 CPU
+&lt;/h3&gt;&lt;p&gt;网卡将数据放到 Ring Buffer 后，通过 PCIe 线上报一个硬件中断（Hard IRQ）通知 CPU 有活儿干了。&lt;/p&gt;
+&lt;p&gt;CPU 收到中断后，会打断当前进程上下文，转而进入中断上下文，去执行网卡驱动注册的硬中断处理函数（通常对应类似 &lt;code&gt;ixgbe_msix_clean_rings&lt;/code&gt; 的函数）。
+因为硬中断会屏蔽其他中断，为了保证系统响应速度，这部分代码必须&lt;strong&gt;极短、极快&lt;/strong&gt;。内核网络栈采用的做法是：仅仅确认一下中断、清除硬件中断标志，然后&lt;strong&gt;触发一个软中断 (Soft IRQ)&lt;/strong&gt;。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;硬中断的极速退出&lt;/strong&gt;：触发软中断的核心动作非常轻量，本质上仅仅是将 &lt;code&gt;NET_RX_SOFTIRQ&lt;/code&gt; 的标志位置位。完成置标后，硬中断处理函数立刻 &lt;code&gt;return&lt;/code&gt; 结束，以最快速度恢复系统的中断挂起响应能力。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;软中断的无缝衔接&lt;/strong&gt;：在离开硬中断上下文的底层函数 &lt;code&gt;irq_exit()&lt;/code&gt; 中，内核会探查是否有处于挂起状态（已标记）的软中断需要处理。一旦发现，就会在退出硬中断的尾声，直接切入并执行软中断逻辑。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;源码追踪&lt;/strong&gt;：
+调用 &lt;code&gt;__napi_schedule()&lt;/code&gt; 将当前的 NAPI (New API) 结构体挂载到当前 CPU 的 &lt;code&gt;softnet_data.poll_list&lt;/code&gt; 上，随后触发 &lt;code&gt;NET_RX_SOFTIRQ&lt;/code&gt; 软中断。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;k&#34;&gt;static&lt;/span&gt; &lt;span class=&#34;kr&#34;&gt;inline&lt;/span&gt; &lt;span class=&#34;kt&#34;&gt;void&lt;/span&gt; &lt;span class=&#34;nf&#34;&gt;__napi_schedule&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;k&#34;&gt;struct&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;napi_struct&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;n&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nf&#34;&gt;list_add_tail&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;n&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;poll_list&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;sd&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;poll_list&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nf&#34;&gt;__raise_softirq_irqoff&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;NET_RX_SOFTIRQ&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt; &lt;span class=&#34;c1&#34;&gt;// 仅仅是置标志位
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/blockquote&gt;
+&lt;h3 id=&#34;ksoftirqd-与-napi-轮询接管-soft-irq&#34;&gt;&lt;code&gt;ksoftirqd&lt;/code&gt; 与 NAPI 轮询接管 (Soft IRQ)
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;&lt;code&gt;ksoftirqd/x&lt;/code&gt; 是什么角色？&lt;/strong&gt;
+&lt;code&gt;ksoftirqd/x&lt;/code&gt; 它是一个&lt;strong&gt;内核线程&lt;/strong&gt;（每个 CPU 核心一个，&lt;code&gt;x&lt;/code&gt; 为核心编号）。
+在网络正常或低负载时，软中断往往会在刚才提到的硬中断退出阶段 (&lt;code&gt;irq_exit()&lt;/code&gt;) 顺手被处理完。但若是遇到高并发大流量，软中断处理时间过长，为了防止系统一直处于中断上下文而“饿死”所有普通的用户进程，内核会&lt;strong&gt;主动中断顺手处理的行为&lt;/strong&gt;，转而唤醒对应的后台内核线程 &lt;code&gt;ksoftirqd/x&lt;/code&gt;，让它去接盘处理剩下的网络包。
+这种设计的精妙之处在于：&lt;strong&gt;将不可抢占的中断上下文，转移到了受系统统一调度的内核线程上下文中处理&lt;/strong&gt;，从而保证了 CPU 的公平分配。&lt;/p&gt;
+&lt;p&gt;当 &lt;code&gt;ksoftirqd&lt;/code&gt; 被调度执行时，此处软中断真正的处理入口为 &lt;code&gt;net_rx_action()&lt;/code&gt;。它会去遍历刚刚硬中断放入 &lt;code&gt;poll_list&lt;/code&gt; 的设备，并调用它们各自注册的 &lt;code&gt;poll()&lt;/code&gt; 函数（即 NAPI 机制）。NAPI 机制的魅力在于：在网络高负载时，通过一次中断转为连续的轮询处理，以此来避免网络风暴带来的中断过载。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;源码追踪&lt;/strong&gt;：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;7
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;k&#34;&gt;static&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;__latent_entropy&lt;/span&gt; &lt;span class=&#34;kt&#34;&gt;void&lt;/span&gt; &lt;span class=&#34;nf&#34;&gt;net_rx_action&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;k&#34;&gt;struct&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;softirq_action&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;h&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// 遍历 poll_list 上的 napi 结构
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;&lt;/span&gt;    &lt;span class=&#34;k&#34;&gt;while&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;!&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;list_empty&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;list&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;))&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;k&#34;&gt;struct&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;napi_struct&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;n&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;nf&#34;&gt;list_first_entry&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;list&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;k&#34;&gt;struct&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;napi_struct&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;poll_list&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// 调用网卡驱动特定的 poll 函数 (如 ixgbe_poll)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;&lt;/span&gt;        &lt;span class=&#34;n&#34;&gt;work&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;n&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;poll&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;n&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;weight&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/blockquote&gt;
+&lt;h3 id=&#34;生成灵魂数据结构sk_buff&#34;&gt;生成灵魂数据结构：&lt;code&gt;sk_buff&lt;/code&gt;
+&lt;/h3&gt;&lt;p&gt;在网卡驱动特定的 &lt;code&gt;poll()&lt;/code&gt; 函数内部（比如 e1000 网卡的 &lt;code&gt;e1000_clean_rx_irq&lt;/code&gt;），驱动会从 Ring Buffer 中读取之前 DMA 写入的数据帧。&lt;/p&gt;
+&lt;p&gt;此时，内核会为这段数据分配一个核心数据结构：&lt;code&gt;sk_buff&lt;/code&gt; (Socket Buffer)。&lt;code&gt;sk_buff&lt;/code&gt; 是 Linux 网络内核的“通用货币”，无论是在 MAC 层、IP 层还是 TCP 层，它的指针通过加减头部空间的方式在各个协议层中穿梭，避免了层与层之间数据的内存拷贝。&lt;/p&gt;
+&lt;p&gt;接下来，利用 &lt;code&gt;napi_gro_receive()&lt;/code&gt; （通常伴随 GRO：Generic Receive Offload，合并多个零散包）或者直接 &lt;code&gt;netif_receive_skb()&lt;/code&gt; 将 &lt;code&gt;sk_buff&lt;/code&gt; 喂给上层的网络协议栈。&lt;/p&gt;
+&lt;h3 id=&#34;协议栈的层层剥茧与-socket-投递&#34;&gt;协议栈的层层剥茧与 Socket 投递
+&lt;/h3&gt;&lt;p&gt;数据包进入 &lt;code&gt;netif_receive_skb()&lt;/code&gt; 后，内核会根据 MAC 头部的以太网类型（比如 &lt;code&gt;ETH_P_IP&lt;/code&gt;）将包交给对应的&lt;strong&gt;网络层 (IP 层)&lt;/strong&gt; 处理。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;IP 层 (&lt;code&gt;ip_rcv&lt;/code&gt;)&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;验证 IP 头部、TTL 等。&lt;/li&gt;
+&lt;li&gt;查询路由表，判断这个包是给本机的，还是需要转发的（Netfilter / iptables &lt;code&gt;PREROUTING&lt;/code&gt; 链也是在此介入）。&lt;/li&gt;
+&lt;li&gt;如果是送往本机，调用 &lt;code&gt;ip_local_deliver()&lt;/code&gt;，最终剥离 IP 头，根据上层协议找到 UDP 或 TCP 处理函数。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;传输层 (TCP: &lt;code&gt;tcp_v4_rcv&lt;/code&gt; / UDP: &lt;code&gt;udp_rcv&lt;/code&gt;)&lt;/strong&gt;：
+以 TCP 为例：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;TCP 协议栈会根据包里的 &lt;code&gt;&amp;lt;源 IP，源端口，目的 IP，目的端口&amp;gt;&lt;/code&gt; 查找到对应的 socket 实例。&lt;/li&gt;
+&lt;li&gt;解析 TCP 报头、确认序列号、滑动窗口等复杂逻辑。&lt;/li&gt;
+&lt;li&gt;核心处理函数 &lt;code&gt;tcp_rcv_established()&lt;/code&gt; 会把除去所有头部后的纯净 Payload 数据放到 &lt;strong&gt;socket 的接收队列 (Receive Queue)&lt;/strong&gt; 中。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;源码追踪&lt;/strong&gt;：投递到 Socket 队列中并唤醒用户进程&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;// 将准备好的数据加入 sk_receive_queue
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;skb_queue_tail&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;sk&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;sk_receive_queue&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;skb&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;// 调用对应的回调唤醒处于阻塞态的用户进程 (如 epoll_wait / recv)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;sk&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;sk_data_ready&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;sk&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/blockquote&gt;
+&lt;h3 id=&#34;最终用户态的进程苏醒&#34;&gt;最终：用户态的进程苏醒
+&lt;/h3&gt;&lt;p&gt;当 &lt;code&gt;sk_data_ready()&lt;/code&gt; 被调用时，如果进程之前因为调用 &lt;code&gt;recv()&lt;/code&gt; 或 &lt;code&gt;epoll_wait()&lt;/code&gt; 处于睡眠状态，它现在就会被唤醒。此时进程调度器再次选中该用户进程，从内核空间将 socket 接收队列里的数据拷贝到用户态的 Buffer 中。至此，整个网络包的接收流程才算圆满结束！&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;总结思考&#34;&gt;总结思考
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;DMA + CPU 缓存协同&lt;/strong&gt;：规避了最外设到内存的 CPU 拷贝开销。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;NAPI（中断 + 轮询）&lt;/strong&gt;：用“硬中断”保证低延迟通知，用“软中断+轮询（poll）”处理高并发网络包，完美平衡了资源消耗与吞吐量。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;&lt;code&gt;sk_buff&lt;/code&gt; 元数据控制&lt;/strong&gt;：各层协议处理过程中，数据体本身的内存不会发生流动拷贝，仅仅是首部指针在变化。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://zhuanlan.zhihu.com/p/643195830&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;strong&gt;十年码农内功：网络收包详细过程&lt;/strong&gt;&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+</description>
+        </item>
+        <item>
         <title>TCP粘包</title>
         <link>https://charles-7777.github.io/p/tcp%E7%B2%98%E5%8C%85/</link>
         <pubDate>Tue, 07 Apr 2026 20:30:04 +0800</pubDate>
