@@ -10,7 +10,7 @@
 <meta property='og:description' content=" 在服务端开发中，我们往往只需要调用简单的 recv() 或 read() 就可以自底向上获取网络数据。但在这些简单的 API 背后，隐藏着 Linux 极其精密复杂的网络子系统。\n收包七步走 可以将整个收包链路宏观地归纳为以下核心阶段：\n数据帧到达：数据帧从网络链路进入网卡物理介质。 DMA 搬运数据：网卡利用 DMA 技术将网络包写入系统内存 (Ring Buffer)。 硬中断触发：网卡向 CPU 发送硬件中断信号，通知有新数据到达。 硬中断响应：CPU 暂停当前任务，执行硬中断函数，随后发出软中断请求。 软中断处理 (ksoftirqd)：专门响应软中断的内核线程 ksoftirqd 开始工作，调用网卡驱动注册的 poll 轮询函数。 封装 sk_buff：网卡驱动从 Ring Buffer 摘下数据，将其封装为内核认识的 sk_buff 数据结构。 协议栈处理：经过网络层（IP）、传输层（TCP/UDP）解析，最终把数据追加到目标 Socket 的接收队列中，等待用户进程读取。 数据包的奇幻漂流 网卡接客与 DMA 搬运 当网络包通过光纤或双绞线到达网卡（NIC）时，网卡的 MAC 模块会对其进行初步过滤校验（比如检查 MAC 地址、FCS 校验等）。验证通过后，网卡并不会立刻打扰 CPU，而是通过 DMA (Direct Memory Access) 技术，直接将这些数据原封不动地写入到由系统预先分配好的内存空间 —— 即 Ring Buffer (环形缓冲区) 中。\n这里 Ring Buffer 的内存实际上是由内核在驱动初始化时分配好的，网卡知道对应的物理地址，这就是真正的“零拷贝”（硬件层到内存层）。\n硬中断 (Hard IRQ) 唤醒 CPU 网卡将数据放到 Ring Buffer 后，通过 PCIe 线上报一个硬件中断（Hard IRQ）通知 CPU 有活儿干了。\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/'>
 <meta property='og:site_name' content=''>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-04-09T20:33:31&#43;08:00'/><meta property='article:modified_time' content='2026-04-09T20:50:31&#43;08:00'/>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-04-09T20:33:31&#43;08:00'/><meta property='article:modified_time' content='2026-04-10T14:14:27&#43;08:00'/>
 <meta name="twitter:title" content="Linux 收包流程">
 <meta name="twitter:description" content=" 在服务端开发中，我们往往只需要调用简单的 recv() 或 read() 就可以自底向上获取网络数据。但在这些简单的 API 背后，隐藏着 Linux 极其精密复杂的网络子系统。\n收包七步走 可以将整个收包链路宏观地归纳为以下核心阶段：\n数据帧到达：数据帧从网络链路进入网卡物理介质。 DMA 搬运数据：网卡利用 DMA 技术将网络包写入系统内存 (Ring Buffer)。 硬中断触发：网卡向 CPU 发送硬件中断信号，通知有新数据到达。 硬中断响应：CPU 暂停当前任务，执行硬中断函数，随后发出软中断请求。 软中断处理 (ksoftirqd)：专门响应软中断的内核线程 ksoftirqd 开始工作，调用网卡驱动注册的 poll 轮询函数。 封装 sk_buff：网卡驱动从 Ring Buffer 摘下数据，将其封装为内核认识的 sk_buff 数据结构。 协议栈处理：经过网络层（IP）、传输层（TCP/UDP）解析，最终把数据追加到目标 Socket 的接收队列中，等待用户进程读取。 数据包的奇幻漂流 网卡接客与 DMA 搬运 当网络包通过光纤或双绞线到达网卡（NIC）时，网卡的 MAC 模块会对其进行初步过滤校验（比如检查 MAC 地址、FCS 校验等）。验证通过后，网卡并不会立刻打扰 CPU，而是通过 DMA (Direct Memory Access) 技术，直接将这些数据原封不动地写入到由系统预先分配好的内存空间 —— 即 Ring Buffer (环形缓冲区) 中。\n这里 Ring Buffer 的内存实际上是由内核在驱动初始化时分配好的，网卡知道对应的物理地址，这就是真正的“零拷贝”（硬件层到内存层）。\n硬中断 (Hard IRQ) 唤醒 CPU 网卡将数据放到 Ring Buffer 后，通过 PCIe 线上报一个硬件中断（Hard IRQ）通知 CPU 有活儿干了。\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
@@ -356,7 +356,7 @@
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-04-09 20:50</time>
+            <time class="article-lastmod">2026-04-10 14:14</time>
         </div>
         
 
@@ -380,7 +380,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    342 字
+                    343 字
                 </time>
             </div>
         
@@ -528,7 +528,9 @@
 <p><a class="link" href="https://zhuanlan.zhihu.com/p/643195830"  target="_blank" rel="noopener"
     ><strong>十年码农内功：网络收包详细过程</strong></a><br>
 <a class="link" href="https://zhuanlan.zhihu.com/p/690571077"  target="_blank" rel="noopener"
-    ><strong>linux6.9内核网络篇-收包源码分析</strong></a></p></blockquote>
+    ><strong>linux6.9内核网络篇-收包源码分析</strong></a>
+<a class="link" href="https://blog.csdn.net/yiyeguzhou100/article/details/158739874"  target="_blank" rel="noopener"
+    ><strong>Linux内核网卡收包流程，以及cpu、设备关开中断情况</strong></a></p></blockquote>
 
 </section>
 
@@ -571,6 +573,19 @@
     <h2 class="section-title">相关文章</h2>
     <div class="related-content">
         <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/%E7%A1%AC%E4%B8%AD%E6%96%AD%E4%B8%8E%E8%BD%AF%E4%B8%AD%E6%96%AD/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">硬中断与软中断</h2>
+        </div>
+    </a>
+</article>
+
             
                 
 <article class="">
@@ -619,19 +634,6 @@
 
         <div class="article-details">
             <h2 class="article-title">nf_conntrack 的 ctstate</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/p/socket-i/o/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">Socket I/O</h2>
         </div>
     </a>
 </article>

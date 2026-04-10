@@ -7,7 +7,137 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Thu, 09 Apr 2026 20:50:31 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Fri, 10 Apr 2026 14:14:27 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>硬中断与软中断</title>
+        <link>https://charles-7777.github.io/p/%E7%A1%AC%E4%B8%AD%E6%96%AD%E4%B8%8E%E8%BD%AF%E4%B8%AD%E6%96%AD/</link>
+        <pubDate>Fri, 10 Apr 2026 10:33:25 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/%E7%A1%AC%E4%B8%AD%E6%96%AD%E4%B8%8E%E8%BD%AF%E4%B8%AD%E6%96%AD/</guid>
+        <description>&lt;blockquote&gt;
+&lt;p&gt;在操作系统的世界里，&lt;strong&gt;中断（Interrupt）&lt;/strong&gt; 是一个至关重要的概念。如果没有中断系统，CPU 将不得不用低效的“轮询”方式来处理外界事件，这不仅浪费资源，还无法实现真正的现代多任务操作系统。&lt;br&gt;
+中断分为两类：&lt;strong&gt;硬中断（Hardware Interrupt）&lt;/strong&gt; 和 &lt;strong&gt;软中断（Software Interrupt）&lt;/strong&gt;。虽然它们只有一字之差，但产生的原因、处理机制以及应用场景却有着本质的区别。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;什么是硬中断hardware-interrupt&#34;&gt;什么是硬中断（Hardware Interrupt）
+&lt;/h2&gt;&lt;h3 id=&#34;定义与来源&#34;&gt;定义与来源
+&lt;/h3&gt;&lt;p&gt;硬中断是由&lt;strong&gt;计算机硬件的外设&lt;/strong&gt;（如网卡、磁盘控制器、键盘、鼠标、时钟等）发出的物理电信号。每个设备或设备集都有自己专属的 &lt;strong&gt;IRQ（Interrupt Request，中断请求线）&lt;/strong&gt;。
+当硬件设备需要 CPU 的关注时（例如网卡接收到了一个数据包，或者你在键盘上按下一个键），它会通过 IRQ 直接向 CPU 的中断控制器发送一个信号。&lt;/p&gt;
+&lt;h3 id=&#34;硬件驱动的本质内核子程序而非独立进程&#34;&gt;硬件驱动的本质：内核子程序而非独立进程
+&lt;/h3&gt;&lt;p&gt;在理解硬中断前，必须澄清一个重要概念：&lt;strong&gt;硬件驱动是内核中的一个子程序，而不是一个独立的进程。&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;不是进程&lt;/strong&gt;：驱动代码平时不占用 CPU 时间片，它不独立运行，也不会出现在你的任务管理器里等待被操作系统调度。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;是子程序&lt;/strong&gt;：驱动代码“寄生”在内核空间里。只有当中断发生时，CPU 才会暂停手头的当前工作，借用当前进程的上下文，直接跳进内核去执行那段驱动代码。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如果驱动是一个独立的进程，那么中断发生时，就需要 CPU 先去调度它，等把它“睡醒”了再去跑，这样的反应速度就实在太慢了。这正是硬中断使用子程序（函数调用）而非进程去处理的根本原因——&lt;strong&gt;为了追求极致的快，且绝不依赖调度器。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;典型场景键盘敲击与极速响应&#34;&gt;典型场景：键盘敲击与极速响应
+&lt;/h3&gt;&lt;p&gt;以我们日常敲击键盘为例，整个底层极速流程如下：
+键盘被按下 $\rightarrow$ 键盘发出 IRQ 1 硬件信号 $\rightarrow$ CPU 强制暂停手头工作 $\rightarrow$ 查阅 IDT 表（中断描述符表） $\rightarrow$ 找到 IRQ 1 对应的内核子程序入口 $\rightarrow$ 执行键盘驱动代码（仅仅是将字符读进内存缓冲区） $\rightarrow$ 驱动退出，返回刚才暂停的程序继续运行。&lt;/p&gt;
+&lt;h3 id=&#34;处理机制&#34;&gt;处理机制
+&lt;/h3&gt;&lt;p&gt;硬中断的发生是异步的，完全不可预测。它的处理机制极具“霸道”属性：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;直接打断 CPU&lt;/strong&gt;：硬中断可以直接强制中止 CPU 当前正在执行的代码。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;上下文切换&lt;/strong&gt;：立刻挂起当前进程的状态，转入内核预先注册的&lt;strong&gt;中断处理程序（Interrupt Service Routine, ISR）&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;单核处理&lt;/strong&gt;：在多核系统中，一个硬中断通常只能打断一个 CPU 核心（特殊通道除外）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;什么是软中断software-interrupt&#34;&gt;什么是软中断（Software Interrupt）？
+&lt;/h2&gt;&lt;h3 id=&#34;定义与来源-1&#34;&gt;定义与来源
+&lt;/h3&gt;&lt;p&gt;在中文技术语境里，“软中断”这个词经常被混用，至少有两种常见含义：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;广义的软件中断&lt;/strong&gt;：由指令、异常或系统调用触发的陷入，比如 x86 上的 &lt;code&gt;INT&lt;/code&gt; 指令。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Linux 内核里的软中断&lt;/strong&gt;：一种由内核安排的延后处理机制，用来承接硬中断之后不适合立刻做完的工作。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;本文后面讨论的“软中断”，主要采用第二种语义，也就是 Linux 内核里的 softirq。因为网络收包、定时器、部分块设备后处理这类典型场景，说的正是这种“硬中断先抢响应，软中断再接着干活”的分工。&lt;/p&gt;
+&lt;h3 id=&#34;处理机制-1&#34;&gt;处理机制
+&lt;/h3&gt;&lt;p&gt;软中断可以理解为“内核安排的下半场”，它和硬中断之间的关系不是谁替代谁，而是谁先谁后、谁轻谁重：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;硬中断先做最急的事&lt;/strong&gt;：例如确认设备、应答中断、拿到数据已经到达的事实。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;较重的后续工作延后&lt;/strong&gt;：例如把网络包交给协议栈、把数据塞进 socket 队列、唤醒等待进程，这些通常放到软中断阶段处理。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;仍然运行在内核态&lt;/strong&gt;：软中断不是普通用户进程，也不是任务管理器里能看到的独立应用；它本质上仍是内核代码。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;不靠外部 IRQ 直接抢断 CPU&lt;/strong&gt;：它不是外设拿电信号强行打断 CPU，而是由内核在硬中断返回后或检查到 pending softirq 时尽快执行。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;也要求短小高效&lt;/strong&gt;：软中断虽然比硬中断“宽松”一点，但通常仍不适合做会睡眠、会阻塞太久的工作；如果工作量太大，Linux 往往会交给 ksoftirqd 这样的内核线程继续消化。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;不是内核先预判这次 softirq 很短还是很长，再决定“现场执行”还是“交给 ksoftirqd”。&lt;/strong&gt; 更准确的流程是：硬中断先标记 softirq，硬中断返回后内核通常会先马上尝试处理一轮；如果这一轮很快就做完了，那就直接在当前这条执行路径里消化掉；如果发现待处理的工作过多、超过本轮预算，或者中断触发过于频繁，内核才会唤醒 ksoftirqd 去继续处理剩余工作。&lt;/p&gt;
+&lt;p&gt;换句话说，更准确的理解应当是：&lt;strong&gt;先现场处理一轮，处理不完再交给 ksoftirqd 收尾&lt;/strong&gt;。而且即使进入了 ksoftirqd，也不代表 softirq 就变成了可以随意睡眠、随意阻塞的普通进程逻辑；真正需要长时间阻塞或睡眠的工作，通常应该继续交给更合适的机制，例如 workqueue。&lt;/p&gt;
+&lt;h3 id=&#34;典型场景网卡收包中的硬中断与软中断协作&#34;&gt;典型场景：网卡收包中的硬中断与软中断协作
+&lt;/h3&gt;&lt;p&gt;再看一个更贴近服务器场景的例子：网卡收到一个数据包时，真正发生的并不是“网卡驱动把网页直接显示出来”，而是一次典型的硬中断与软中断分工协作。&lt;/p&gt;
+&lt;p&gt;它的底层流程可以概括为：
+网卡收到以太网帧 $\rightarrow$ 网卡通过 DMA 先把数据放进接收缓冲区或环形队列 $\rightarrow$ 网卡发出硬中断 IRQ $\rightarrow$ CPU 暂停当前任务并进入网卡驱动的中断处理函数 $\rightarrow$ 驱动只做最紧急的事，比如确认中断、记录有新包到达、必要时暂时关闭过于频繁的中断 $\rightarrow$ 标记 softirq 或进入 NAPI 轮询路径 $\rightarrow$ 硬中断处理函数迅速返回 $\rightarrow$ 内核在稍后的软中断上下文中把数据包交给 IP、TCP/UDP 等协议栈继续解析 $\rightarrow$ 数据进入 socket 接收队列 $\rightarrow$ 最后再唤醒等待数据的应用进程，比如 Nginx、浏览器或你自己的服务程序。&lt;/p&gt;
+&lt;p&gt;这个例子里最关键的是分工：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;硬中断阶段&lt;/strong&gt;：目标是“先确认包到了，再尽快退出”，避免长时间卡住 CPU。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;软中断阶段&lt;/strong&gt;：目标是“继续把包往协议栈和应用层方向推”，完成更重但没必要在第一时间做完的工作。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这也解释了为什么网络栈常常离不开软中断：如果把协议解析、路由、过滤、socket 入队这些事全塞进硬中断里，CPU 会被中断处理占住太久，系统整体延迟反而会更差。
+在流量不高时，这些后续处理可能就在硬中断返回后很快完成；而在流量很大、包到得很密的时候，一轮 softirq 处理不完，剩下的工作就可能转给 ksoftirqd 继续消化。&lt;/p&gt;
+&lt;h3 id=&#34;顺便区分系统调用不等于这里说的软中断&#34;&gt;顺便区分：系统调用不等于这里说的软中断
+&lt;/h3&gt;&lt;p&gt;很多资料会把系统调用也宽泛地叫作“软件中断”，这是从“软件触发陷入内核”的角度去说的，并不算完全错。但如果本文讨论的是 Linux 里和硬中断配对出现的软中断，那么它更准确地指 softirq 这一类下半部机制，而不是 &lt;code&gt;read&lt;/code&gt;、&lt;code&gt;write&lt;/code&gt; 这类系统调用本身。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;硬中断-vs-软中断核心区别对比卡&#34;&gt;硬中断 vs 软中断：核心区别对比卡
+&lt;/h2&gt;&lt;p&gt;为了更直观地理解，我们可以从以下几个维度进行对比：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;比较维度&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;硬中断 (Hardware Interrupt)&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;软中断 (Software Interrupt)&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;触发主体&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;外部硬件设备（磁盘、网卡、键盘等）&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;内核标记的延后处理任务（常由硬中断或内核代码触发）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;触发时机&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;异步&lt;/strong&gt;（随时发生，随机不可预测）&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;通常在硬中断返回后或内核检查到 pending 时执行&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;对 CPU 的影响&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;强制物理打断 CPU 的当前执行流&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;不依赖外部电信号抢断，而由内核在合适时机执行&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;基本性质&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;依托&lt;strong&gt;内核子程序&lt;/strong&gt;（极速借用上下文）&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;依托&lt;strong&gt;内核下半部机制&lt;/strong&gt;（延后处理后续工作）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;执行优先级&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;极高&lt;/strong&gt;，必须立即响应（否则可能丢失数据）&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;仍然较高，通常紧跟在硬中断之后尽快处理&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;流程差异&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;硬件信号 $\rightarrow$ CPU $\rightarrow$ 查表 $\rightarrow$ 执行内核设备子程序&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;硬中断或内核代码置位 $\rightarrow$ 内核处理 softirq $\rightarrow$ 执行后续协议栈或内核逻辑&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;常见问题深度剖析qa&#34;&gt;常见问题深度剖析（Q&amp;amp;A）
+&lt;/h2&gt;&lt;h3 id=&#34;软中断也是由设备驱动程序处理数据的吗&#34;&gt;软中断也是由设备驱动程序处理数据的吗？
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;答：通常是“驱动 + 内核子系统”一起完成。&lt;/strong&gt;
+以网络收包为例，驱动在硬中断阶段先负责确认设备状态、拿到新包、触发 softirq 或 NAPI；到了 softirq 阶段，内核往往会去调用驱动注册的轮询函数，把Ring Buffer的包一批批取出来,而真正把数据继续送入 IP、TCP/UDP、socket 队列的，往往是后续的内核网络协议栈代码。也就是说，驱动负责开门和搬运第一步，后面的分发和处理则常常交给更通用的内核子系统。&lt;/p&gt;
+&lt;h3 id=&#34;软中断的操作流程是否比硬中断更短&#34;&gt;软中断的操作流程是否比硬中断更短？
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;答：从“触发链路”看更短，从“处理内容”看不一定更少。&lt;/strong&gt;
+软中断少了“外设通过 IRQ 线直接打断 CPU”这一步，因此它不需要硬件先发出物理中断信号。但软中断承担的，往往恰恰是硬中断故意延后下来的那部分工作，所以它执行的逻辑未必更少，只是执行时机更可控、更适合做后续处理。&lt;/p&gt;
+&lt;h3 id=&#34;软中断处理的时机&#34;&gt;软中断处理的时机
+&lt;/h3&gt;&lt;p&gt;硬中断先把 softirq 标记出来，内核在硬中断退出后先尝试立即处理一轮；如果这轮处理很快结束，那就当场完成；如果工作量太大、超出预算，或者软中断触发过于频繁，才会把剩余部分交给 ksoftirqd。也就是说，它更像“先试着现场消化，消化不完再转交”。&lt;/p&gt;
+&lt;h3 id=&#34;硬中断处理程序中能再发生中断吗&#34;&gt;硬中断处理程序中能再发生中断吗？
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;答：可以发生嵌套。&lt;/strong&gt;
+在硬中断代码执行时，如果没有屏蔽其他中断，更高优先级的硬中断依然会打断当前的中断处理。为了防止死锁和栈溢出，现代操作系统倾向于让硬中断函数变得“极短”，仅仅完成硬件层面的确认和数据搬运，剩下的繁重逻辑全部交由“软中断”去延后排队执行。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结
+&lt;/h2&gt;&lt;p&gt;无论硬中断还是软中断，本质上都是操作系统为了&lt;strong&gt;打破顺序执行的束缚、实现异步并发机制&lt;/strong&gt;而设计的精妙底层逻辑。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;硬中断&lt;/strong&gt; 表现为雷厉风行的“急行军”，通过内核子程序的形制直接切入，绝不等待调度器的安排，保证了系统能够瞬间响应外部硬件的呼唤；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;软中断&lt;/strong&gt; 则是软件系统内部严密的网络与队列，通过延后处理和有条不紊的任务分发，消化了硬中断带来的大量数据。&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        <item>
         <title>Linux 收包流程</title>
         <link>https://charles-7777.github.io/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/</link>
         <pubDate>Thu, 09 Apr 2026 20:33:31 +0800</pubDate>
@@ -141,7 +271,9 @@
 &lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://zhuanlan.zhihu.com/p/643195830&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;&lt;strong&gt;十年码农内功：网络收包详细过程&lt;/strong&gt;&lt;/a&gt;&lt;br&gt;
 &lt;a class=&#34;link&#34; href=&#34;https://zhuanlan.zhihu.com/p/690571077&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;&lt;strong&gt;linux6.9内核网络篇-收包源码分析&lt;/strong&gt;&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+    &gt;&lt;strong&gt;linux6.9内核网络篇-收包源码分析&lt;/strong&gt;&lt;/a&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://blog.csdn.net/yiyeguzhou100/article/details/158739874&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;strong&gt;Linux内核网卡收包流程，以及cpu、设备关开中断情况&lt;/strong&gt;&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
 </description>
         </item>
         <item>
