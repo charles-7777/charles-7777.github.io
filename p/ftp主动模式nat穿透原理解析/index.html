@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="IPv6同一前缀地址通信 具有相同前缀的主机间互访的时候，不会查找路由表，只会发NS（Neighbor Solicitation）请求，获取目的地址对应的链路层地址，然后使用该链路层地址封装要发送的数据报文\nsequenceDiagram participant PC1 participant Switch as 交换机（透明） participant PC2 note over PC1,PC2: 统一前缀：2001:db8:1::/64 PC1-&gt;&gt;PC2: NS (请求 2001:db8:1::20 的 MAC) PC2-&gt;&gt;PC1: NA (回应自己的 MAC) PC1-&gt;&gt;Switch: 数据帧 {dst MAC = PC2 的 MAC}&lt;br/&gt;IP: src=2001:db8:1::10, dst=2001:db8:1::20 Switch-&gt;&gt;PC2: 转发数据帧 IPv6不同前缀地址通信 PC先查看目标地址，发现不在本地前缀中；查路由表 → 下一跳 = 默认网关。如果已有 默认网关的 MAC 地址， 直接封装帧发送；如果没有 ，先发 NS（Neighbor Solicitation）请求 默认网关的 MAC，要到网关的mac再封装帧发送\nsequenceDiagram participant PC1 participant RouterA as Router (接口A) participant RouterB as Router (接口B) participant PC2 note right of RouterA: 2001:db8:1::1/64 note right of RouterB: 2001:db8:2::1/64 PC1-&gt;&gt;RouterA: NS (请求网关 2001:db8:1::1 的 MAC) RouterA-&gt;&gt;PC1: NA (回应自己的 MAC) PC1-&gt;&gt;RouterA: IP 数据包 {src=2001:db8:1::10, dst=2001:db8:2::20} RouterA-&gt;&gt;RouterB: 路由查找，准备从接口B转发 RouterB-&gt;&gt;PC2: NS (请求 2001:db8:2::20 的 MAC) PC2-&gt;&gt;RouterB: NA RouterB-&gt;&gt;PC2: IP 数据包 {src=2001:db8:1::10, dst=2001:db8:2::20} IPv6 ND proxy 具有相同前缀的主机间互访的时候，不会查找路由表，只会发NS（Neighbor Solicitation）请求，获取目的地址对应的链路层地址，然后使用该链路层地址封装要发送的数据报文。\n">
-<title>IPv6 ND proxy</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="FTP被动模式NAT穿透 被动模式成功场景流程图 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 Note over 客户端,NAT: 控制连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 21) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK (DNAT转换) Note over 客户端,NAT: PASV命令处理 客户端-&gt;&gt;服务器: PASV (请求被动模式) 服务器-&gt;&gt;服务器: 配置检查 Note right of 服务器: 服务器配置了正确的&lt;br&gt;公网IP地址 服务器--&gt;&gt;NAT: 227 Entering Passive Mode (203,0,113,50,10,20) NAT--&gt;&gt;客户端: 227 Entering Passive Mode (203,0,113,50,10,20) Note over 客户端,NAT: 数据连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 2580) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK Note over 客户端,服务器: ✅ 数据连接成功建立 FTP主动模式交互流程 无ALG支持时的失败场景 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 客户端-&gt;&gt;NAT: (1) 控制连接: TCP SYN (随机端口 -&gt; 21) NAT-&gt;&gt;服务器: (2) 控制连接建立 服务器-&gt;&gt;NAT: (3) 控制连接响应 NAT-&gt;&gt;客户端: (4) 控制连接响应 客户端-&gt;&gt;NAT: (5) PORT 192,168,1,100,200,10 NAT-&gt;&gt;服务器: (6) PORT 192,168,1,100,200,10 服务器-&gt;&gt;NAT: (7) 数据连接尝试 (20 -&gt; 51210) Note over 服务器,NAT: ❌ 失败：公网无法路由到内网私有IP 客户端-&gt;&gt;客户端: (8) 数据连接超时 在此场景下，NAT设备仅执行基本的地址转换，无法识别FTP协议载荷中的IP地址。\n">
+<title>FTP主动模式NAT穿透原理解析</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/p/ipv6-nd-proxy/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/'>
 
-<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="IPv6 ND proxy">
-<meta property='og:description' content="IPv6同一前缀地址通信 具有相同前缀的主机间互访的时候，不会查找路由表，只会发NS（Neighbor Solicitation）请求，获取目的地址对应的链路层地址，然后使用该链路层地址封装要发送的数据报文\nsequenceDiagram participant PC1 participant Switch as 交换机（透明） participant PC2 note over PC1,PC2: 统一前缀：2001:db8:1::/64 PC1-&gt;&gt;PC2: NS (请求 2001:db8:1::20 的 MAC) PC2-&gt;&gt;PC1: NA (回应自己的 MAC) PC1-&gt;&gt;Switch: 数据帧 {dst MAC = PC2 的 MAC}&lt;br/&gt;IP: src=2001:db8:1::10, dst=2001:db8:1::20 Switch-&gt;&gt;PC2: 转发数据帧 IPv6不同前缀地址通信 PC先查看目标地址，发现不在本地前缀中；查路由表 → 下一跳 = 默认网关。如果已有 默认网关的 MAC 地址， 直接封装帧发送；如果没有 ，先发 NS（Neighbor Solicitation）请求 默认网关的 MAC，要到网关的mac再封装帧发送\nsequenceDiagram participant PC1 participant RouterA as Router (接口A) participant RouterB as Router (接口B) participant PC2 note right of RouterA: 2001:db8:1::1/64 note right of RouterB: 2001:db8:2::1/64 PC1-&gt;&gt;RouterA: NS (请求网关 2001:db8:1::1 的 MAC) RouterA-&gt;&gt;PC1: NA (回应自己的 MAC) PC1-&gt;&gt;RouterA: IP 数据包 {src=2001:db8:1::10, dst=2001:db8:2::20} RouterA-&gt;&gt;RouterB: 路由查找，准备从接口B转发 RouterB-&gt;&gt;PC2: NS (请求 2001:db8:2::20 的 MAC) PC2-&gt;&gt;RouterB: NA RouterB-&gt;&gt;PC2: IP 数据包 {src=2001:db8:1::10, dst=2001:db8:2::20} IPv6 ND proxy 具有相同前缀的主机间互访的时候，不会查找路由表，只会发NS（Neighbor Solicitation）请求，获取目的地址对应的链路层地址，然后使用该链路层地址封装要发送的数据报文。\n">
-<meta property='og:url' content='https://charles-7777.github.io/p/ipv6-nd-proxy/'>
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="FTP主动模式NAT穿透原理解析">
+<meta property='og:description' content="FTP被动模式NAT穿透 被动模式成功场景流程图 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 Note over 客户端,NAT: 控制连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 21) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK (DNAT转换) Note over 客户端,NAT: PASV命令处理 客户端-&gt;&gt;服务器: PASV (请求被动模式) 服务器-&gt;&gt;服务器: 配置检查 Note right of 服务器: 服务器配置了正确的&lt;br&gt;公网IP地址 服务器--&gt;&gt;NAT: 227 Entering Passive Mode (203,0,113,50,10,20) NAT--&gt;&gt;客户端: 227 Entering Passive Mode (203,0,113,50,10,20) Note over 客户端,NAT: 数据连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 2580) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK Note over 客户端,服务器: ✅ 数据连接成功建立 FTP主动模式交互流程 无ALG支持时的失败场景 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 客户端-&gt;&gt;NAT: (1) 控制连接: TCP SYN (随机端口 -&gt; 21) NAT-&gt;&gt;服务器: (2) 控制连接建立 服务器-&gt;&gt;NAT: (3) 控制连接响应 NAT-&gt;&gt;客户端: (4) 控制连接响应 客户端-&gt;&gt;NAT: (5) PORT 192,168,1,100,200,10 NAT-&gt;&gt;服务器: (6) PORT 192,168,1,100,200,10 服务器-&gt;&gt;NAT: (7) 数据连接尝试 (20 -&gt; 51210) Note over 服务器,NAT: ❌ 失败：公网无法路由到内网私有IP 客户端-&gt;&gt;客户端: (8) 数据连接超时 在此场景下，NAT设备仅执行基本的地址转换，无法识别FTP协议载荷中的IP地址。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/'>
 <meta property='og:site_name' content=''>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='ipv6' /><meta property='article:published_time' content='2025-12-29T16:28:14&#43;08:00'/><meta property='article:modified_time' content='2025-12-29T16:42:55&#43;08:00'/>
-<meta name="twitter:title" content="IPv6 ND proxy">
-<meta name="twitter:description" content="IPv6同一前缀地址通信 具有相同前缀的主机间互访的时候，不会查找路由表，只会发NS（Neighbor Solicitation）请求，获取目的地址对应的链路层地址，然后使用该链路层地址封装要发送的数据报文\nsequenceDiagram participant PC1 participant Switch as 交换机（透明） participant PC2 note over PC1,PC2: 统一前缀：2001:db8:1::/64 PC1-&gt;&gt;PC2: NS (请求 2001:db8:1::20 的 MAC) PC2-&gt;&gt;PC1: NA (回应自己的 MAC) PC1-&gt;&gt;Switch: 数据帧 {dst MAC = PC2 的 MAC}&lt;br/&gt;IP: src=2001:db8:1::10, dst=2001:db8:1::20 Switch-&gt;&gt;PC2: 转发数据帧 IPv6不同前缀地址通信 PC先查看目标地址，发现不在本地前缀中；查路由表 → 下一跳 = 默认网关。如果已有 默认网关的 MAC 地址， 直接封装帧发送；如果没有 ，先发 NS（Neighbor Solicitation）请求 默认网关的 MAC，要到网关的mac再封装帧发送\nsequenceDiagram participant PC1 participant RouterA as Router (接口A) participant RouterB as Router (接口B) participant PC2 note right of RouterA: 2001:db8:1::1/64 note right of RouterB: 2001:db8:2::1/64 PC1-&gt;&gt;RouterA: NS (请求网关 2001:db8:1::1 的 MAC) RouterA-&gt;&gt;PC1: NA (回应自己的 MAC) PC1-&gt;&gt;RouterA: IP 数据包 {src=2001:db8:1::10, dst=2001:db8:2::20} RouterA-&gt;&gt;RouterB: 路由查找，准备从接口B转发 RouterB-&gt;&gt;PC2: NS (请求 2001:db8:2::20 的 MAC) PC2-&gt;&gt;RouterB: NA RouterB-&gt;&gt;PC2: IP 数据包 {src=2001:db8:1::10, dst=2001:db8:2::20} IPv6 ND proxy 具有相同前缀的主机间互访的时候，不会查找路由表，只会发NS（Neighbor Solicitation）请求，获取目的地址对应的链路层地址，然后使用该链路层地址封装要发送的数据报文。\n">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='network' /><meta property='article:published_time' content='2026-04-10T18:58:08&#43;08:00'/><meta property='article:modified_time' content='2026-04-10T19:08:16&#43;08:00'/>
+<meta name="twitter:title" content="FTP主动模式NAT穿透原理解析">
+<meta name="twitter:description" content="FTP被动模式NAT穿透 被动模式成功场景流程图 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 Note over 客户端,NAT: 控制连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 21) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK (DNAT转换) Note over 客户端,NAT: PASV命令处理 客户端-&gt;&gt;服务器: PASV (请求被动模式) 服务器-&gt;&gt;服务器: 配置检查 Note right of 服务器: 服务器配置了正确的&lt;br&gt;公网IP地址 服务器--&gt;&gt;NAT: 227 Entering Passive Mode (203,0,113,50,10,20) NAT--&gt;&gt;客户端: 227 Entering Passive Mode (203,0,113,50,10,20) Note over 客户端,NAT: 数据连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 2580) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK Note over 客户端,服务器: ✅ 数据连接成功建立 FTP主动模式交互流程 无ALG支持时的失败场景 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 客户端-&gt;&gt;NAT: (1) 控制连接: TCP SYN (随机端口 -&gt; 21) NAT-&gt;&gt;服务器: (2) 控制连接建立 服务器-&gt;&gt;NAT: (3) 控制连接响应 NAT-&gt;&gt;客户端: (4) 控制连接响应 客户端-&gt;&gt;NAT: (5) PORT 192,168,1,100,200,10 NAT-&gt;&gt;服务器: (6) PORT 192,168,1,100,200,10 服务器-&gt;&gt;NAT: (7) 数据连接尝试 (20 -&gt; 51210) Note over 服务器,NAT: ❌ 失败：公网无法路由到内网私有IP 客户端-&gt;&gt;客户端: (8) 数据连接超时 在此场景下，NAT设备仅执行基本的地址转换，无法识别FTP协议载荷中的IP地址。\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -291,9 +291,44 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#ipv6同一前缀地址通信">IPv6同一前缀地址通信</a></li>
-    <li><a href="#ipv6不同前缀地址通信">IPv6不同前缀地址通信</a></li>
-    <li><a href="#ipv6-nd-proxy">IPv6 ND proxy</a></li>
+    <li><a href="#ftp被动模式nat穿透">FTP被动模式NAT穿透</a>
+      <ol>
+        <li><a href="#被动模式成功场景流程图">被动模式成功场景流程图</a></li>
+      </ol>
+    </li>
+    <li><a href="#ftp主动模式交互流程">FTP主动模式交互流程</a>
+      <ol>
+        <li><a href="#无alg支持时的失败场景">无ALG支持时的失败场景</a></li>
+        <li><a href="#有alg支持时的成功场景">有ALG支持时的成功场景</a></li>
+      </ol>
+    </li>
+    <li><a href="#核心机制分析">核心机制分析</a>
+      <ol>
+        <li><a href="#状态检测防火墙机制">状态检测防火墙机制</a></li>
+        <li><a href="#conntrack的预期条目">Conntrack的&quot;预期&quot;条目</a></li>
+      </ol>
+    </li>
+    <li><a href="#内核源码实现分析ftp">内核源码实现分析FTP</a>
+      <ol>
+        <li>
+          <ol>
+            <li><a href="#关键-hook-点">关键 Hook 点</a></li>
+          </ol>
+        </li>
+        <li><a href="#核心函数分析">核心函数分析</a></li>
+        <li><a href="#处理流程">处理流程</a></li>
+      </ol>
+    </li>
+    <li><a href="#硬件加速对-ftp-主动模式的影响">硬件加速对 FTP 主动模式的影响</a>
+      <ol>
+        <li><a href="#hwnatflow-offloading-的工作原理">HWNAT/Flow Offloading 的工作原理</a>
+          <ol>
+            <li><a href="#软件-nat-vs-硬件加速-nat">软件 NAT vs 硬件加速 NAT</a></li>
+          </ol>
+        </li>
+        <li><a href="#为什么硬件加速导致主动模式失败">为什么硬件加速导致主动模式失败</a></li>
+      </ol>
+    </li>
   </ol>
 </nav>
         </div>
@@ -321,7 +356,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/ipv6-nd-proxy/">IPv6 ND proxy</a>
+            <a href="/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/">FTP主动模式NAT穿透原理解析</a>
         </h2>
     
         
@@ -343,11 +378,11 @@
   <path d="M3 11h16" />
   <path d="M18 16.496v1.504l1 1" />
 </svg>
-                <time class="article-time--published">2025-12-29 16:28</time>
+                <time class="article-time--published">2026-04-10 18:58</time>
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2025-12-29 16:42</time>
+            <time class="article-lastmod">2026-04-10 19:08</time>
         </div>
         
 
@@ -362,7 +397,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 1 分钟
+                    阅读时长: 3 分钟
                 </time>
             </div>
         
@@ -371,7 +406,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    183 字
+                    432 字
                 </time>
             </div>
         
@@ -391,73 +426,236 @@
     <section class="article-content">
     
     
-    <h2 id="ipv6同一前缀地址通信">IPv6同一前缀地址通信
-</h2><p>具有相同前缀的主机间互访的时候，不会查找路由表，只会发<strong>NS</strong>（Neighbor Solicitation）请求，获取目的地址对应的链路层地址，然后使用该链路层地址封装要发送的数据报文</p>
-<pre class="mermaid">
+    <h2 id="ftp被动模式nat穿透">FTP被动模式NAT穿透
+</h2><h3 id="被动模式成功场景流程图">被动模式成功场景流程图
+</h3><pre class="mermaid">
   sequenceDiagram
-    participant PC1
-    participant Switch as 交换机（透明）
-    participant PC2
+    participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100
+    participant NAT as NAT设备&lt;br&gt;1.2.3.4
+    participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50
 
-    note over PC1,PC2: 统一前缀：2001:db8:1::/64
+    Note over 客户端,NAT: 控制连接建立
+    客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 21)
+    NAT--&gt;&gt;服务器: TCP SYN (SNAT转换)
+    服务器--&gt;&gt;NAT: TCP SYN ACK
+    NAT--&gt;&gt;客户端: TCP SYN ACK (DNAT转换)
 
-    PC1-&gt;&gt;PC2: NS (请求 2001:db8:1::20 的 MAC)
-    PC2-&gt;&gt;PC1: NA (回应自己的 MAC)
+    Note over 客户端,NAT: PASV命令处理
+    客户端-&gt;&gt;服务器: PASV (请求被动模式)
+    服务器-&gt;&gt;服务器: 配置检查
+    Note right of 服务器: 服务器配置了正确的&lt;br&gt;公网IP地址
+    服务器--&gt;&gt;NAT: 227 Entering Passive Mode (203,0,113,50,10,20)
+    NAT--&gt;&gt;客户端: 227 Entering Passive Mode (203,0,113,50,10,20)
 
-    PC1-&gt;&gt;Switch: 数据帧 {dst MAC = PC2 的 MAC}&lt;br/&gt;IP: src=2001:db8:1::10, dst=2001:db8:1::20
-    Switch-&gt;&gt;PC2: 转发数据帧
+    Note over 客户端,NAT: 数据连接建立
+    客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 2580)
+    NAT--&gt;&gt;服务器: TCP SYN (SNAT转换)
+    服务器--&gt;&gt;NAT: TCP SYN ACK
+    NAT--&gt;&gt;客户端: TCP SYN ACK
+
+    Note over 客户端,服务器: ✅ 数据连接成功建立
 </pre>
-<h2 id="ipv6不同前缀地址通信">IPv6不同前缀地址通信
-</h2><p>PC先查看目标地址，发现不在本地前缀中；查路由表 → 下一跳 = 默认网关。如果已有 默认网关的 MAC 地址， 直接封装帧发送；如果没有 ，先发 NS（Neighbor Solicitation）请求 默认网关的 MAC，要到网关的mac再封装帧发送</p>
-<pre class="mermaid">
+<h2 id="ftp主动模式交互流程">FTP主动模式交互流程
+</h2><h3 id="无alg支持时的失败场景">无ALG支持时的失败场景
+</h3><pre class="mermaid">
   sequenceDiagram
-    participant PC1
-    participant RouterA as Router (接口A)
-    participant RouterB as Router (接口B)
-    participant PC2
+    participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100
+    participant NAT as NAT设备&lt;br&gt;1.2.3.4
+    participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50
 
-    note right of RouterA: 2001:db8:1::1/64
-    note right of RouterB: 2001:db8:2::1/64
+    客户端-&gt;&gt;NAT: (1) 控制连接: TCP SYN (随机端口 -&gt; 21)
+    NAT-&gt;&gt;服务器: (2) 控制连接建立
+    服务器-&gt;&gt;NAT: (3) 控制连接响应
+    NAT-&gt;&gt;客户端: (4) 控制连接响应
 
-    PC1-&gt;&gt;RouterA: NS (请求网关 2001:db8:1::1 的 MAC)
-    RouterA-&gt;&gt;PC1: NA (回应自己的 MAC)
+    客户端-&gt;&gt;NAT: (5) PORT 192,168,1,100,200,10
+    NAT-&gt;&gt;服务器: (6) PORT 192,168,1,100,200,10
 
-    PC1-&gt;&gt;RouterA: IP 数据包 {src=2001:db8:1::10, dst=2001:db8:2::20}
+    服务器-&gt;&gt;NAT: (7) 数据连接尝试 (20 -&gt; 51210)
+    Note over 服务器,NAT: ❌ 失败：公网无法路由到内网私有IP
 
-    RouterA-&gt;&gt;RouterB: 路由查找，准备从接口B转发
-
-    RouterB-&gt;&gt;PC2: NS (请求 2001:db8:2::20 的 MAC)
-    PC2-&gt;&gt;RouterB: NA
-
-    RouterB-&gt;&gt;PC2: IP 数据包 {src=2001:db8:1::10, dst=2001:db8:2::20}
+    客户端-&gt;&gt;客户端: (8) 数据连接超时
 </pre>
-<h2 id="ipv6-nd-proxy">IPv6 ND proxy
-</h2><p>具有相同前缀的主机间互访的时候，不会查找路由表，只会发<strong>NS</strong>（Neighbor Solicitation）请求，获取目的地址对应的链路层地址，然后使用该链路层地址封装要发送的数据报文。</p>
-<p>在实际组网中，具有相同前缀的主机可能不在一个网络广播域当中，这种情况下NS（Neighbor Solicitation）报文不能发送到目的主机，导致主机间不能互访。</p>
-<p>为了避免此问题，可以开启路由器的ND Proxy功能，用于替代目的主机回应NA（Neighbor Advertise）报文，报文中会携带路由器的链路层地址。采用这种方式，两个主机可以通过路由器设备完成互访</p>
-<pre class="mermaid">
+<p>在此场景下，NAT设备仅执行基本的地址转换，无法识别FTP协议载荷中的IP地址。</p>
+<h3 id="有alg支持时的成功场景">有ALG支持时的成功场景
+</h3><pre class="mermaid">
   sequenceDiagram
-    participant PC1
-    participant 路由器 as A-路由器-B
-    participant PC2
+    participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100
+    participant NAT as NAT设备&lt;br&gt;1.2.3.4
+    participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50
 
-    Note over PC1, PC2: PC1 需要向 PC2 发送数据报文
+    客户端-&gt;&gt;NAT: (1) 控制连接: TCP SYN (随机端口 -&gt; 21)
+    NAT-&gt;&gt;服务器: (2) 控制连接建立 (SNAT)
+    服务器-&gt;&gt;NAT: (3) 控制连接响应
+    NAT-&gt;&gt;客户端: (4) 控制连接响应 (DNAT)
 
-    PC1-&gt;&gt;路由器: NS(请求 1234::2/64 的 MAC 地址)&lt;br&gt;通过接口A
-    路由器--&gt;&gt;PC1: NA(回应 1234::2/64 的 MAC 地址是接口A的MAC地址)
-    PC1-&gt;&gt;路由器: 目的是 1234::2/64 的数据报文&lt;br&gt;通过接口A
+    客户端-&gt;&gt;NAT: (5) PORT 192,168,1,100,200,10
+    Note over NAT: 【FTP ALG介入处理】&lt;br&gt;1. 检测PORT命令载荷&lt;br&gt;2. 修改IP: 192.168.1.100 -&gt; 1.2.3.4&lt;br&gt;3. 建立NAT映射(端口51210)
 
+    NAT-&gt;&gt;服务器: (6) PORT 1,2,3,4,200,10
 
-    路由器-&gt;&gt;PC2: 目的是 1234::2/64 的数据报文&lt;br&gt;通过接口B
+    服务器-&gt;&gt;NAT: (7) 数据连接 (服务器连1.2.3.4:51210)
+    NAT-&gt;&gt;客户端: (8) DNAT转发 (1.2.3.4:51210 -&gt; 192.168.1.100:51210)
 
-    Note over PC2, PC1: PC2 需要向 PC1 发送数据报文
-
-    PC2-&gt;&gt;路由器: NS(请求 1234::1/64 的 MAC 地址)&lt;br&gt;通过接口B
-    路由器--&gt;&gt;PC2: NA(回应 1234::1/64 的 MAC 地址是接口B的MAC地址)
-    PC2-&gt;&gt;路由器: 目的是 1234::1/64 的数据报文&lt;br&gt;通过接口B
-
-    路由器-&gt;&gt;PC1: 目的是 1234::1/64 的数据报文&lt;br&gt;通过接口A
+    客户端-&gt;&gt;客户端: (9) 数据连接成功建立
 </pre>
+<h2 id="核心机制分析">核心机制分析
+</h2><h3 id="状态检测防火墙机制">状态检测防火墙机制
+</h3><p>现代NAT设备通常具备状态检测功能。它们不仅检查IP包头，还会跟踪连接的状态：</p>
+<ul>
+<li>当控制连接建立后，NAT设备知道这是一个活跃的会话</li>
+<li>当数据连接请求进入时，设备检查发现该流量符合已建立的会话规则</li>
+<li>因此判定其为合法的关联流量，而不是黑客的随机攻击</li>
+</ul>
+<h3 id="conntrack的预期条目">Conntrack的&quot;预期&quot;条目
+</h3><p>当ALG修改PORT命令时，它不仅修改了数据包内容，还在内核的Conntrack表中插入了一条特殊的记录。</p>
+<p><strong>Conntrack记录示例：</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">tcp      6 431999 ESTABLISHED src=192.168.1.100 dst=203.0.113.50 ... [控制连接主条目]
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">tcp      6 30 EXPECTED src=203.0.113.50 dst=1.2.3.4 sport=20 dport=51210 [ASSURED] master src=192.168.1.100 dst=203.0.113.50 ...
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这条EXPECTED记录明确告诉内核：&ldquo;我知道服务器马上要从20端口向我的51210端口发起连接，这是合法的，请不要丢弃。&rdquo;</p>
+<h2 id="内核源码实现分析ftp">内核源码实现分析FTP
+</h2><p>ALG 的 Hook 位置FTP ALG 的核心代码位于 net/netfilter/nf_conntrack_ftp.c，主要通过 Netfilter 的 Helper 机制动态注册。</p>
+<p>ALG的工作需要在数据包刚产生、还未进行NAT转换时进行拦截和修改。因此，其主要挂载点位于<code>NF_IP_LOCAL_OUT</code>。</p>
+<h4 id="关键-hook-点">关键 Hook 点
+</h4><p>● <strong>主要位置</strong>：<code>NF_IP_LOCAL_OUT</code></p>
+<p>● <strong>次要位置</strong>：<code>NF_IP_PRE_ROUTING</code></p>
+<p><strong>时间轴分析：</strong></p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>阶段</th>
+          <th>Netfilter Hook</th>
+          <th>主要动作</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td><code>NF_IP_LOCAL_OUT</code></td>
+          <td><strong>【ALG介入点】</strong> ALG截获数据包，把Payload里的内网IP改成公网IP，并注册Expectation</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td><code>NF_IP_POST_ROUTING</code></td>
+          <td><strong>【SNAT介入点】</strong> NAT表规则生效，把IP头的源地址从192.168.1.100改成1.2.3.4</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>发送出网卡</td>
+          <td>数据包发往互联网</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="核心函数分析">核心函数分析
+</h3><p><strong>注册入口函数：</strong> <code>nf_conntrack_ftp_init_net</code>
+<strong>核心处理函数：</strong> <code>help</code></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">// 源码片段示意 (简化版)
+</span></span><span class="line"><span class="cl">static struct nf_conntrack_helper nf_conntrack_helper_ftp[] __read_mostly = {
+</span></span><span class="line"><span class="cl">    {
+</span></span><span class="line"><span class="cl">        .name           = &#34;ftp&#34;,
+</span></span><span class="line"><span class="cl">        .me             = THIS_MODULE,
+</span></span><span class="line"><span class="cl">        .expect_policy  = &amp;ftp_expect_policy,
+</span></span><span class="line"><span class="cl">        .help           = help, // 核心处理函数
+</span></span><span class="line"><span class="cl">        .tuple.src.l3num = NFPROTO_IPV4,
+</span></span><span class="line"><span class="cl">        .tuple.dst.protonum = IPPROTO_TCP,
+</span></span><span class="line"><span class="cl">    },
+</span></span><span class="line"><span class="cl">};
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="处理流程">处理流程
+</h3><ul>
+<li>
+<p><strong>拦截时机</strong>：数据包经过 <code>NF_IP_LOCAL_OUT</code> 钩子</p>
+</li>
+<li>
+<p><strong>ALG 动作</strong>：</p>
+<ul>
+<li>解析数据包载荷，识别 <code>PORT</code> 命令</li>
+<li>将载荷中的内网 IP 替换为公网 IP</li>
+<li>调用 Conntrack 接口，插入 <code>IP_CT_EXPECTED</code> 记录</li>
+</ul>
+</li>
+<li>
+<p><strong>后续处理</strong>：数据包继续流转，在 <code>NF_IP_POST_ROUTING</code> 阶段由 SNAT 规则修改 IP 头部的源地址</p>
+</li>
+</ul>
+<h2 id="硬件加速对-ftp-主动模式的影响">硬件加速对 FTP 主动模式的影响
+</h2><h3 id="hwnatflow-offloading-的工作原理">HWNAT/Flow Offloading 的工作原理
+</h3><p>现代路由器为了提高转发性能和降低系统负载，通常会支持硬件加速网络地址转换（HWNAT）或流量卸载（Flow Offloading）技术。其核心思想是建立转发表后，让已知数据流的后续数据包直接经由交换芯片（Switch Chip）或网络加速处理器（NPU）转发，不再上送至主 CPU 和 Linux 内核进行处理。</p>
+<h4 id="软件-nat-vs-硬件加速-nat">软件 NAT vs 硬件加速 NAT
+</h4><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th style="text-align: left">特性</th>
+          <th style="text-align: left">软件 NAT (Linux Netfilter)</th>
+          <th style="text-align: left">硬件加速 NAT / 流量卸载 (HWNAT/Flow Offloading)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td style="text-align: left"><strong>处理层级</strong></td>
+          <td style="text-align: left">操作系统内核态，逐层解析</td>
+          <td style="text-align: left">底层硬件硬件芯片或协处理器直接转发</td>
+      </tr>
+      <tr>
+          <td style="text-align: left"><strong>CPU 占用</strong></td>
+          <td style="text-align: left">较高，CPU负载随吞吐量显著增加</td>
+          <td style="text-align: left"><strong>极低</strong>，CPU近乎零参与</td>
+      </tr>
+      <tr>
+          <td style="text-align: left"><strong>处理路径</strong></td>
+          <td style="text-align: left">完整穿越网络栈及所有 Netfilter 钩子 (Hook)</td>
+          <td style="text-align: left"><strong>绕过协议栈</strong>，首包建立连接后后续包硬件直通</td>
+      </tr>
+      <tr>
+          <td style="text-align: left"><strong>灵活性</strong></td>
+          <td style="text-align: left">极高，支持复杂的 ALG、七层检测及深度 QoS</td>
+          <td style="text-align: left"><strong>极低</strong>，通常仅支持基本五元组匹配及基础的 NAT 修改</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="为什么硬件加速导致主动模式失败">为什么硬件加速导致主动模式失败
+</h3><ul>
+<li><strong>控制连接建立</strong>：客户端连接服务器的 21 端口，可能被硬件加速接管</li>
+<li><strong>发送 PORT 命令</strong>：
+<ul>
+<li><strong>正常流程</strong>：包应进入 Netfilter 的 <code>LOCAL_OUT</code> 链，被 ALG 捕获</li>
+<li><strong>HWNAT 流程</strong>：包可能直接绕过 Netfilter 的软件钩子</li>
+</ul>
+</li>
+<li><strong>结果</strong>：
+<ul>
+<li><strong>ALG 没看到包</strong>：因为包没经过 Netfilter，ALG 模块没有机会运行</li>
+<li><strong>内容未修改</strong>：服务器收到的PORT命令中依然是内网 IP</li>
+<li><strong>Expectation 未创建</strong>：Conntrack 表中没有生成&quot;预期&quot;条目</li>
+</ul>
+</li>
+</ul>
 
 </section>
 
@@ -466,7 +664,7 @@
     
     <section class="article-tags">
         
-            <a href="/tags/ipv6/">Ipv6</a>
+            <a href="/tags/network/">Network</a>
         
     </section>
 
@@ -503,12 +701,12 @@
             
                 
 <article class="">
-    <a href="/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/">
+    <a href="/p/ipv6-nd-proxy/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">FTP主动模式NAT穿透原理解析</h2>
+            <h2 class="article-title">IPv6 ND proxy</h2>
         </div>
     </a>
 </article>

@@ -7,6 +7,244 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright><atom:link href="https://charles-7777.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>FTP主动模式NAT穿透原理解析</title>
+        <link>https://charles-7777.github.io/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</link>
+        <pubDate>Fri, 10 Apr 2026 18:58:08 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</guid>
+        <description>&lt;h2 id=&#34;ftp被动模式nat穿透&#34;&gt;FTP被动模式NAT穿透
+&lt;/h2&gt;&lt;h3 id=&#34;被动模式成功场景流程图&#34;&gt;被动模式成功场景流程图
+&lt;/h3&gt;&lt;pre class=&#34;mermaid&#34;&gt;
+  sequenceDiagram
+    participant 客户端 as 客户端(内网)&amp;lt;br&amp;gt;192.168.1.100
+    participant NAT as NAT设备&amp;lt;br&amp;gt;1.2.3.4
+    participant 服务器 as FTP服务器(外网)&amp;lt;br&amp;gt;203.0.113.50
+
+    Note over 客户端,NAT: 控制连接建立
+    客户端-&amp;gt;&amp;gt;NAT: TCP SYN (随机端口 -&amp;gt; 21)
+    NAT--&amp;gt;&amp;gt;服务器: TCP SYN (SNAT转换)
+    服务器--&amp;gt;&amp;gt;NAT: TCP SYN ACK
+    NAT--&amp;gt;&amp;gt;客户端: TCP SYN ACK (DNAT转换)
+
+    Note over 客户端,NAT: PASV命令处理
+    客户端-&amp;gt;&amp;gt;服务器: PASV (请求被动模式)
+    服务器-&amp;gt;&amp;gt;服务器: 配置检查
+    Note right of 服务器: 服务器配置了正确的&amp;lt;br&amp;gt;公网IP地址
+    服务器--&amp;gt;&amp;gt;NAT: 227 Entering Passive Mode (203,0,113,50,10,20)
+    NAT--&amp;gt;&amp;gt;客户端: 227 Entering Passive Mode (203,0,113,50,10,20)
+
+    Note over 客户端,NAT: 数据连接建立
+    客户端-&amp;gt;&amp;gt;NAT: TCP SYN (随机端口 -&amp;gt; 2580)
+    NAT--&amp;gt;&amp;gt;服务器: TCP SYN (SNAT转换)
+    服务器--&amp;gt;&amp;gt;NAT: TCP SYN ACK
+    NAT--&amp;gt;&amp;gt;客户端: TCP SYN ACK
+
+    Note over 客户端,服务器: ✅ 数据连接成功建立
+&lt;/pre&gt;
+&lt;h2 id=&#34;ftp主动模式交互流程&#34;&gt;FTP主动模式交互流程
+&lt;/h2&gt;&lt;h3 id=&#34;无alg支持时的失败场景&#34;&gt;无ALG支持时的失败场景
+&lt;/h3&gt;&lt;pre class=&#34;mermaid&#34;&gt;
+  sequenceDiagram
+    participant 客户端 as 客户端(内网)&amp;lt;br&amp;gt;192.168.1.100
+    participant NAT as NAT设备&amp;lt;br&amp;gt;1.2.3.4
+    participant 服务器 as FTP服务器(外网)&amp;lt;br&amp;gt;203.0.113.50
+
+    客户端-&amp;gt;&amp;gt;NAT: (1) 控制连接: TCP SYN (随机端口 -&amp;gt; 21)
+    NAT-&amp;gt;&amp;gt;服务器: (2) 控制连接建立
+    服务器-&amp;gt;&amp;gt;NAT: (3) 控制连接响应
+    NAT-&amp;gt;&amp;gt;客户端: (4) 控制连接响应
+
+    客户端-&amp;gt;&amp;gt;NAT: (5) PORT 192,168,1,100,200,10
+    NAT-&amp;gt;&amp;gt;服务器: (6) PORT 192,168,1,100,200,10
+
+    服务器-&amp;gt;&amp;gt;NAT: (7) 数据连接尝试 (20 -&amp;gt; 51210)
+    Note over 服务器,NAT: ❌ 失败：公网无法路由到内网私有IP
+
+    客户端-&amp;gt;&amp;gt;客户端: (8) 数据连接超时
+&lt;/pre&gt;
+&lt;p&gt;在此场景下，NAT设备仅执行基本的地址转换，无法识别FTP协议载荷中的IP地址。&lt;/p&gt;
+&lt;h3 id=&#34;有alg支持时的成功场景&#34;&gt;有ALG支持时的成功场景
+&lt;/h3&gt;&lt;pre class=&#34;mermaid&#34;&gt;
+  sequenceDiagram
+    participant 客户端 as 客户端(内网)&amp;lt;br&amp;gt;192.168.1.100
+    participant NAT as NAT设备&amp;lt;br&amp;gt;1.2.3.4
+    participant 服务器 as FTP服务器(外网)&amp;lt;br&amp;gt;203.0.113.50
+
+    客户端-&amp;gt;&amp;gt;NAT: (1) 控制连接: TCP SYN (随机端口 -&amp;gt; 21)
+    NAT-&amp;gt;&amp;gt;服务器: (2) 控制连接建立 (SNAT)
+    服务器-&amp;gt;&amp;gt;NAT: (3) 控制连接响应
+    NAT-&amp;gt;&amp;gt;客户端: (4) 控制连接响应 (DNAT)
+
+    客户端-&amp;gt;&amp;gt;NAT: (5) PORT 192,168,1,100,200,10
+    Note over NAT: 【FTP ALG介入处理】&amp;lt;br&amp;gt;1. 检测PORT命令载荷&amp;lt;br&amp;gt;2. 修改IP: 192.168.1.100 -&amp;gt; 1.2.3.4&amp;lt;br&amp;gt;3. 建立NAT映射(端口51210)
+
+    NAT-&amp;gt;&amp;gt;服务器: (6) PORT 1,2,3,4,200,10
+
+    服务器-&amp;gt;&amp;gt;NAT: (7) 数据连接 (服务器连1.2.3.4:51210)
+    NAT-&amp;gt;&amp;gt;客户端: (8) DNAT转发 (1.2.3.4:51210 -&amp;gt; 192.168.1.100:51210)
+
+    客户端-&amp;gt;&amp;gt;客户端: (9) 数据连接成功建立
+&lt;/pre&gt;
+&lt;h2 id=&#34;核心机制分析&#34;&gt;核心机制分析
+&lt;/h2&gt;&lt;h3 id=&#34;状态检测防火墙机制&#34;&gt;状态检测防火墙机制
+&lt;/h3&gt;&lt;p&gt;现代NAT设备通常具备状态检测功能。它们不仅检查IP包头，还会跟踪连接的状态：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;当控制连接建立后，NAT设备知道这是一个活跃的会话&lt;/li&gt;
+&lt;li&gt;当数据连接请求进入时，设备检查发现该流量符合已建立的会话规则&lt;/li&gt;
+&lt;li&gt;因此判定其为合法的关联流量，而不是黑客的随机攻击&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;conntrack的预期条目&#34;&gt;Conntrack的&amp;quot;预期&amp;quot;条目
+&lt;/h3&gt;&lt;p&gt;当ALG修改PORT命令时，它不仅修改了数据包内容，还在内核的Conntrack表中插入了一条特殊的记录。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Conntrack记录示例：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-fallback&#34; data-lang=&#34;fallback&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;tcp      6 431999 ESTABLISHED src=192.168.1.100 dst=203.0.113.50 ... [控制连接主条目]
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;tcp      6 30 EXPECTED src=203.0.113.50 dst=1.2.3.4 sport=20 dport=51210 [ASSURED] master src=192.168.1.100 dst=203.0.113.50 ...
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这条EXPECTED记录明确告诉内核：&amp;ldquo;我知道服务器马上要从20端口向我的51210端口发起连接，这是合法的，请不要丢弃。&amp;rdquo;&lt;/p&gt;
+&lt;h2 id=&#34;内核源码实现分析ftp&#34;&gt;内核源码实现分析FTP
+&lt;/h2&gt;&lt;p&gt;ALG 的 Hook 位置FTP ALG 的核心代码位于 net/netfilter/nf_conntrack_ftp.c，主要通过 Netfilter 的 Helper 机制动态注册。&lt;/p&gt;
+&lt;p&gt;ALG的工作需要在数据包刚产生、还未进行NAT转换时进行拦截和修改。因此，其主要挂载点位于&lt;code&gt;NF_IP_LOCAL_OUT&lt;/code&gt;。&lt;/p&gt;
+&lt;h4 id=&#34;关键-hook-点&#34;&gt;关键 Hook 点
+&lt;/h4&gt;&lt;p&gt;● &lt;strong&gt;主要位置&lt;/strong&gt;：&lt;code&gt;NF_IP_LOCAL_OUT&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;● &lt;strong&gt;次要位置&lt;/strong&gt;：&lt;code&gt;NF_IP_PRE_ROUTING&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;时间轴分析：&lt;/strong&gt;&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;阶段&lt;/th&gt;
+          &lt;th&gt;Netfilter Hook&lt;/th&gt;
+          &lt;th&gt;主要动作&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;1&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;NF_IP_LOCAL_OUT&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;strong&gt;【ALG介入点】&lt;/strong&gt; ALG截获数据包，把Payload里的内网IP改成公网IP，并注册Expectation&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;2&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;NF_IP_POST_ROUTING&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;strong&gt;【SNAT介入点】&lt;/strong&gt; NAT表规则生效，把IP头的源地址从192.168.1.100改成1.2.3.4&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;3&lt;/td&gt;
+          &lt;td&gt;发送出网卡&lt;/td&gt;
+          &lt;td&gt;数据包发往互联网&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;核心函数分析&#34;&gt;核心函数分析
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;注册入口函数：&lt;/strong&gt; &lt;code&gt;nf_conntrack_ftp_init_net&lt;/code&gt;
+&lt;strong&gt;核心处理函数：&lt;/strong&gt; &lt;code&gt;help&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt; 1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 7
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 8
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 9
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;10
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-fallback&#34; data-lang=&#34;fallback&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;// 源码片段示意 (简化版)
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;static struct nf_conntrack_helper nf_conntrack_helper_ftp[] __read_mostly = {
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    {
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        .name           = &amp;#34;ftp&amp;#34;,
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        .me             = THIS_MODULE,
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        .expect_policy  = &amp;amp;ftp_expect_policy,
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        .help           = help, // 核心处理函数
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        .tuple.src.l3num = NFPROTO_IPV4,
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        .tuple.dst.protonum = IPPROTO_TCP,
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    },
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;};
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id=&#34;处理流程&#34;&gt;处理流程
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;拦截时机&lt;/strong&gt;：数据包经过 &lt;code&gt;NF_IP_LOCAL_OUT&lt;/code&gt; 钩子&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;ALG 动作&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;解析数据包载荷，识别 &lt;code&gt;PORT&lt;/code&gt; 命令&lt;/li&gt;
+&lt;li&gt;将载荷中的内网 IP 替换为公网 IP&lt;/li&gt;
+&lt;li&gt;调用 Conntrack 接口，插入 &lt;code&gt;IP_CT_EXPECTED&lt;/code&gt; 记录&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;后续处理&lt;/strong&gt;：数据包继续流转，在 &lt;code&gt;NF_IP_POST_ROUTING&lt;/code&gt; 阶段由 SNAT 规则修改 IP 头部的源地址&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;硬件加速对-ftp-主动模式的影响&#34;&gt;硬件加速对 FTP 主动模式的影响
+&lt;/h2&gt;&lt;h3 id=&#34;hwnatflow-offloading-的工作原理&#34;&gt;HWNAT/Flow Offloading 的工作原理
+&lt;/h3&gt;&lt;p&gt;现代路由器为了提高转发性能和降低系统负载，通常会支持硬件加速网络地址转换（HWNAT）或流量卸载（Flow Offloading）技术。其核心思想是建立转发表后，让已知数据流的后续数据包直接经由交换芯片（Switch Chip）或网络加速处理器（NPU）转发，不再上送至主 CPU 和 Linux 内核进行处理。&lt;/p&gt;
+&lt;h4 id=&#34;软件-nat-vs-硬件加速-nat&#34;&gt;软件 NAT vs 硬件加速 NAT
+&lt;/h4&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;特性&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;软件 NAT (Linux Netfilter)&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;硬件加速 NAT / 流量卸载 (HWNAT/Flow Offloading)&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;处理层级&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;操作系统内核态，逐层解析&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;底层硬件硬件芯片或协处理器直接转发&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;CPU 占用&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;较高，CPU负载随吞吐量显著增加&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;极低&lt;/strong&gt;，CPU近乎零参与&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;处理路径&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;完整穿越网络栈及所有 Netfilter 钩子 (Hook)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;绕过协议栈&lt;/strong&gt;，首包建立连接后后续包硬件直通&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;灵活性&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;极高，支持复杂的 ALG、七层检测及深度 QoS&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;极低&lt;/strong&gt;，通常仅支持基本五元组匹配及基础的 NAT 修改&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;为什么硬件加速导致主动模式失败&#34;&gt;为什么硬件加速导致主动模式失败
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;控制连接建立&lt;/strong&gt;：客户端连接服务器的 21 端口，可能被硬件加速接管&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;发送 PORT 命令&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;正常流程&lt;/strong&gt;：包应进入 Netfilter 的 &lt;code&gt;LOCAL_OUT&lt;/code&gt; 链，被 ALG 捕获&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;HWNAT 流程&lt;/strong&gt;：包可能直接绕过 Netfilter 的软件钩子&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;结果&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;ALG 没看到包&lt;/strong&gt;：因为包没经过 Netfilter，ALG 模块没有机会运行&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;内容未修改&lt;/strong&gt;：服务器收到的PORT命令中依然是内网 IP&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Expectation 未创建&lt;/strong&gt;：Conntrack 表中没有生成&amp;quot;预期&amp;quot;条目&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        <item>
         <title>硬中断与软中断</title>
         <link>https://charles-7777.github.io/p/%E7%A1%AC%E4%B8%AD%E6%96%AD%E4%B8%8E%E8%BD%AF%E4%B8%AD%E6%96%AD/</link>
         <pubDate>Fri, 10 Apr 2026 10:33:25 +0800</pubDate>
