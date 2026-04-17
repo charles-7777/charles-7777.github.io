@@ -1,13 +1,164 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
-        <title>AI on </title>
+        <title>Ai on </title>
         <link>https://charles-7777.github.io/tags/ai/</link>
-        <description>Recent content in AI on </description>
+        <description>Recent content in Ai on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Wed, 11 Feb 2026 16:50:08 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/ai/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Fri, 17 Apr 2026 20:32:42 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/ai/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>RAG (Retrieval-Augmented Generation)</title>
+        <link>https://charles-7777.github.io/p/rag-retrieval-augmented-generation/</link>
+        <pubDate>Fri, 17 Apr 2026 20:07:55 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/rag-retrieval-augmented-generation/</guid>
+        <description>&lt;blockquote&gt;
+&lt;p&gt;在大模型（LLM）飞速发展的今天，我们经常会遇到模型“一本正经地胡说八道”（即幻觉），或者模型无法回答关于最新事件和企业内部私有数据的问题。为了解决这些痛点，&lt;strong&gt;RAG&lt;/strong&gt;技术应运而生。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;什么是-rag&#34;&gt;什么是 RAG？
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;RAG (Retrieval-Augmented Generation)&lt;/strong&gt;，中文译为“检索增强生成”。它是一种结合了&lt;strong&gt;信息检索系统&lt;/strong&gt;和&lt;strong&gt;大型语言模型（LLM）生成能力&lt;/strong&gt;的先进 AI 架构。&lt;/p&gt;
+&lt;p&gt;如果把大模型比作一个博览群书但记忆停留在某一时刻的&lt;strong&gt;闭卷考试学生&lt;/strong&gt;，那么 RAG 就是赋予了这个学生&lt;strong&gt;开卷考试&lt;/strong&gt;的特权。当被问到不熟悉或最新的问题时，RAG 系统会先去外挂的“参考书”（知识库）里检索出相关的资料，然后把问题和查到的资料一起交给大模型，让它基于这些&lt;strong&gt;准确、新鲜的参考内容&lt;/strong&gt;来总结并作答。&lt;/p&gt;
+&lt;h2 id=&#34;rag-解决了什么痛点rag-vs-微调&#34;&gt;RAG 解决了什么痛点？（RAG vs 微调）
+&lt;/h2&gt;&lt;p&gt;RAG 的出现主要解决了传统大语言模型在实际落地时面临的几个核心痛点。相较于高成本的模型微调（Fine-Tuning），RAG 提供了一条更轻量、高效的路径。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;比较维度&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;传统大模型 (仅依赖预训练权重)&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;模型微调 (Fine-tuning)&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;RAG (检索增强生成)&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;知识更新&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;很难，需重新训练模型&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;较慢，需要重新准备数据集并微调&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;极快&lt;/strong&gt;，只需更新知识库文档即可&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;产生“幻觉”&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;容易凭空捏造答案&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;依然存在幻觉风险&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;显著降低&lt;/strong&gt;，回答有事实依据可查&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;数据安全性&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;无法处理私有数据&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;数据融入模型权重，存在泄露风险&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;极高&lt;/strong&gt;，私有数据隔离在本地数据库中&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;硬件与成本&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;无额外成本但效果受限&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;成本极高，需大量算力和时间&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;成本极低&lt;/strong&gt;，仅需额外的存储和检索开销&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;rag-的工作原理&#34;&gt;RAG 的工作原理
+&lt;/h2&gt;&lt;p&gt;RAG 的核心流程通常可以分为三个主要阶段：&lt;strong&gt;数据索引（Indexing）&lt;/strong&gt;、&lt;strong&gt;检索（Retrieval）&lt;strong&gt;和&lt;/strong&gt;生成（Generation）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我们可以通过以下的架构流程图来直观地理解其运作机制：&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;
+  graph TD
+    classDef blue fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef green fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
+    classDef orange fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    
+    subgraph Indexing [&amp;#34;阶段一：数据索引 (Data Indexing)&amp;#34;]
+        A[&amp;#34;各种格式文档&amp;lt;br&amp;gt;PDF/Word/网页&amp;#34;] --&amp;gt;|&amp;#34;1. 提取与清理&amp;#34;| B(&amp;#34;文档分割 Chunking&amp;#34;)
+        B --&amp;gt;|&amp;#34;2. 向量化&amp;#34;| C(&amp;#34;Embedding 模型&amp;#34;)
+        C --&amp;gt;|&amp;#34;3. 存储&amp;#34;| D[(&amp;#34;向量数据库 Vector DB&amp;#34;)]
+    end
+    class A,B,C,D blue;
+
+    subgraph Retrieval [&amp;#34;阶段二：检索 (Retrieval)&amp;#34;]
+        E[&amp;#34;用户的实际提问&amp;lt;br&amp;gt;User Query&amp;#34;] --&amp;gt;|&amp;#34;4. 向量化&amp;#34;| F(&amp;#34;查询向量&amp;#34;)
+        F --&amp;gt;|&amp;#34;5. 计算相似度&amp;#34;| G{&amp;#34;向量检索 Top-K&amp;#34;}
+        D -.-&amp;gt;|&amp;#34;提供数据检索&amp;#34;| G
+        G --&amp;gt;|&amp;#34;6. 返回相关内容片段&amp;#34;| H[&amp;#34;组装 Prompt 提示词&amp;lt;br&amp;gt;(问题 + 参考资料)&amp;#34;]
+        E --&amp;gt;|&amp;#34;原始问题&amp;#34;| H
+    end
+    class E,F,G orange;
+
+    subgraph Generation [&amp;#34;阶段三：生成 (Generation)&amp;#34;]
+        H --&amp;gt;|&amp;#34;7. 推理&amp;#34;| I((&amp;#34;大语言模型 LLM&amp;#34;))
+        I --&amp;gt;|&amp;#34;8. 输出&amp;#34;| J[&amp;#34;最终精准回答&amp;#34;]
+    end
+    class H,I,J green;
+&lt;/pre&gt;
+&lt;h3 id=&#34;深入解析三大阶段&#34;&gt;深入解析三大阶段：
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;阶段一：数据索引 (Indexing) - “建立私人图书馆”&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;文档解析与提取：&lt;/strong&gt; 企业的原始数据格式繁多（如 PDF、Word、PPT、HTML、Markdown 甚至扫描图片）。通常需要使用 &lt;code&gt;Unstructured.io&lt;/code&gt;、&lt;code&gt;PyMuPDF&lt;/code&gt; 等解析库或 OCR 技术，将这些异构数据提取、清洗为大模型更易理解的&lt;strong&gt;纯文本（Plain Text）或 Markdown 格式&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;文档分割 (Chunking)：&lt;/strong&gt; 由于大模型有输入长度限制，我们需要将长文本切分成大小合适的小块（Chunks）。如果块太大，检索不到精准细节；如果太小，又丢失了上下文语义。
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;主流切块工具：&lt;/em&gt; 开发者通常直接调用 &lt;code&gt;LangChain&lt;/code&gt;（例如其极其常用的 &lt;code&gt;RecursiveCharacterTextSplitter&lt;/code&gt;）或 &lt;code&gt;LlamaIndex&lt;/code&gt; 框架中内置的文档分割器，或者使用 OpenAI 提供的 &lt;code&gt;tiktoken&lt;/code&gt; 库按 Token 数量精确切分。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;切块策略：&lt;/em&gt; 最经典的做法是设置一个&lt;strong&gt;重叠率（Chunk Overlap）&lt;/strong&gt;（比如每块 500 字，相邻两块保留 50 字的重叠片段），以防止一句话恰好在分界处被生硬切断。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量化 (Embedding)：&lt;/strong&gt; 这一步是让计算机“理解语义”的关键魔法。由于计算机不认识我们人类的字符，只懂数值计算，因此 &lt;strong&gt;Embedding 模型&lt;/strong&gt;的作用就是把切分好的文本块，转换成一个包含数百或数千个浮点数的数组，我们称之为&lt;strong&gt;向量 (Vector)&lt;/strong&gt;。
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;具体是如何转换的？&lt;/em&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;分词 (Tokenization)：&lt;/strong&gt; 首先将这段文本切分为更小的单位“词元 (Token)”，并根据词表将每个词元转换为对应的数字 ID。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;前向传播 (神经网络计算)：&lt;/strong&gt; 将这些数字 ID 送入一个预先经过海量文本训练的深度神经网络（通常是基于 Transformer 的架构，如 BERT）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;提取特征特征 (Pooling层输出)：&lt;/strong&gt; 神经网络在逐层理解文本上下文后，会提取这段话的核心语义特征，最终在最后一层压缩并输出为一个固定长度（比如 768 维或 1536 维）的浮点数数组。这个不可读的数组，就是这段文本的“语义指纹”。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;原理解释：&lt;/em&gt; 你可以把这个过程想象成在一个极其复杂的“多维空间地图”里，为每一段文本寻找一个精准的坐标点。在这个高维空间中，&lt;strong&gt;语义越相近的句子，它们的空间距离就越近&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;生动举例：&lt;/em&gt; “苹果很好吃”和“香蕉很甜”这两个句子都在描述水果口感，它们的向量距离会很近；而“苹果刚发布了新款手机”虽然也带有“苹果”二字，但在空间里会远离前者，靠近“科技模型”等坐标。这正是基于语义的向量搜索比传统的“关键字匹配”更聪明的地方。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;主流模型代表：&lt;/em&gt; OpenAI 的 &lt;code&gt;text-embedding-3&lt;/code&gt; 系列、开源界表现优异的 &lt;code&gt;BGE&lt;/code&gt; 系列（如智源 &lt;code&gt;bge-m3&lt;/code&gt;）、通义千问 &lt;code&gt;Qwen-Embedding&lt;/code&gt; 等。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量与 Chunk 的映射存储 (向量数据库)：&lt;/strong&gt; 算出了向量，怎么在检索时找回原来的文字呢？我们需要专门的&lt;strong&gt;向量数据库&lt;/strong&gt;（如 Milvus, Pinecone, Qdrant, Chroma）来进行映射和存储。在数据库中，数据记录通常包含以下几个核心部分以建立它们之间的关联：
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;唯一标识 (ID)：&lt;/strong&gt; 为每个被切分好的 Chunk 分配一个全局唯一的 ID。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量字段 (Vector)：&lt;/strong&gt; 存放 Embedding 模型算出来的一长串浮点数数组，作为该对象在数据库里的“数学坐标”，引擎专看此字段计算相似度。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;负载 / 元数据 (Payload/Metadata)：&lt;/strong&gt; 这是至关重要的一环。这里不仅要原封不动地存入&lt;strong&gt;原始的 Chunk 文本&lt;/strong&gt;（检索到后最终要原样送给大模型阅读），通常还会存入该文本的各种属性与来源信息（文档名称、PDF 页码、作者、更新时间等）。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;关联回溯过程：&lt;/em&gt; 检索时，引擎只会拿用户问题的“向量”去数据库里和那堆“向量字段”比对距离。一旦发现几个靠得很近的向量，就会拿它们的 ID，顺藤摸瓜地提取出绑定在同一记录里的 Payload（它对应的原始文字和出处），从而实现了从“抽象的数学数组”重新回退关联到“人类阅读的具体段落”。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;阶段二：检索 (Retrieval) - “寻找解题线索”&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用户提出问题后，系统先将问题同样进行&lt;strong&gt;向量化&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;接着在向量数据库中进行&lt;strong&gt;距离计算（如余弦相似度）&lt;/strong&gt;，召回排名最靠前的（Top-K）几个相关内容片段。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;阶段三：生成 (Generation) - “提炼并撰写答案”&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;系统将用户的原始问题与检索出的 Top-K 个内容片段拼接成一个庞大且信息丰富的 Prompt（提示词）。&lt;/li&gt;
+&lt;li&gt;提示词示例：&lt;em&gt;“请你作为一个 AI 助手，&lt;strong&gt;仅基于以下提供的上下文资料&lt;/strong&gt;来回答用户问题。上下文资料：[检索到的片段1, 片段2&amp;hellip;]。用户问题：[XXX]”&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;将 Prompt 交给 LLM（如 GPT-4），大模型就会化身为一台强大的“阅读理解器”，给出一份有理有据的答卷。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;进阶什么是-advanced-rag&#34;&gt;进阶：什么是 Advanced RAG？
+&lt;/h2&gt;&lt;p&gt;随着技术演进，为了应对复杂问题，基础的 Naive RAG 正在向 &lt;strong&gt;Advanced RAG (高级 RAG)&lt;/strong&gt; 演变，主要加入了以下技术提升效果：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Query Rewrite（查询重写）：&lt;/strong&gt; 用户的提问往往过于简短或有语病，先用小模型把用户问题扩写或纠错，以提高检索命中率。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Re-ranking（重排序）：&lt;/strong&gt; 向量检索找回来的 Top-10 片段，可能并非对生成回答最有用。加入一个排序模型（如 BGE-Reranker），对这 10 个片段进行一次精细打分排序，把最关键的送给大模型。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Multi-Agent RAG（多智能体检索）：&lt;/strong&gt; 遇到极复杂问题时，让不同的 Agent 负责不同的知识库检索（比如一个查财务报表数据库，一个查新闻网页），最后汇总作答。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;rag-的典型应用场景&#34;&gt;RAG 的典型应用场景
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;🏢 &lt;strong&gt;企业内部大脑（知识问答助理）：&lt;/strong&gt; 过去新员工培训需要手翻各类员工手册，现在直接向 RAG 机器人提问“出差报销流程是什么？最高额度多少？”，它会立刻根据最新财务制度给出含引用来源的答复。&lt;/li&gt;
+&lt;li&gt;🎧 &lt;strong&gt;智能客服与售后引擎：&lt;/strong&gt; 结合海量历史工单和产品说明手册，打造能处理复杂长尾问题的售后客服系统，显著降低人工成本。&lt;/li&gt;
+&lt;li&gt;⚖️ &lt;strong&gt;司法与医疗垂类应用：&lt;/strong&gt; 律师可以利用 RAG 系统从浩如烟海的过往卷宗和法律条文中快速查找司法判例；医生也可以通过检索最新医学文献库来辅助疑难杂症的诊断。&lt;/li&gt;
+&lt;li&gt;🔍 &lt;strong&gt;新一代搜索引擎：&lt;/strong&gt; 像 Perplexity、知乎直答等产品，改变了搜索引擎以往只给出一堆蓝色链接的习惯，直接将搜到的多篇相关网页丢进 RAG 处理，直接为你输出一篇有引用的解答小短文。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结
+&lt;/h2&gt;&lt;p&gt;RAG 为大模型赋予了“开卷考试”的能力，是目前让通用大语言模型落地到垂直行业、处理企业私有知识&lt;strong&gt;最有效、性价比最高&lt;/strong&gt;的工业界标准方案。随着向量检索技术、Context Window（上下文窗口）扩展以及多模态技术的发展，RAG 必将在更多复杂的应用场景下大放异彩。&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>Agent Skill</title>
         <link>https://charles-7777.github.io/p/agent-skill/</link>
         <pubDate>Wed, 11 Feb 2026 11:19:50 +0800</pubDate>
