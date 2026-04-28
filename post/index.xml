@@ -7,7 +7,244 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Tue, 28 Apr 2026 16:41:02 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 28 Apr 2026 17:26:08 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>NAT类型</title>
+        <link>https://charles-7777.github.io/p/nat%E7%B1%BB%E5%9E%8B/</link>
+        <pubDate>Tue, 28 Apr 2026 17:16:59 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/nat%E7%B1%BB%E5%9E%8B/</guid>
+        <description>&lt;h2 id=&#34;nat类型详解&#34;&gt;NAT类型详解
+&lt;/h2&gt;&lt;h3 id=&#34;全锥形nat&#34;&gt;全锥形NAT
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;全锥形NAT&lt;/strong&gt;是最宽松的一种NAT类型，也称为&amp;quot;开放锥形NAT&amp;quot;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;工作原理：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;内部主机A向外部主机发送数据包时，NAT设备会为A创建一个映射&lt;/li&gt;
+&lt;li&gt;一旦映射建立，任何外部主机都可以通过这个公网IP和端口与A通信&lt;/li&gt;
+&lt;li&gt;不需要事先建立连接或发送数据&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;特点：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;穿透性最好，安全性最低&lt;/li&gt;
+&lt;li&gt;适合P2P应用和PCDN技术&lt;/li&gt;
+&lt;li&gt;现代路由器中较少见&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;
+  graph TD
+    subgraph 内网
+        A[内部主机A192.168.1.10:3000]
+    end
+
+    subgraph NAT设备
+        N[全锥形NAT18.18.0.10]
+    end
+
+    subgraph 外网
+        S1[外部主机1155.99.24.2:8000]
+        S2[外部主机213.13.0.10:1232]
+    end
+
+    A --&amp;gt;|映射| N
+    N --&amp;gt;|开放通道| S1
+    N --&amp;gt;|开放通道| S2
+
+    style A fill:#f9f,stroke:#333
+    style N fill:#bbf,stroke:#333,color:#fff
+    style S1 fill:#9f9,stroke:#333
+    style S2 fill:#9f9,stroke:#333
+&lt;/pre&gt;
+&lt;h3 id=&#34;ip受限型nat&#34;&gt;IP受限型NAT
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;IP受限型NAT&lt;/strong&gt;也称为&amp;quot;限制锥形NAT&amp;quot;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;工作原理：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;内部主机A向外部主机S1发送数据包后，NAT设备创建映射&lt;/li&gt;
+&lt;li&gt;只有S1可以通过该公网端口向A发送数据&lt;/li&gt;
+&lt;li&gt;其他主机即使知道公网IP和端口也无法通信&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;
+  graph TD
+    subgraph 内网
+        A[内部主机A192.168.1.10:3000]
+    end
+
+    subgraph NAT设备
+        N[IP受限型NAT18.18.0.10]
+    end
+
+    subgraph 外网
+        S1[外部主机1155.99.24.2:8000]
+        S2[外部主机213.13.0.10:1232]
+    end
+
+    A --&amp;gt;|建立连接| N
+    N --&amp;gt;|允许| S1
+    N -.-&amp;gt;|拒绝| S2
+
+    style A fill:#f9f,stroke:#333
+    style N fill:#bbf,stroke:#333,color:#fff
+    style S1 fill:#9f9,stroke:#333
+    style S2 fill:#9f9,stroke:#333
+&lt;/pre&gt;
+&lt;h3 id=&#34;端口受限型nat&#34;&gt;端口受限型NAT
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;端口受限型NAT&lt;/strong&gt;是限制性更强的一种锥形NAT。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;工作原理：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;内部主机A向外部主机S1的特定端口发送数据后，NAT设备创建映射&lt;/li&gt;
+&lt;li&gt;只有S1从相同IP和端口向A发送数据时，数据包才能通过&lt;/li&gt;
+&lt;li&gt;即使S1从不同端口发送数据也会被拒绝&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;特点：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;比IP受限型更安全&lt;/li&gt;
+&lt;li&gt;常见于现代路由器&lt;/li&gt;
+&lt;li&gt;P2P通信穿透难度增加&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;
+  graph TD
+    subgraph 内网
+        A[内部主机A192.168.1.10:3000]
+    end
+
+    subgraph NAT设备
+        N[端口受限型NAT18.18.0.10]
+    end
+
+    subgraph 外网
+        S1[外部主机1155.99.24.2:8000]
+        S2[外部主机2155.99.24.2:8001]
+    end
+
+    A --&amp;gt;|向S1:8000发送| N
+    N --&amp;gt;|允许S1:8000| A
+    N -.-&amp;gt;|拒绝S1:8001| A
+
+    style A fill:#f9f,stroke:#333
+    style N fill:#bbf,stroke:#333,color:#fff
+    style S1 fill:#9f9,stroke:#333
+    style S2 fill:#9f9,stroke:#333
+&lt;/pre&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;内部连接标识 (内部主机A -&amp;gt;外部主机)&lt;/th&gt;
+          &lt;th&gt;外部连接标识 (NAT公网IP -&amp;gt;外部主机)&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;192.168.1.5:5000&lt;/code&gt; -&amp;gt; &lt;code&gt;1.1.1.1:80&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;2.2.2.2:6000&lt;/code&gt; -&amp;gt; &lt;code&gt;1.1.1.1:80&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;192.168.1.5:5000&lt;/code&gt; -&amp;gt; &lt;code&gt;3.3.3.3:80&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;2.2.2.2:6000&lt;/code&gt; -&amp;gt; &lt;code&gt;3.3.3.3:80&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;对称型nat&#34;&gt;对称型NAT
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;对称型NAT&lt;/strong&gt;是最严格的NAT类型。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;工作原理：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;每当内部主机A向不同的外部主机发送数据时，NAT设备都会分配不同的公网端口&lt;/li&gt;
+&lt;li&gt;外部主机必须先收到A发给它的数据，然后才能向A发送数据&lt;/li&gt;
+&lt;li&gt;即使知道公网IP和端口，也无法主动连接&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;特点：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;安全性最高&lt;/li&gt;
+&lt;li&gt;P2P通信最难穿透&lt;/li&gt;
+&lt;li&gt;常见于企业级网络设备&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;
+  graph TD
+    subgraph 内网
+        A[内部主机A192.168.1.10:3000]
+    end
+
+    subgraph NAT设备
+        N[对称型NAT18.18.0.10]
+    end
+
+    subgraph 外网
+        S1[外部主机1155.99.24.2:8000]
+        S2[外部主机213.13.0.10:1232]
+    end
+
+    A --&amp;gt;|向S1发送| N
+    A --&amp;gt;|向S2发送| N
+    N --&amp;gt;|不同端口| S1
+    N --&amp;gt;|不同端口| S2
+
+    style A fill:#f9f,stroke:#333
+    style N fill:#bbf,stroke:#333,color:#fff
+    style S1 fill:#9f9,stroke:#333
+    style S2 fill:#9f9,stroke:#333
+&lt;/pre&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;内部连接标识 (你的电脑 -&amp;gt; 目标)&lt;/th&gt;
+          &lt;th&gt;外部连接标识 (NAT公网IP -&amp;gt; 目标)&lt;/th&gt;
+          &lt;th&gt;备注&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;192.168.1.5:5000&lt;/code&gt; -&amp;gt; &lt;code&gt;1.1.1.1:80&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;2.2.2.2:6000&lt;/code&gt; -&amp;gt; &lt;code&gt;1.1.1.1:80&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;访问服务器 A，分配端口 6000&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;192.168.1.5:5000&lt;/code&gt; -&amp;gt; &lt;code&gt;3.3.3.3:80&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;2.2.2.2:7000&lt;/code&gt; -&amp;gt; &lt;code&gt;3.3.3.3:80&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;访问服务器 B，分配新端口 7000&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;各类型nat安全性比较&#34;&gt;各类型NAT安全性比较
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;NAT类型&lt;/th&gt;
+          &lt;th&gt;安全性&lt;/th&gt;
+          &lt;th&gt;穿透难度&lt;/th&gt;
+          &lt;th&gt;适用场景&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;NAT1 - 全锥形&lt;/td&gt;
+          &lt;td&gt;最低&lt;/td&gt;
+          &lt;td&gt;最容易&lt;/td&gt;
+          &lt;td&gt;P2P应用、PCDN&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;NAT2 - IP受限型&lt;/td&gt;
+          &lt;td&gt;中等&lt;/td&gt;
+          &lt;td&gt;中等&lt;/td&gt;
+          &lt;td&gt;一般家庭网络&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;NAT3 - 端口受限型&lt;/td&gt;
+          &lt;td&gt;较高&lt;/td&gt;
+          &lt;td&gt;较难&lt;/td&gt;
+          &lt;td&gt;现代路由器&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;NAT4 - 对称型&lt;/td&gt;
+          &lt;td&gt;最高&lt;/td&gt;
+          &lt;td&gt;最难&lt;/td&gt;
+          &lt;td&gt;企业级网络&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;安全性排序：&lt;/strong&gt; 对称型NAT &amp;gt; 端口受限型 &amp;gt; IP受限型 &amp;gt; 全锥形&lt;/p&gt;
+&lt;p&gt;大多数现代路由器采用&lt;strong&gt;端口受限型NAT&lt;/strong&gt;，在安全性和功能性之间取得了良好平衡。全锥形NAT由于安全风险较高，已逐渐被淘汰。&lt;/p&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结
+&lt;/h2&gt;&lt;p&gt;理解不同类型的NAT对于网络工程师、开发者和普通用户都非常重要。选择合适的NAT类型需要在&lt;strong&gt;安全性&lt;/strong&gt;、&lt;strong&gt;功能性&lt;/strong&gt;和&lt;strong&gt;性能&lt;/strong&gt;之间进行权衡。&lt;/p&gt;
+&lt;p&gt;对于普通用户，现代路由器的默认设置通常已经足够安全和实用。对于需要P2P通信的应用开发者，则需要针对不同NAT类型实现相应的连接策略。&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>RAG (Retrieval-Augmented Generation)</title>
         <link>https://charles-7777.github.io/p/rag-retrieval-augmented-generation/</link>
         <pubDate>Fri, 17 Apr 2026 20:07:55 +0800</pubDate>

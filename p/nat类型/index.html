@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
-    <head>
-	<meta name="generator" content="Hugo 0.147.7"><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="">
-<title></title>
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="NAT类型详解 全锥形NAT 全锥形NAT是最宽松的一种NAT类型，也称为&quot;开放锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机发送数据包时，NAT设备会为A创建一个映射 一旦映射建立，任何外部主机都可以通过这个公网IP和端口与A通信 不需要事先建立连接或发送数据 特点：\n穿透性最好，安全性最低 适合P2P应用和PCDN技术 现代路由器中较少见 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[全锥形NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|映射| N N --&gt;|开放通道| S1 N --&gt;|开放通道| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 IP受限型NAT IP受限型NAT也称为&quot;限制锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机S1发送数据包后，NAT设备创建映射 只有S1可以通过该公网端口向A发送数据 其他主机即使知道公网IP和端口也无法通信 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[IP受限型NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|建立连接| N N --&gt;|允许| S1 N -.-&gt;|拒绝| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 端口受限型NAT 端口受限型NAT是限制性更强的一种锥形NAT。\n">
+<title>NAT类型</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/nat%E7%B1%BB%E5%9E%8B/'>
 
-<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="">
-<meta property='og:description' content="">
-<meta property='og:url' content='https://charles-7777.github.io/'>
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="NAT类型">
+<meta property='og:description' content="NAT类型详解 全锥形NAT 全锥形NAT是最宽松的一种NAT类型，也称为&quot;开放锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机发送数据包时，NAT设备会为A创建一个映射 一旦映射建立，任何外部主机都可以通过这个公网IP和端口与A通信 不需要事先建立连接或发送数据 特点：\n穿透性最好，安全性最低 适合P2P应用和PCDN技术 现代路由器中较少见 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[全锥形NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|映射| N N --&gt;|开放通道| S1 N --&gt;|开放通道| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 IP受限型NAT IP受限型NAT也称为&quot;限制锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机S1发送数据包后，NAT设备创建映射 只有S1可以通过该公网端口向A发送数据 其他主机即使知道公网IP和端口也无法通信 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[IP受限型NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|建立连接| N N --&gt;|允许| S1 N -.-&gt;|拒绝| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 端口受限型NAT 端口受限型NAT是限制性更强的一种锥形NAT。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/nat%E7%B1%BB%E5%9E%8B/'>
 <meta property='og:site_name' content=''>
-<meta property='og:type' content='website'><meta property='og:updated_time' content=' 2026-04-28T17:26:08&#43;08:00 '/>
-<meta name="twitter:title" content="">
-<meta name="twitter:description" content=""><link rel="alternate" type="application/rss&#43;xml" href="https://charles-7777.github.io/index.xml">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='network' /><meta property='article:published_time' content='2026-04-28T17:16:59&#43;08:00'/><meta property='article:modified_time' content='2026-04-28T17:26:08&#43;08:00'/>
+<meta name="twitter:title" content="NAT类型">
+<meta name="twitter:description" content="NAT类型详解 全锥形NAT 全锥形NAT是最宽松的一种NAT类型，也称为&quot;开放锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机发送数据包时，NAT设备会为A创建一个映射 一旦映射建立，任何外部主机都可以通过这个公网IP和端口与A通信 不需要事先建立连接或发送数据 特点：\n穿透性最好，安全性最低 适合P2P应用和PCDN技术 现代路由器中较少见 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[全锥形NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|映射| N N --&gt;|开放通道| S1 N --&gt;|开放通道| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 IP受限型NAT IP受限型NAT也称为&quot;限制锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机S1发送数据包后，NAT设备创建映射 只有S1可以通过该公网端口向A发送数据 其他主机即使知道公网IP和端口也无法通信 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[IP受限型NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|建立连接| N N --&gt;|允许| S1 N -.-&gt;|拒绝| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 端口受限型NAT 端口受限型NAT是限制性更强的一种锥形NAT。\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
-    <body class="">
+    <body class="
+    article-page
+    ">
     <script>
         (function() {
             const colorSchemeKey = 'StackColorScheme';
@@ -119,7 +120,7 @@
         
         
         
-        <li  class='current' >
+        <li >
             <a href='/' >
                 
                 
@@ -271,69 +272,10 @@
     <aside class="sidebar right-sidebar sticky">
         
             
-                <form action="/search/" class="search-form widget" >
-        <p>
-            <label>搜索</label>
-            <input name="keyword" required placeholder="输入关键词..." />
-        
-            <button title="搜索">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="10" cy="10" r="7" />
-  <line x1="21" y1="21" x2="15" y2="15" />
-</svg>
-
-
-
-            </button>
-        </p>
-    </form>
-            
-        
-            
-                <section class="widget archives">
+                
+    <section class="widget archives">
         <div class="widget-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-infinity" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M9.828 9.172a4 4 0 1 0 0 5.656 a10 10 0 0 0 2.172 -2.828a10 10 0 0 1 2.172 -2.828 a4 4 0 1 1 0 5.656a10 10 0 0 1 -2.172 -2.828a10 10 0 0 0 -2.172 -2.828" />
-</svg>
-
-
-
-        </div>
-        <h2 class="widget-title section-title">归档</h2>
-
-        
-        
-        
-        
-        
-        <div class="widget-archive--list">
-            <div class="archives-year">
-                    <a href="/archives/#2026">
-                        
-                            <span class="year">2026</span>
-                            <span class="count">17</span>
-                        
-                    </a> 
-                </div>
-            <div class="archives-year">
-                    <a href="/archives/#2025">
-                        
-                            <span class="year">2025</span>
-                            <span class="count">24</span>
-                        
-                    </a> 
-                </div>
-            
-        </div>
-    </section>
-            
-        
-            
-                <section class="widget tagCloud">
-    <div class="widget-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
   <path stroke="none" d="M0 0h24v24H0z"/>
   <line x1="5" y1="9" x2="19" y2="9" />
   <line x1="5" y1="15" x2="19" y2="15" />
@@ -343,130 +285,34 @@
 
 
 
-    </div>
-    <h2 class="widget-title section-title">分类</h2>
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#nat类型详解">NAT类型详解</a>
+      <ol>
+        <li><a href="#全锥形nat">全锥形NAT</a></li>
+        <li><a href="#ip受限型nat">IP受限型NAT</a></li>
+        <li><a href="#端口受限型nat">端口受限型NAT</a></li>
+        <li><a href="#对称型nat">对称型NAT</a></li>
+      </ol>
+    </li>
+    <li><a href="#各类型nat安全性比较">各类型NAT安全性比较</a></li>
+    <li><a href="#总结">总结</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
 
-    <div class="tagCloud-tags">
-        
-            <a href="/categories/linux/" class="font_size_13">
-                Linux
-            </a>
-        
-            <a href="/categories/math/" class="font_size_5">
-                Math
-            </a>
-        
-            <a href="/categories/%E7%AC%94%E8%AE%B0/" class="font_size_4">
-                笔记
-            </a>
-        
-            <a href="/categories/ai/" class="font_size_3">
-                Ai
-            </a>
-        
-            <a href="/categories/network/" class="font_size_3">
-                Network
-            </a>
-        
-            <a href="/categories/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" class="font_size_3">
-                计算机网络
-            </a>
-        
-            <a href="/categories/hugo/" class="font_size_2">
-                Hugo
-            </a>
-        
-            <a href="/categories/wifi/" class="font_size_2">
-                Wifi
-            </a>
-        
-            <a href="/categories/c/" class="font_size_1">
-                C
-            </a>
-        
-            <a href="/categories/openwrt/" class="font_size_1">
-                Openwrt
-            </a>
-        
-    </div>
-</section>
-
-            
-        
-            
-                <section class="widget tagCloud">
-    <div class="widget-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-tag" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11 3L20 12a1.5 1.5 0 0 1 0 2L14 20a1.5 1.5 0 0 1 -2 0L3 11v-4a4 4 0 0 1 4 -4h4" />
-  <circle cx="9" cy="9" r="2" />
-</svg>
-
-
-
-    </div>
-    <h2 class="widget-title section-title">标签云</h2>
-
-    <div class="tagCloud-tags">
-        
-            <a href="/tags/linux/" class="font_size_12">
-                Linux<span class="tagCloud-count-main"> [12]</span>
-            </a>
-        
-            <a href="/tags/math/" class="font_size_5">
-                Math<span class="tagCloud-count-main"> [5]</span>
-            </a>
-        
-            <a href="/tags/ai/" class="font_size_3">
-                Ai<span class="tagCloud-count-main"> [3]</span>
-            </a>
-        
-            <a href="/tags/ipv6/" class="font_size_3">
-                Ipv6<span class="tagCloud-count-main"> [3]</span>
-            </a>
-        
-            <a href="/tags/hugo/" class="font_size_2">
-                Hugo<span class="tagCloud-count-main"> [2]</span>
-            </a>
-        
-            <a href="/tags/network/" class="font_size_2">
-                Network<span class="tagCloud-count-main"> [2]</span>
-            </a>
-        
-            <a href="/tags/wifi/" class="font_size_2">
-                Wifi<span class="tagCloud-count-main"> [2]</span>
-            </a>
-        
-            <a href="/tags/c/" class="font_size_1">
-                C<span class="tagCloud-count-main"> [1]</span>
-            </a>
-        
-            <a href="/tags/cert/" class="font_size_1">
-                Cert<span class="tagCloud-count-main"> [1]</span>
-            </a>
-        
-            <a href="/tags/imagebed/" class="font_size_1">
-                Imagebed<span class="tagCloud-count-main"> [1]</span>
-            </a>
-        
-    </div>
-
-</section>
             
         
     </aside>
 
 
             <main class="main full-width">
-    
-    
-    
-    
-
-    <section class="article-list">
-        
-            
-<article class="">
+    <article class="main-article">
     <header class="article-header">
 
     <div class="article-details">
@@ -548,246 +394,318 @@
 
 
 </header>
-</article>
-        
-            
-<article class="">
-    <header class="article-header">
 
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/ai/" >
-                Ai
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/p/rag-retrieval-augmented-generation/">RAG (Retrieval-Augmented Generation)</a>
-        </h2>
-    
-        
-    </div>
-
+    <section class="article-content">
     
     
+    <h2 id="nat类型详解">NAT类型详解
+</h2><h3 id="全锥形nat">全锥形NAT
+</h3><p><strong>全锥形NAT</strong>是最宽松的一种NAT类型，也称为&quot;开放锥形NAT&quot;。</p>
+<p><strong>工作原理：</strong></p>
+<ul>
+<li>内部主机A向外部主机发送数据包时，NAT设备会为A创建一个映射</li>
+<li>一旦映射建立，任何外部主机都可以通过这个公网IP和端口与A通信</li>
+<li>不需要事先建立连接或发送数据</li>
+</ul>
+<p><strong>特点：</strong></p>
+<ul>
+<li>穿透性最好，安全性最低</li>
+<li>适合P2P应用和PCDN技术</li>
+<li>现代路由器中较少见</li>
+</ul>
+<pre class="mermaid">
+  graph TD
+    subgraph 内网
+        A[内部主机A192.168.1.10:3000]
+    end
+
+    subgraph NAT设备
+        N[全锥形NAT18.18.0.10]
+    end
+
+    subgraph 外网
+        S1[外部主机1155.99.24.2:8000]
+        S2[外部主机213.13.0.10:1232]
+    end
+
+    A --&gt;|映射| N
+    N --&gt;|开放通道| S1
+    N --&gt;|开放通道| S2
+
+    style A fill:#f9f,stroke:#333
+    style N fill:#bbf,stroke:#333,color:#fff
+    style S1 fill:#9f9,stroke:#333
+    style S2 fill:#9f9,stroke:#333
+</pre>
+<h3 id="ip受限型nat">IP受限型NAT
+</h3><p><strong>IP受限型NAT</strong>也称为&quot;限制锥形NAT&quot;。</p>
+<p><strong>工作原理：</strong></p>
+<ul>
+<li>内部主机A向外部主机S1发送数据包后，NAT设备创建映射</li>
+<li>只有S1可以通过该公网端口向A发送数据</li>
+<li>其他主机即使知道公网IP和端口也无法通信</li>
+</ul>
+<pre class="mermaid">
+  graph TD
+    subgraph 内网
+        A[内部主机A192.168.1.10:3000]
+    end
+
+    subgraph NAT设备
+        N[IP受限型NAT18.18.0.10]
+    end
+
+    subgraph 外网
+        S1[外部主机1155.99.24.2:8000]
+        S2[外部主机213.13.0.10:1232]
+    end
+
+    A --&gt;|建立连接| N
+    N --&gt;|允许| S1
+    N -.-&gt;|拒绝| S2
+
+    style A fill:#f9f,stroke:#333
+    style N fill:#bbf,stroke:#333,color:#fff
+    style S1 fill:#9f9,stroke:#333
+    style S2 fill:#9f9,stroke:#333
+</pre>
+<h3 id="端口受限型nat">端口受限型NAT
+</h3><p><strong>端口受限型NAT</strong>是限制性更强的一种锥形NAT。</p>
+<p><strong>工作原理：</strong></p>
+<ul>
+<li>内部主机A向外部主机S1的特定端口发送数据后，NAT设备创建映射</li>
+<li>只有S1从相同IP和端口向A发送数据时，数据包才能通过</li>
+<li>即使S1从不同端口发送数据也会被拒绝</li>
+</ul>
+<p><strong>特点：</strong></p>
+<ul>
+<li>比IP受限型更安全</li>
+<li>常见于现代路由器</li>
+<li>P2P通信穿透难度增加</li>
+</ul>
+<pre class="mermaid">
+  graph TD
+    subgraph 内网
+        A[内部主机A192.168.1.10:3000]
+    end
+
+    subgraph NAT设备
+        N[端口受限型NAT18.18.0.10]
+    end
+
+    subgraph 外网
+        S1[外部主机1155.99.24.2:8000]
+        S2[外部主机2155.99.24.2:8001]
+    end
+
+    A --&gt;|向S1:8000发送| N
+    N --&gt;|允许S1:8000| A
+    N -.-&gt;|拒绝S1:8001| A
+
+    style A fill:#f9f,stroke:#333
+    style N fill:#bbf,stroke:#333,color:#fff
+    style S1 fill:#9f9,stroke:#333
+    style S2 fill:#9f9,stroke:#333
+</pre>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>内部连接标识 (内部主机A -&gt;外部主机)</th>
+          <th>外部连接标识 (NAT公网IP -&gt;外部主机)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>192.168.1.5:5000</code> -&gt; <code>1.1.1.1:80</code></td>
+          <td><code>2.2.2.2:6000</code> -&gt; <code>1.1.1.1:80</code></td>
+      </tr>
+      <tr>
+          <td><code>192.168.1.5:5000</code> -&gt; <code>3.3.3.3:80</code></td>
+          <td><code>2.2.2.2:6000</code> -&gt; <code>3.3.3.3:80</code></td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="对称型nat">对称型NAT
+</h3><p><strong>对称型NAT</strong>是最严格的NAT类型。</p>
+<p><strong>工作原理：</strong></p>
+<ul>
+<li>每当内部主机A向不同的外部主机发送数据时，NAT设备都会分配不同的公网端口</li>
+<li>外部主机必须先收到A发给它的数据，然后才能向A发送数据</li>
+<li>即使知道公网IP和端口，也无法主动连接</li>
+</ul>
+<p><strong>特点：</strong></p>
+<ul>
+<li>安全性最高</li>
+<li>P2P通信最难穿透</li>
+<li>常见于企业级网络设备</li>
+</ul>
+<pre class="mermaid">
+  graph TD
+    subgraph 内网
+        A[内部主机A192.168.1.10:3000]
+    end
+
+    subgraph NAT设备
+        N[对称型NAT18.18.0.10]
+    end
+
+    subgraph 外网
+        S1[外部主机1155.99.24.2:8000]
+        S2[外部主机213.13.0.10:1232]
+    end
+
+    A --&gt;|向S1发送| N
+    A --&gt;|向S2发送| N
+    N --&gt;|不同端口| S1
+    N --&gt;|不同端口| S2
+
+    style A fill:#f9f,stroke:#333
+    style N fill:#bbf,stroke:#333,color:#fff
+    style S1 fill:#9f9,stroke:#333
+    style S2 fill:#9f9,stroke:#333
+</pre>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>内部连接标识 (你的电脑 -&gt; 目标)</th>
+          <th>外部连接标识 (NAT公网IP -&gt; 目标)</th>
+          <th>备注</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>192.168.1.5:5000</code> -&gt; <code>1.1.1.1:80</code></td>
+          <td><code>2.2.2.2:6000</code> -&gt; <code>1.1.1.1:80</code></td>
+          <td>访问服务器 A，分配端口 6000</td>
+      </tr>
+      <tr>
+          <td><code>192.168.1.5:5000</code> -&gt; <code>3.3.3.3:80</code></td>
+          <td><code>2.2.2.2:7000</code> -&gt; <code>3.3.3.3:80</code></td>
+          <td>访问服务器 B，分配新端口 7000</td>
+      </tr>
+  </tbody>
+</table></div>
+<h2 id="各类型nat安全性比较">各类型NAT安全性比较
+</h2><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>NAT类型</th>
+          <th>安全性</th>
+          <th>穿透难度</th>
+          <th>适用场景</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>NAT1 - 全锥形</td>
+          <td>最低</td>
+          <td>最容易</td>
+          <td>P2P应用、PCDN</td>
+      </tr>
+      <tr>
+          <td>NAT2 - IP受限型</td>
+          <td>中等</td>
+          <td>中等</td>
+          <td>一般家庭网络</td>
+      </tr>
+      <tr>
+          <td>NAT3 - 端口受限型</td>
+          <td>较高</td>
+          <td>较难</td>
+          <td>现代路由器</td>
+      </tr>
+      <tr>
+          <td>NAT4 - 对称型</td>
+          <td>最高</td>
+          <td>最难</td>
+          <td>企业级网络</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>安全性排序：</strong> 对称型NAT &gt; 端口受限型 &gt; IP受限型 &gt; 全锥形</p>
+<p>大多数现代路由器采用<strong>端口受限型NAT</strong>，在安全性和功能性之间取得了良好平衡。全锥形NAT由于安全风险较高，已逐渐被淘汰。</p>
+<h2 id="总结">总结
+</h2><p>理解不同类型的NAT对于网络工程师、开发者和普通用户都非常重要。选择合适的NAT类型需要在<strong>安全性</strong>、<strong>功能性</strong>和<strong>性能</strong>之间进行权衡。</p>
+<p>对于普通用户，现代路由器的默认设置通常已经足够安全和实用。对于需要P2P通信的应用开发者，则需要针对不同NAT类型实现相应的连接策略。</p>
+
+</section>
+
+
+    <footer class="article-footer">
     
-    
-    <footer class="article-time">
+    <section class="article-tags">
         
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published">2026-04-17 20:07</time>
-            </div>
-        <div>
-            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-04-17 20:32</time>
-        </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-
-        
-            <div>
-                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
-                <time class="article-words">
-                    319 字
-                </time>
-            </div>
-        
-
-
-    </footer>
-    
-
-    
-
-
-</div>
-
-
-</header>
-</article>
-        
-            
-<article class="">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/network/" >
-                Network
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/">FTP主动模式NAT穿透原理解析</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published">2026-04-10 18:58</time>
-            </div>
-        <div>
-            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-04-28 16:41</time>
-        </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 3 分钟
-                </time>
-            </div>
-        
-
-        
-            <div>
-                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
-                <time class="article-words">
-                    634 字
-                </time>
-            </div>
-        
-
-
-    </footer>
-    
-
-    
-
-
-</div>
-
-
-</header>
-</article>
+            <a href="/tags/network/">Network</a>
         
     </section>
-    <nav class='pagination'>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/">
         
         
 
-        
-            
-                <span class='page-link current'>1</span>
-                
-            
-            
-                    <a class='page-link' href='/page/2/'>2</a>
-                
-            
-            
-                    
-                        
-                        <span class='page-link dots'>&hellip;</span>
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    
-                
-            
-            
-                    <a class='page-link' href='/page/14/'>14</a>
-                
-            
-    </nav>
+        <div class="article-details">
+            <h2 class="article-title">FTP主动模式NAT穿透原理解析</h2>
+        </div>
+    </a>
+</article>
 
-<footer class="site-footer">
+            
+                
+<article class="">
+    <a href="/p/ipv6-nd-proxy/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">IPv6 ND proxy</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
     <section class="copyright">
         &copy; 
         
@@ -801,6 +719,85 @@
         主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
     </section>
 </footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
 
             </main>
         </div>
@@ -1013,3 +1010,8 @@
 
     </body>
 </html>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true ,look: 'handDrawn'});
+    </script>
