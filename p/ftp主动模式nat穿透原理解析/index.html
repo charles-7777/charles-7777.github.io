@@ -10,7 +10,7 @@
 <meta property='og:description' content="FTP被动模式NAT穿透 被动模式成功场景流程图 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 Note over 客户端,NAT: 控制连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 21) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK (DNAT转换) Note over 客户端,NAT: PASV命令处理 客户端-&gt;&gt;服务器: PASV (请求被动模式) 服务器-&gt;&gt;服务器: 配置检查 Note right of 服务器: 服务器配置了正确的&lt;br&gt;公网IP地址 服务器--&gt;&gt;NAT: 227 Entering Passive Mode (203,0,113,50,10,20) NAT--&gt;&gt;客户端: 227 Entering Passive Mode (203,0,113,50,10,20) Note over 客户端,NAT: 数据连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 2580) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK Note over 客户端,服务器: ✅ 数据连接成功建立 FTP主动模式交互流程 无ALG支持时的失败场景 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 客户端-&gt;&gt;NAT: (1) 控制连接: TCP SYN (随机端口 -&gt; 21) NAT-&gt;&gt;服务器: (2) 控制连接建立 服务器-&gt;&gt;NAT: (3) 控制连接响应 NAT-&gt;&gt;客户端: (4) 控制连接响应 客户端-&gt;&gt;NAT: (5) PORT 192,168,1,100,200,10 NAT-&gt;&gt;服务器: (6) PORT 192,168,1,100,200,10 服务器-&gt;&gt;NAT: (7) 数据连接尝试 (20 -&gt; 51210) Note over 服务器,NAT: ❌ 失败：公网无法路由到内网私有IP 客户端-&gt;&gt;客户端: (8) 数据连接超时 在此场景下，NAT设备仅执行基本的地址转换，无法识别FTP协议载荷中的IP地址。\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/'>
 <meta property='og:site_name' content=''>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='network' /><meta property='article:published_time' content='2026-04-10T18:58:08&#43;08:00'/><meta property='article:modified_time' content='2026-04-10T19:08:16&#43;08:00'/>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='network' /><meta property='article:published_time' content='2026-04-10T18:58:08&#43;08:00'/><meta property='article:modified_time' content='2026-04-28T16:41:02&#43;08:00'/>
 <meta name="twitter:title" content="FTP主动模式NAT穿透原理解析">
 <meta name="twitter:description" content="FTP被动模式NAT穿透 被动模式成功场景流程图 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 Note over 客户端,NAT: 控制连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 21) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK (DNAT转换) Note over 客户端,NAT: PASV命令处理 客户端-&gt;&gt;服务器: PASV (请求被动模式) 服务器-&gt;&gt;服务器: 配置检查 Note right of 服务器: 服务器配置了正确的&lt;br&gt;公网IP地址 服务器--&gt;&gt;NAT: 227 Entering Passive Mode (203,0,113,50,10,20) NAT--&gt;&gt;客户端: 227 Entering Passive Mode (203,0,113,50,10,20) Note over 客户端,NAT: 数据连接建立 客户端-&gt;&gt;NAT: TCP SYN (随机端口 -&gt; 2580) NAT--&gt;&gt;服务器: TCP SYN (SNAT转换) 服务器--&gt;&gt;NAT: TCP SYN ACK NAT--&gt;&gt;客户端: TCP SYN ACK Note over 客户端,服务器: ✅ 数据连接成功建立 FTP主动模式交互流程 无ALG支持时的失败场景 sequenceDiagram participant 客户端 as 客户端(内网)&lt;br&gt;192.168.1.100 participant NAT as NAT设备&lt;br&gt;1.2.3.4 participant 服务器 as FTP服务器(外网)&lt;br&gt;203.0.113.50 客户端-&gt;&gt;NAT: (1) 控制连接: TCP SYN (随机端口 -&gt; 21) NAT-&gt;&gt;服务器: (2) 控制连接建立 服务器-&gt;&gt;NAT: (3) 控制连接响应 NAT-&gt;&gt;客户端: (4) 控制连接响应 客户端-&gt;&gt;NAT: (5) PORT 192,168,1,100,200,10 NAT-&gt;&gt;服务器: (6) PORT 192,168,1,100,200,10 服务器-&gt;&gt;NAT: (7) 数据连接尝试 (20 -&gt; 51210) Note over 服务器,NAT: ❌ 失败：公网无法路由到内网私有IP 客户端-&gt;&gt;客户端: (8) 数据连接超时 在此场景下，NAT设备仅执行基本的地址转换，无法识别FTP协议载荷中的IP地址。\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
@@ -329,6 +329,8 @@
         <li><a href="#为什么硬件加速导致主动模式失败">为什么硬件加速导致主动模式失败</a></li>
       </ol>
     </li>
+    <li><a href="#alg">ALG</a></li>
+    <li><a href="#stun">STUN</a></li>
   </ol>
 </nav>
         </div>
@@ -382,7 +384,7 @@
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-04-10 19:08</time>
+            <time class="article-lastmod">2026-04-28 16:41</time>
         </div>
         
 
@@ -406,7 +408,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    432 字
+                    634 字
                 </time>
             </div>
         
@@ -656,6 +658,98 @@
 </ul>
 </li>
 </ul>
+<hr>
+<h2 id="alg">ALG
+</h2><p>FTP SIP PPTP RTSP<br>
+📌 总结：为什么这些协议需要 ALG?<br>
+这类协议之所以让普通 NAT 路由器“头疼”，是因为它们都具备一个共同特征：<strong>控制流与数据流分离，且数据流的连接信息（IP/Port）被放在应用层载荷中</strong>。</p>
+<ul>
+<li>📺 RTSP（实时流协议）
+<ul>
+<li>场景：网络摄像头监控、流媒体点播。</li>
+<li>过程：客户端通过 554 端口（控制通道）发送 SETUP 指令，告诉服务器：“请通过 UDP 协议，把视频流发到我的 内网IP 和 随机端口（如 5000）”。</li>
+<li>问题：普通 NAT 只修改 IP 包头，不修改包体。服务器收到指令后，拿着那个不可达的“内网IP”去发视频流，导致黑屏或花屏。</li>
+<li>ALG 作用：RTSP ALG 会深度解析 SETUP 指令，把包体里的“内网IP:端口”修改为“公网IP:映射端口”，确保视频流能正确打洞进入内网。</li>
+</ul>
+</li>
+<li>📂 FTP（文件传输协议 - 主动模式）
+<ul>
+<li>场景：文件上传下载。</li>
+<li>过程：客户端连接服务器 21 端口发指令：“我要下载文件，请连接我的 内网IP 的 2000端口 发送数据”。</li>
+<li>问题：服务器尝试连接那个内网 IP，连接超时，文件传输失败。</li>
+<li>ALG 作用：FTP ALG 拦截 PORT 指令，修改其中的 IP 和端口，并临时在防火墙上打开对应的数据端口。</li>
+</ul>
+</li>
+<li>📞 SIP / H.323（VoIP 网络电话）
+<ul>
+<li>场景：IP 电话、视频会议。</li>
+<li>过程：信令包（SDP 协议）里写着：“请把语音流（RTP）发到我的 内网IP 的 3000端口”。</li>
+<li>问题：对方听到了拨号音，但一旦接通，语音包发往内网 IP，导致单通（一方听不到声音）或静音。</li>
+<li>ALG 作用：SIP ALG 修改 SDP 包里的 IP 地址，保证语音流能双向互通。</li>
+</ul>
+</li>
+<li>🌐 PPTP / IPSec（老旧 VPN 协议）
+<ul>
+<li>场景：远程办公接入公司内网。</li>
+<li>过程：在建立隧道握手时，数据包里携带了用于校验或加密的特定参数（如 Call ID 或 SPI）。</li>
+<li>问题：普通 NAT 可能会改变这些参数的校验和，或者因为 PPTP 没有端口号（使用 GRE 协议）而导致 NAT 无法区分不同用户的流量，导致VPN 拨号卡死或连上后无法上网。</li>
+<li>ALG 作用：专门识别 GRE 包或 IPSec 包，维护一张复杂的会话表，确保加密隧道能穿过 NAT。</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>普通 NAT 就像一个<strong>只会看信封</strong>的邮递员，它只负责把信封上的“收件人/发件人”（IP头）改掉，不管信里写了什么。
+ALG 就像一个会<strong>拆信检查</strong>的秘书。当它发现信里写着“请联系我旧的电话号码（内网IP）”时，它会把信纸上的号码涂改成“新的电话号码（公网IP）”，然后再把信发出去。</p></blockquote>
+<hr>
+<h2 id="stun">STUN
+</h2><p>TUN 和 ALG 虽然都是为了解决 NAT 穿透问题，但两者的实现思路截然不同：ALG 依赖路由器“帮忙修改”，而 STUN 则是客户端“自力更生”。</p>
+<ul>
+<li>
+<p>STUN 的全称是 NAT 会话穿透工具。你可以把它想象成一个位于公网的“回声服务器”或“镜子”。<br>
+🤔 核心原理：借一双“公网的眼睛”<br>
+位于内网的设备（比如你的电脑）通常只知道自己的内网 IP（如 192.168.1.100），它完全不知道自己在公网上的“马甲”（公网 IP 和端口）是什么。</p>
+<ul>
+<li>STUN 的工作流程非常简单，就像照镜子：
+<ul>
+<li>询问（Binding Request）
+内网客户端向公网的 STUN 服务器发送一个数据包，问：“你看我是谁？”</li>
+<li>NAT 转换（关键一步）
+数据包经过路由器（NAT）时，路由器会给它盖上自己的“公章”：把源 IP 换成公网 IP，源端口换成一个映射端口。</li>
+<li>回答（Binding Response）
+STUN 服务器收到包后，看到的就是路由器盖完章的地址。
+它把这个地址写在回信里，发回给客户端：“我看你的地址是 X.X.X.X:Y。”</li>
+<li>获知公网地址</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p>客户端收到回信，就知道了：“原来我在公网上的门牌号是 X.X.X.X:Y！”<br>
+🔄 客户端拿到地址后做什么？
+客户端一旦知道了自己的公网映射地址，它就会把这个地址通过信令服务器（比如 SIP 服务器或 WebRTC 的信令服务器）告诉对方。</p>
+<ul>
+<li>对方拿到这个公网地址后，直接往这个地址发数据。</li>
+<li>路由器收到数据，查 NAT 表，转发给内网客户端。</li>
+<li>穿透成功！</li>
+</ul>
+</li>
+<li>
+<p>⚠️ STUN 的致命弱点：对称型 NAT<br>
+STUN 虽然好用，但它搞不定一种叫对称型 NAT的路由器。</p>
+</li>
+<li>
+<p>锥形 NAT（STUN 能搞定）：不管你发给谁（STUN 服务器还是对方电脑），路由器都给你用同一个公网端口。</p>
+</li>
+<li>
+<p>对称型 NAT（STUN 搞不定）：</p>
+<ul>
+<li>你发给 STUN 服务器，路由器开了端口 1000。</li>
+<li>你发给对方电脑，路由器觉得目标变了，于是开了个新端口 2000。</li>
+<li>结果：STUN 告诉你端口是 1000，你告诉对方用 1000。但对方发数据过来时，路由器的 1000 端口根本没开（或者是给 STUN 专用的），导致连接失败。</li>
+</ul>
+</li>
+</ul>
+<p>解决办法：当 STUN 失败（遇到对称型 NAT）时，通常就需要 TURN（中继）登场了——既然直连不通，那就找个公网服务器帮忙转发数据吧。</p>
 
 </section>
 
