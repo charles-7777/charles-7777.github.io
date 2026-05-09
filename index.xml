@@ -7,6 +7,17 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright><atom:link href="https://charles-7777.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>ZMQ</title>
+        <link>https://charles-7777.github.io/p/zmq/</link>
+        <pubDate>Sat, 09 May 2026 13:20:58 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/zmq/</guid>
+        <description>&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.cnblogs.com/neooelric/p/8978720.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;ZeroMQ 教程 001 : 基本概览&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+</description>
+        </item>
+        <item>
         <title>NAT类型</title>
         <link>https://charles-7777.github.io/p/nat%E7%B1%BB%E5%9E%8B/</link>
         <pubDate>Tue, 28 Apr 2026 17:16:59 +0800</pubDate>
