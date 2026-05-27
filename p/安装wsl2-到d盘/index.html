@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" https://learn.microsoft.com/zh-cn/windows/wsl/install-manual\nWSL2 Ubuntu 22.04 全攻略：安装到D盘、性能优化与GUI软件\n安装wsl 1 2 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart 1 2 wsl --update --web-download wsl --set-default-version 2 🧰 准备工作：彻底卸载旧版 Ubuntu (可选) 如果你之前折腾过WSL但把环境弄乱了，或者想节省空间重来，建议先执行清理操作。\n⚠️ 警告：此操作会删除Linux内所有文件，请提前备份重要数据！\n查看当前安装的发行版 打开 Windows PowerShell (管理员)，输入：\n1 wsl --list --verbose 你可能会看到状态为 Stopped 或 Running 的 Ubuntu-22.04。\n注销（卸载）发行版 输入以下命令，将旧系统连同其虚拟磁盘文件彻底删除：\n1 wsl --unregister Ubuntu-22.04 再次输入 wsl --list 确认已无残留。\n🚀 核心步骤：安装Ubuntu 22.04到D盘 最稳妥的&quot;安装到D盘&quot;方法是：先安装默认版 -&gt; 导出镜像 -&gt; 注销默认版 -&gt; 导入到D盘。\n">
+<title>安装WSL2 到D盘</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/%E5%AE%89%E8%A3%85wsl2-%E5%88%B0d%E7%9B%98/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="安装WSL2 到D盘">
+<meta property='og:description' content=" https://learn.microsoft.com/zh-cn/windows/wsl/install-manual\nWSL2 Ubuntu 22.04 全攻略：安装到D盘、性能优化与GUI软件\n安装wsl 1 2 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart 1 2 wsl --update --web-download wsl --set-default-version 2 🧰 准备工作：彻底卸载旧版 Ubuntu (可选) 如果你之前折腾过WSL但把环境弄乱了，或者想节省空间重来，建议先执行清理操作。\n⚠️ 警告：此操作会删除Linux内所有文件，请提前备份重要数据！\n查看当前安装的发行版 打开 Windows PowerShell (管理员)，输入：\n1 wsl --list --verbose 你可能会看到状态为 Stopped 或 Running 的 Ubuntu-22.04。\n注销（卸载）发行版 输入以下命令，将旧系统连同其虚拟磁盘文件彻底删除：\n1 wsl --unregister Ubuntu-22.04 再次输入 wsl --list 确认已无残留。\n🚀 核心步骤：安装Ubuntu 22.04到D盘 最稳妥的&quot;安装到D盘&quot;方法是：先安装默认版 -&gt; 导出镜像 -&gt; 注销默认版 -&gt; 导入到D盘。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/%E5%AE%89%E8%A3%85wsl2-%E5%88%B0d%E7%9B%98/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-05-27T23:09:09&#43;08:00'/><meta property='article:modified_time' content='2026-05-27T23:27:50&#43;08:00'/>
+<meta name="twitter:title" content="安装WSL2 到D盘">
+<meta name="twitter:description" content=" https://learn.microsoft.com/zh-cn/windows/wsl/install-manual\nWSL2 Ubuntu 22.04 全攻略：安装到D盘、性能优化与GUI软件\n安装wsl 1 2 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart 1 2 wsl --update --web-download wsl --set-default-version 2 🧰 准备工作：彻底卸载旧版 Ubuntu (可选) 如果你之前折腾过WSL但把环境弄乱了，或者想节省空间重来，建议先执行清理操作。\n⚠️ 警告：此操作会删除Linux内所有文件，请提前备份重要数据！\n查看当前安装的发行版 打开 Windows PowerShell (管理员)，输入：\n1 wsl --list --verbose 你可能会看到状态为 Stopped 或 Running 的 Ubuntu-22.04。\n注销（卸载）发行版 输入以下命令，将旧系统连同其虚拟磁盘文件彻底删除：\n1 wsl --unregister Ubuntu-22.04 再次输入 wsl --list 确认已无残留。\n🚀 核心步骤：安装Ubuntu 22.04到D盘 最稳妥的&quot;安装到D盘&quot;方法是：先安装默认版 -&gt; 导出镜像 -&gt; 注销默认版 -&gt; 导入到D盘。\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://www.douyin.com/'
+                        target="_blank"
+                        title="douyin"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-tiktok"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 7.917v4.034a9.948 9.948 0 0 1 -5 -1.951v4.5a6.5 6.5 0 1 1 -8 -6.326v4.326a2.5 2.5 0 1 0 4 2v-11.5h4.083a6.005 6.005 0 0 0 4.917 4.917z" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#安装wsl">安装wsl</a></li>
+    <li><a href="#-准备工作彻底卸载旧版-ubuntu-可选">🧰 准备工作：彻底卸载旧版 Ubuntu (可选)</a>
+      <ol>
+        <li><a href="#查看当前安装的发行版">查看当前安装的发行版</a></li>
+        <li><a href="#注销卸载发行版">注销（卸载）发行版</a></li>
+      </ol>
+    </li>
+    <li><a href="#-核心步骤安装ubuntu-2204到d盘">🚀 核心步骤：安装Ubuntu 22.04到D盘</a>
+      <ol>
+        <li><a href="#初次安装与导出">初次安装与导出</a></li>
+        <li><a href="#导入到d盘-永久安家">导入到D盘 (永久安家)</a></li>
+        <li><a href="#恢复默认用户">恢复默认用户</a></li>
+      </ol>
+    </li>
+    <li><a href="#-基础使用与国内源加速">⚡ 基础使用与国内源加速</a>
+      <ol>
+        <li><a href="#必备更换国内镜像源">必备：更换国内镜像源</a></li>
+        <li><a href="#常用操作技巧">常用操作技巧</a></li>
+      </ol>
+    </li>
+    <li><a href="#-进阶配置wslconfig-限制内存与性能">🔧 进阶配置：.wslconfig (限制内存与性能)</a>
+      <ol>
+        <li><a href="#创建配置文件">创建配置文件</a></li>
+        <li><a href="#推荐配置">推荐配置</a></li>
+        <li><a href="#生效配置">生效配置</a></li>
+      </ol>
+    </li>
+    <li><a href="#安装docker">安装docker</a></li>
+    <li><a href="#-可选下载gui软件-以火狐浏览器为例">🎨 可选：下载GUI软件 (以火狐浏览器为例)</a>
+      <ol>
+        <li><a href="#开启systemd-推荐">开启systemd (推荐)</a></li>
+        <li><a href="#安装firefox">安装Firefox</a></li>
+        <li><a href="#运行测试">运行测试</a></li>
+      </ol>
+    </li>
+    <li><a href="#-配置参数参考表">📊 配置参数参考表</a>
+      <ol>
+        <li><a href="#内存配置建议">内存配置建议</a></li>
+        <li><a href="#性能优化参数说明">性能优化参数说明</a></li>
+      </ol>
+    </li>
+    <li><a href="#-常见问题解答">❓ 常见问题解答</a>
+      <ol>
+        <li><a href="#q1-安装过程中出现权限错误怎么办">Q1: 安装过程中出现权限错误怎么办？</a></li>
+        <li><a href="#q2-wsl启动后无法连接网络">Q2: WSL启动后无法连接网络？</a></li>
+        <li><a href="#q3-如何备份和恢复wsl系统">Q3: 如何备份和恢复WSL系统？</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/linux/" >
+                Linux
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/%E5%AE%89%E8%A3%85wsl2-%E5%88%B0d%E7%9B%98/">安装WSL2 到D盘</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-05-27 23:09</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-05-27 23:27</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 3 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    487 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <blockquote>
+<p><a class="link" href="https://learn.microsoft.com/zh-cn/windows/wsl/install-manual"  target="_blank" rel="noopener"
+    >https://learn.microsoft.com/zh-cn/windows/wsl/install-manual</a></p></blockquote>
+<blockquote>
+<p><a class="link" href="https://twj0.github.io/blog/2025/12/01/16WSL%E5%AE%89%E8%A3%85%E5%88%B0D%E7%9B%98/"  target="_blank" rel="noopener"
+    >WSL2 Ubuntu 22.04 全攻略：安装到D盘、性能优化与GUI软件</a></p></blockquote>
+<h2 id="安装wsl">安装wsl
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+</span></span><span class="line"><span class="cl">dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="o">--</span><span class="n">update</span> <span class="o">--</span><span class="n">web</span><span class="o">-</span><span class="n">download</span>
+</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="o">--</span><span class="n">set</span><span class="o">-</span><span class="n">default</span><span class="o">-</span><span class="n">version</span> <span class="mi">2</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="-准备工作彻底卸载旧版-ubuntu-可选">🧰 准备工作：彻底卸载旧版 Ubuntu (可选)
+</h2><p>如果你之前折腾过WSL但把环境弄乱了，或者想节省空间重来，建议先执行清理操作。</p>
+<p><strong>⚠️ 警告</strong>：此操作会删除Linux内所有文件，请提前备份重要数据！</p>
+<h3 id="查看当前安装的发行版">查看当前安装的发行版
+</h3><p>打开 <strong>Windows PowerShell (管理员)</strong>，输入：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-list</span> <span class="p">-</span><span class="n">-verbose</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>你可能会看到状态为 <code>Stopped</code> 或 <code>Running</code> 的 Ubuntu-22.04。</p>
+<h3 id="注销卸载发行版">注销（卸载）发行版
+</h3><p>输入以下命令，将旧系统连同其虚拟磁盘文件彻底删除：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-unregister</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>再次输入 <code>wsl --list</code> 确认已无残留。</p>
+<hr>
+<h2 id="-核心步骤安装ubuntu-2204到d盘">🚀 核心步骤：安装Ubuntu 22.04到D盘
+</h2><p>最稳妥的&quot;安装到D盘&quot;方法是：<strong>先安装默认版 -&gt; 导出镜像 -&gt; 注销默认版 -&gt; 导入到D盘</strong>。</p>
+<h3 id="初次安装与导出">初次安装与导出
+</h3><p>在PowerShell中执行：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="c"># 安装Ubuntu 22.04 (默认在C盘)</span>
+</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-install</span> <span class="n">-d</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>安装完成后，系统会自动弹出终端窗口，请按提示设置<strong>用户名</strong>和<strong>密码</strong>。设置完成后关闭该窗口。</p>
+<p>接着，导出系统镜像到D盘（作为搬家中转）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="c"># 导出镜像 (文件名任意，不要有中文路径)</span>
+</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-export</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span> <span class="n">d:</span><span class="p">\</span><span class="n">ubuntu_backup</span><span class="p">.</span><span class="py">tar</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c"># 注销原C盘系统</span>
+</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-unregister</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="导入到d盘-永久安家">导入到D盘 (永久安家)
+</h3><p>假设我们要安装在 <code>D:\WSL\Ubuntu2204</code>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="c"># 创建目录</span>
+</span></span><span class="line"><span class="cl"><span class="n">mkdir</span> <span class="n">D:</span><span class="p">\</span><span class="n">WSL</span><span class="p">\</span><span class="n">Ubuntu2204</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c"># 导入系统 </span>
+</span></span><span class="line"><span class="cl"><span class="c"># 格式: wsl --import &lt;名称&gt; &lt;安装路径&gt; &lt;tar包路径&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-import</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span> <span class="n">D:</span><span class="p">\</span><span class="n">WSL</span><span class="p">\</span><span class="n">Ubuntu2204</span> <span class="n">d:</span><span class="p">\</span><span class="n">ubuntu_backup</span><span class="p">.</span><span class="py">tar</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="恢复默认用户">恢复默认用户
+</h3><p>使用 <code>import</code> 导入的系统默认会以 <strong>root</strong> 身份登录，我们需要改回你的普通用户。</p>
+<ol>
+<li>启动Ubuntu：在PowerShell输入 <code>wsl -d Ubuntu-22.04</code></li>
+<li>编辑配置文件：</li>
+<li>写入以下内容（<strong>将 <strong><code>**your_username**</code></strong> 替换为你刚才设置的用户名</strong>）：</li>
+<li>保存退出（Ctrl+O -&gt; 回车 -&gt; Ctrl+X）</li>
+<li>重启WSL生效：在PowerShell输入 <code>wsl --shutdown</code></li>
+</ol>
+<hr>
+<h2 id="-基础使用与国内源加速">⚡ 基础使用与国内源加速
+</h2><h3 id="必备更换国内镜像源">必备：更换国内镜像源
+</h3><p>Ubuntu默认源在国外，速度极慢。进入Ubuntu终端，执行以下命令一键替换为清华源（适用于22.04）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 备份原文件</span>
+</span></span><span class="line"><span class="cl">sudo cp /etc/apt/sources.list /etc/apt/sources.list.bak
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 替换源地址</span>
+</span></span><span class="line"><span class="cl">sudo sed -i <span class="s1">&#39;s@//.*archive.ubuntu.com@//mirrors.tuna.tsinghua.edu.cn@g&#39;</span> /etc/apt/sources.list
+</span></span><span class="line"><span class="cl">sudo sed -i <span class="s1">&#39;s@//.*security.ubuntu.com@//mirrors.tuna.tsinghua.edu.cn@g&#39;</span> /etc/apt/sources.list
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 更新系统</span>
+</span></span><span class="line"><span class="cl">sudo apt update <span class="o">&amp;&amp;</span> sudo apt upgrade -y
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="常用操作技巧">常用操作技巧
+</h3><ul>
+<li><strong>访问Windows文件</strong>：Windows的磁盘挂载在 <code>/mnt</code> 下。例如D盘就是 <code>/mnt/d</code>。</li>
+<li><strong>打开Windows文件夹</strong>：在Ubuntu当前目录下输入：</li>
+</ul>
+<hr>
+<h2 id="-进阶配置wslconfig-限制内存与性能">🔧 进阶配置：.wslconfig (限制内存与性能)
+</h2><p>默认情况下，WSL2会占用宿主机50%或更多的内存，且释放不及时，容易导致Windows变卡。我们需要通过 <code>.wslconfig</code> 文件来约束它。</p>
+<h3 id="创建配置文件">创建配置文件
+</h3><p>在Windows中，按下 <code>Win + R</code>，输入 <code>%UserProfile%</code> 打开用户主目录。在此目录下新建一个文件，命名为 <code>.wslconfig</code>（注意前面有点，没有后缀）。</p>
+<h3 id="推荐配置">推荐配置
+</h3><p>用记事本打开它，填入以下推荐配置：</p>
+<p><strong>个人使用配置示例：</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-ini" data-lang="ini"><span class="line"><span class="cl"><span class="c1"># Settings apply across all Linux distros running on WSL 2</span>
+</span></span><span class="line"><span class="cl"><span class="k">[wsl2]</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Allocate 8GB of memory to WSL (adjust as needed)</span>
+</span></span><span class="line"><span class="cl"><span class="na">memory</span><span class="o">=</span><span class="s">8GB</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Use 4 logical processors (adjust based on your CPU core count)</span>
+</span></span><span class="line"><span class="cl"><span class="na">processors</span><span class="o">=</span><span class="s">4</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Set the swap file to 4GB and store it on the D drive</span>
+</span></span><span class="line"><span class="cl"><span class="na">swap</span><span class="o">=</span><span class="s">4GB</span>
+</span></span><span class="line"><span class="cl"><span class="na">swapfile</span><span class="o">=</span><span class="s">D:\\wsl\\swap.vhdx</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Enable localhost forwarding (for development/debugging)</span>
+</span></span><span class="line"><span class="cl"><span class="na">localhostForwarding</span><span class="o">=</span><span class="s">true</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Enable GUI application support (WSLg)</span>
+</span></span><span class="line"><span class="cl"><span class="na">guiApplications</span><span class="o">=</span><span class="s">true</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Disable nested virtualization (unless you need to run virtual machines)</span>
+</span></span><span class="line"><span class="cl"><span class="na">nestedVirtualization</span><span class="o">=</span><span class="s">true</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">[experimental]</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 开启空闲内存自动回收 (强烈推荐)</span>
+</span></span><span class="line"><span class="cl"><span class="na">autoMemoryReclaim</span><span class="o">=</span><span class="s">gradual</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 开启镜像网络 (解决 VPN 和 局域网问题)</span>
+</span></span><span class="line"><span class="cl"><span class="na">networkingMode</span><span class="o">=</span><span class="s">mirrored</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 开启 DNS 隧道 (提升网络稳定性)</span>
+</span></span><span class="line"><span class="cl"><span class="na">dnsTunneling</span><span class="o">=</span><span class="s">true</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 开启防火墙同步</span>
+</span></span><span class="line"><span class="cl"><span class="na">firewall</span><span class="o">=</span><span class="s">true</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 自动回收磁盘空间</span>
+</span></span><span class="line"><span class="cl"><span class="na">sparseVhd</span><span class="o">=</span><span class="s">true</span>
+</span></span><span class="line"><span class="cl"><span class="na">autoProxy</span><span class="o">=</span><span class="s">true</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="生效配置">生效配置
+</h3><p>保存文件后，在PowerShell中彻底重启WSL：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-shutdown</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h2 id="安装docker">安装docker
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">curl -fsSL https://get.docker.com -o get-docker.sh
+</span></span><span class="line"><span class="cl">sudo get-docker.sh
+</span></span><span class="line"><span class="cl">sudo usermod -aG docker $USER
+</span></span><span class="line"><span class="cl">newgrp docker
+</span></span><span class="line"><span class="cl">sudo service docker status
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="-可选下载gui软件-以火狐浏览器为例">🎨 可选：下载GUI软件 (以火狐浏览器为例)
+</h2><p>Windows 10 (高版本)和Windows 11已经原生支持 <strong>WSLg</strong>，这意味着你可以在WSL里直接运行Linux的图形界面程序，它会直接以窗口形式显示在Windows桌面上。</p>
+<h3 id="开启systemd-推荐">开启systemd (推荐)
+</h3><p>Firefox在Ubuntu 22.04中通常以Snap包形式安装，需要systemd支持。
+检查 <code>/etc/wsl.conf</code>，确保有以下内容：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-ini" data-lang="ini"><span class="line"><span class="cl"><span class="k">[boot]</span>
+</span></span><span class="line"><span class="cl"><span class="na">systemd</span><span class="o">=</span><span class="s">true</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果有修改，记得 <code>wsl --shutdown</code> 重启。</p>
+<h3 id="安装firefox">安装Firefox
+</h3><p>在Ubuntu终端输入：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo apt update
+</span></span><span class="line"><span class="cl">sudo apt install firefox
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="运行测试">运行测试
+</h3><p>直接在终端输入：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">firefox
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>稍等片刻，一个Linux版的火狐浏览器窗口就会出现在你的Windows桌面上！你可以用它来测试Linux环境下的网页开发效果。</p>
+<hr>
+<h2 id="-配置参数参考表">📊 配置参数参考表
+</h2><h3 id="内存配置建议">内存配置建议
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>物理内存</th>
+          <th>推荐WSL内存</th>
+          <th>交换空间</th>
+          <th>处理器核心数</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>8GB</td>
+          <td>4GB</td>
+          <td>2GB</td>
+          <td>2</td>
+      </tr>
+      <tr>
+          <td>16GB</td>
+          <td>8GB</td>
+          <td>4GB</td>
+          <td>4</td>
+      </tr>
+      <tr>
+          <td>32GB</td>
+          <td>16GB</td>
+          <td>8GB</td>
+          <td>6</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="性能优化参数说明">性能优化参数说明
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>参数</th>
+          <th>推荐值</th>
+          <th>作用</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>memory</code></td>
+          <td>根据物理内存调整</td>
+          <td>限制WSL最大内存使用</td>
+      </tr>
+      <tr>
+          <td><code>processors</code></td>
+          <td>CPU核心数-2</td>
+          <td>限制WSL使用的CPU核心</td>
+      </tr>
+      <tr>
+          <td><code>swap</code></td>
+          <td>内存的50%</td>
+          <td>设置交换空间大小</td>
+      </tr>
+      <tr>
+          <td><code>autoMemoryReclaim</code></td>
+          <td>gradual</td>
+          <td>自动回收空闲内存</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<h2 id="-常见问题解答">❓ 常见问题解答
+</h2><h3 id="q1-安装过程中出现权限错误怎么办">Q1: 安装过程中出现权限错误怎么办？
+</h3><p><strong>A:</strong> 确保以管理员身份运行PowerShell，并检查D盘是否有写入权限。</p>
+<h3 id="q2-wsl启动后无法连接网络">Q2: WSL启动后无法连接网络？
+</h3><p><strong>A:</strong> 检查Windows防火墙设置，或尝试重置网络配置：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-shutdown</span>
+</span></span><span class="line"><span class="cl"><span class="n">netsh</span> <span class="n">winsock</span> <span class="n">reset</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="q3-如何备份和恢复wsl系统">Q3: 如何备份和恢复WSL系统？
+</h3><p><strong>A:</strong> 使用导出导入功能：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="c"># 备份</span>
+</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-export</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span> <span class="n">d:</span><span class="p">\</span><span class="n">backup</span><span class="p">.</span><span class="py">tar</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c"># 恢复</span>
+</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-import</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span> <span class="n">D:</span><span class="p">\</span><span class="n">WSL</span><span class="p">\</span><span class="n">Ubuntu2204</span> <span class="n">d:</span><span class="p">\</span><span class="n">backup</span><span class="p">.</span><span class="py">tar</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/%E7%A1%AC%E4%B8%AD%E6%96%AD%E4%B8%8E%E8%BD%AF%E4%B8%AD%E6%96%AD/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">硬中断与软中断</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux 收包流程</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/tcp%E7%B2%98%E5%8C%85/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">TCP粘包</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/u-boot%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E8%AF%A6%E8%A7%A3/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">U-Boot启动流程详解</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux%E5%86%85%E6%A0%B8%E4%BF%A1%E5%8F%B7%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux内核信号处理机制原理</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        let rightSideBar = document.querySelector(".right-sidebar");
+        if (!rightSideBar) {
+            return;
+        }
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop
+        rightSideBar.appendChild(btn)
+        
+        window.onscroll = function() {
+            
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        };
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
