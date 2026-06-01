@@ -564,6 +564,20 @@
         margin: auto;
         width: 22px;
         height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
     }
 </style>
 
@@ -586,8 +600,15 @@
       let codeMoreBtn = document.createElement('span');
       codeMoreBtn.classList.add('code-more-btn');
       codeMoreBtn.addEventListener('click', () => {
-        codeBlock.classList.add('code-show');
-        codeMoreBox.style.display = 'none';
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
         
         window.dispatchEvent(new Event('resize'))
       })

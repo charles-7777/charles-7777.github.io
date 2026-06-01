@@ -10,7 +10,7 @@
 <meta property='og:description' content="">
 <meta property='og:url' content='https://charles-7777.github.io/tags/restful-api/'>
 <meta property='og:site_name' content=''>
-<meta property='og:type' content='website'><meta property='og:updated_time' content=' 2026-06-01T23:14:03&#43;08:00 '/>
+<meta property='og:type' content='website'><meta property='og:updated_time' content=' 2026-06-02T00:34:17&#43;08:00 '/>
 <meta name="twitter:title" content="Tag: Restful-Api - ">
 <meta name="twitter:description" content=""><link rel="alternate" type="application/rss&#43;xml" href="https://charles-7777.github.io/tags/restful-api/index.xml">
     <link rel="shortcut icon" href="/favicon2.ico" />
@@ -569,6 +569,20 @@
         margin: auto;
         width: 22px;
         height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
     }
 </style>
 
@@ -591,8 +605,15 @@
       let codeMoreBtn = document.createElement('span');
       codeMoreBtn.classList.add('code-more-btn');
       codeMoreBtn.addEventListener('click', () => {
-        codeBlock.classList.add('code-show');
-        codeMoreBox.style.display = 'none';
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
         
         window.dispatchEvent(new Event('resize'))
       })
