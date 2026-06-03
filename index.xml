@@ -7,6 +7,27 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright><atom:link href="https://charles-7777.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Reasonix--专为DeepSeek设计的终端编程Agent</title>
+        <link>https://charles-7777.github.io/p/reasonix--%E4%B8%93%E4%B8%BAdeepseek%E8%AE%BE%E8%AE%A1%E7%9A%84%E7%BB%88%E7%AB%AF%E7%BC%96%E7%A8%8Bagent/</link>
+        <pubDate>Wed, 03 Jun 2026 22:09:00 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/reasonix--%E4%B8%93%E4%B8%BAdeepseek%E8%AE%BE%E8%AE%A1%E7%9A%84%E7%BB%88%E7%AB%AF%E7%BC%96%E7%A8%8Bagent/</guid>
+        <description>&lt;h2 id=&#34;reasonix&#34;&gt;Reasonix
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;Reasonix 是一款以 DeepSeek 为原生后端的终端编程 Agent。设计围绕 DeepSeek API 展开 —— Cache-First 循环、Flash 优先的成本控制、工具调用自动修复 —— 直接对接 api.deepseek.com，不需要协议转换层&lt;/p&gt;&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/esengine/DeepSeek-Reasonix&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://github.com/esengine/DeepSeek-Reasonix&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;codegraph&#34;&gt;CodeGraph
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;CodeGraph 是面向 AI 编码代理的预索引代码知识图谱工具，通过 MCP 协议与 Claude Code、Cursor、Codex CLI、OpenCode 及 Hermes Agent 深度集成。利用 tree-sitter 解析代码库，将符号关系、调用图和代码结构存储在本地 SQLite 数据库中，让 AI 代理能通过图谱查询直接定位代码，替代传统的 grep/glob/Read 文件扫描方式。 7 个真实开源项目基准测试验证，CodeGraph 平均可降低 35% 的 API 成本、减少 59% 的 Token 消耗、节省 49% 的时间并减少 70% 的工具调用次数，全程 100% 本地运行，无需外部 API 密钥。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/colbymchenry/codegraph&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://github.com/colbymchenry/codegraph&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+</description>
+        </item>
+        <item>
         <title>deepseek 接入Claude Code Cli</title>
         <link>https://charles-7777.github.io/p/deepseek-%E6%8E%A5%E5%85%A5claude-code-cli/</link>
         <pubDate>Mon, 01 Jun 2026 22:37:55 +0800</pubDate>
