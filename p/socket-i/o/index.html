@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Socket I/O">
 <meta property='og:description' content="I/O 模型概览 一个输入操作通常包括两个阶段：\n等待数据准备好 从内核向进程复制数据 对于一个套接字上的输入操作，第一步通常涉及等待数据从网络中到达。当所等待数据到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区\nUnix 有五种 I/O 模型：\n阻塞 I/O：调用阻塞到数据复制完成。 非阻塞 I/O：立即返回，需要轮询。 I/O 复用：select/poll/epoll 等待多个 fd。 信号驱动 I/O：数据就绪时发 SIGIO，再读取。 异步 I/O：提交请求后由内核完成并通知。 实践侧重：\n阻塞模型简单，适合连接数少且延迟不敏感的 CLI/工具脚本； 非阻塞模型常与事件循环/定时器配合，否则轮询会耗 CPU； I/O 复用是高并发网络服务的基础； 信号驱动在 Linux 上使用较少，更多见于嵌入式/老项目； 异步 I/O 需要平台支持（如 Linux AIO/io_uring、Windows IOCP）。 阻塞 I/O 应用进程被阻塞，直到数据从内核缓冲区复制到应用进程缓冲区中才返回。 应该注意到，在阻塞的过程中，其它应用进程还可以执行，因此阻塞不意味着整个操作系统都被阻塞。因为其它应用进程还可以执行，所以不消耗 CPU 时间，这种模型的 CPU 利用率会比较高。 例如，recvfrom() 用于接收 Socket 传来的数据，并复制到应用进程的缓冲区 buf 中。这里把 recvfrom() 当成系统调用。\n1 ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen); sequenceDiagram participant App as 应用进程 participant Kernel as 内核 App-&gt;&gt;Kernel: recvfrom() Note left of App: 调用recvform()进程阻塞 Note right of Kernel: 等待数据到达并存入内核缓冲 Kernel--&gt;&gt;App: 数据复制完成后返回 特点：实现简单，CPU 利用率高（阻塞期间不占用 CPU），但吞吐受限。\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/socket-i/o/'>
-<meta property='og:site_name' content=''>
+<meta property='og:site_name' content='Charles'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-01-08T15:51:28&#43;08:00'/><meta property='article:modified_time' content='2026-01-09T14:20:11&#43;08:00'/>
 <meta name="twitter:title" content="Socket I/O">
 <meta name="twitter:description" content="I/O 模型概览 一个输入操作通常包括两个阶段：\n等待数据准备好 从内核向进程复制数据 对于一个套接字上的输入操作，第一步通常涉及等待数据从网络中到达。当所等待数据到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区\nUnix 有五种 I/O 模型：\n阻塞 I/O：调用阻塞到数据复制完成。 非阻塞 I/O：立即返回，需要轮询。 I/O 复用：select/poll/epoll 等待多个 fd。 信号驱动 I/O：数据就绪时发 SIGIO，再读取。 异步 I/O：提交请求后由内核完成并通知。 实践侧重：\n阻塞模型简单，适合连接数少且延迟不敏感的 CLI/工具脚本； 非阻塞模型常与事件循环/定时器配合，否则轮询会耗 CPU； I/O 复用是高并发网络服务的基础； 信号驱动在 Linux 上使用较少，更多见于嵌入式/老项目； 异步 I/O 需要平台支持（如 Linux AIO/io_uring、Windows IOCP）。 阻塞 I/O 应用进程被阻塞，直到数据从内核缓冲区复制到应用进程缓冲区中才返回。 应该注意到，在阻塞的过程中，其它应用进程还可以执行，因此阻塞不意味着整个操作系统都被阻塞。因为其它应用进程还可以执行，所以不消耗 CPU 时间，这种模型的 CPU 利用率会比较高。 例如，recvfrom() 用于接收 Socket 传来的数据，并复制到应用进程的缓冲区 buf 中。这里把 recvfrom() 当成系统调用。\n1 ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen); sequenceDiagram participant App as 应用进程 participant Kernel as 内核 App-&gt;&gt;Kernel: recvfrom() Note left of App: 调用recvform()进程阻塞 Note right of Kernel: 等待数据到达并存入内核缓冲 Kernel--&gt;&gt;App: 数据复制完成后返回 特点：实现简单，CPU 利用率高（阻塞期间不占用 CPU），但吞吐受限。\n">
@@ -63,8 +63,8 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/"></a></h1>
-            <h2 class="site-description"></h2>
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
         </div>
     </header><ol class="menu-social">
             

@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="硬中断与软中断">
 <meta property='og:description' content=" 在操作系统的世界里，中断（Interrupt） 是一个至关重要的概念。如果没有中断系统，CPU 将不得不用低效的“轮询”方式来处理外界事件，这不仅浪费资源，还无法实现真正的现代多任务操作系统。\n中断分为两类：硬中断（Hardware Interrupt） 和 软中断（Software Interrupt）。虽然它们只有一字之差，但产生的原因、处理机制以及应用场景却有着本质的区别。\n什么是硬中断（Hardware Interrupt） 定义与来源 硬中断是由计算机硬件的外设（如网卡、磁盘控制器、键盘、鼠标、时钟等）发出的物理电信号。每个设备或设备集都有自己专属的 IRQ（Interrupt Request，中断请求线）。 当硬件设备需要 CPU 的关注时（例如网卡接收到了一个数据包，或者你在键盘上按下一个键），它会通过 IRQ 直接向 CPU 的中断控制器发送一个信号。\n硬件驱动的本质：内核子程序而非独立进程 在理解硬中断前，必须澄清一个重要概念：硬件驱动是内核中的一个子程序，而不是一个独立的进程。\n不是进程：驱动代码平时不占用 CPU 时间片，它不独立运行，也不会出现在你的任务管理器里等待被操作系统调度。 是子程序：驱动代码“寄生”在内核空间里。只有当中断发生时，CPU 才会暂停手头的当前工作，借用当前进程的上下文，直接跳进内核去执行那段驱动代码。 如果驱动是一个独立的进程，那么中断发生时，就需要 CPU 先去调度它，等把它“睡醒”了再去跑，这样的反应速度就实在太慢了。这正是硬中断使用子程序（函数调用）而非进程去处理的根本原因——为了追求极致的快，且绝不依赖调度器。\n典型场景：键盘敲击与极速响应 以我们日常敲击键盘为例，整个底层极速流程如下： 键盘被按下 $\\rightarrow$ 键盘发出 IRQ 1 硬件信号 $\\rightarrow$ CPU 强制暂停手头工作 $\\rightarrow$ 查阅 IDT 表（中断描述符表） $\\rightarrow$ 找到 IRQ 1 对应的内核子程序入口 $\\rightarrow$ 执行键盘驱动代码（仅仅是将字符读进内存缓冲区） $\\rightarrow$ 驱动退出，返回刚才暂停的程序继续运行。\n处理机制 硬中断的发生是异步的，完全不可预测。它的处理机制极具“霸道”属性：\n直接打断 CPU：硬中断可以直接强制中止 CPU 当前正在执行的代码。 上下文切换：立刻挂起当前进程的状态，转入内核预先注册的中断处理程序（Interrupt Service Routine, ISR）。 单核处理：在多核系统中，一个硬中断通常只能打断一个 CPU 核心（特殊通道除外）。 什么是软中断（Software Interrupt）？ 定义与来源 在中文技术语境里，“软中断”这个词经常被混用，至少有两种常见含义：\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/%E7%A1%AC%E4%B8%AD%E6%96%AD%E4%B8%8E%E8%BD%AF%E4%B8%AD%E6%96%AD/'>
-<meta property='og:site_name' content=''>
+<meta property='og:site_name' content='Charles'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-04-10T10:33:25&#43;08:00'/><meta property='article:modified_time' content='2026-04-10T14:14:27&#43;08:00'/>
 <meta name="twitter:title" content="硬中断与软中断">
 <meta name="twitter:description" content=" 在操作系统的世界里，中断（Interrupt） 是一个至关重要的概念。如果没有中断系统，CPU 将不得不用低效的“轮询”方式来处理外界事件，这不仅浪费资源，还无法实现真正的现代多任务操作系统。\n中断分为两类：硬中断（Hardware Interrupt） 和 软中断（Software Interrupt）。虽然它们只有一字之差，但产生的原因、处理机制以及应用场景却有着本质的区别。\n什么是硬中断（Hardware Interrupt） 定义与来源 硬中断是由计算机硬件的外设（如网卡、磁盘控制器、键盘、鼠标、时钟等）发出的物理电信号。每个设备或设备集都有自己专属的 IRQ（Interrupt Request，中断请求线）。 当硬件设备需要 CPU 的关注时（例如网卡接收到了一个数据包，或者你在键盘上按下一个键），它会通过 IRQ 直接向 CPU 的中断控制器发送一个信号。\n硬件驱动的本质：内核子程序而非独立进程 在理解硬中断前，必须澄清一个重要概念：硬件驱动是内核中的一个子程序，而不是一个独立的进程。\n不是进程：驱动代码平时不占用 CPU 时间片，它不独立运行，也不会出现在你的任务管理器里等待被操作系统调度。 是子程序：驱动代码“寄生”在内核空间里。只有当中断发生时，CPU 才会暂停手头的当前工作，借用当前进程的上下文，直接跳进内核去执行那段驱动代码。 如果驱动是一个独立的进程，那么中断发生时，就需要 CPU 先去调度它，等把它“睡醒”了再去跑，这样的反应速度就实在太慢了。这正是硬中断使用子程序（函数调用）而非进程去处理的根本原因——为了追求极致的快，且绝不依赖调度器。\n典型场景：键盘敲击与极速响应 以我们日常敲击键盘为例，整个底层极速流程如下： 键盘被按下 $\\rightarrow$ 键盘发出 IRQ 1 硬件信号 $\\rightarrow$ CPU 强制暂停手头工作 $\\rightarrow$ 查阅 IDT 表（中断描述符表） $\\rightarrow$ 找到 IRQ 1 对应的内核子程序入口 $\\rightarrow$ 执行键盘驱动代码（仅仅是将字符读进内存缓冲区） $\\rightarrow$ 驱动退出，返回刚才暂停的程序继续运行。\n处理机制 硬中断的发生是异步的，完全不可预测。它的处理机制极具“霸道”属性：\n直接打断 CPU：硬中断可以直接强制中止 CPU 当前正在执行的代码。 上下文切换：立刻挂起当前进程的状态，转入内核预先注册的中断处理程序（Interrupt Service Routine, ISR）。 单核处理：在多核系统中，一个硬中断通常只能打断一个 CPU 核心（特殊通道除外）。 什么是软中断（Software Interrupt）？ 定义与来源 在中文技术语境里，“软中断”这个词经常被混用，至少有两种常见含义：\n">
@@ -63,8 +63,8 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/"></a></h1>
-            <h2 class="site-description"></h2>
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
         </div>
     </header><ol class="menu-social">
             

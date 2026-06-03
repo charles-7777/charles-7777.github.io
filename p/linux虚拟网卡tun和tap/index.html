@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Linux虚拟网卡TUN和TAP">
 <meta property='og:description' content="什么是虚拟网卡？ 虚拟网卡是软件实现的网络接口，与物理网卡不同，它没有物理硬件，只存在于操作系统的内存中。虚拟网卡可以用来模拟网络环境，进行数据包的捕获、分析和处理。 TUN 和 TAP 的基本概念 Tun （Network TUNnel） TUN 是三层（网络层）的虚拟网络设备，主要用于 IP 数据包的处理。TUN 设备会模拟一个网络层接口，接收到的数据包会被传递给用户空间的程序进行处理，处理完的数据包会被发送回内核网络栈。\nTAP（Network TAP） TAP 是二层（数据链路层）的虚拟网络设备，主要用于以太网帧的处理。TAP 设备可以模拟一个以太网接口，能够接收和发送原始的以太网帧。这使得 TAP 设备非常适合用于桥接不同的网络环境，或者在虚拟机中模拟物理网卡。TAP是数据链路层的虚拟网络设备。\nTun和Tap的异同 Tun是三层的设备，该设备没有MAC地址，从字符设备上读取IP数据包，写入的也是IP数据包，因此不能进行二层的操作，例如发ARP包和以太网广播 Tab是二层的设备，该设备有MAC地址，处理的是数据链路层的数据帧，从字符设备上读取的是数据链路层的数据帧，写入的也是数据。\n在使用上面，两者都是通过字符设备的方式进行读取和写入，Tun是三层网络设备，而Tab是二层网络设备，Tun常用于VPN等技术，由于工作在IP层，无法与物理网卡做bridge，但可以通过三层交换（如 ip_forward）与物理网卡连通，Tab设备工作在第二层，收发的是MAC层数据包，拥有MAC层的功能，可以与物理网卡做bridge，支持MAC层广播 Tun和Tap应用场景 Tun是一个网络层设备，支持点到点的网络通信，常用于tunnel隧道和VPN的构建，tunnel技术是网络设备把网络层数据包封装到另一个协议中以跨过网络传送到另一个网络设备的处理过程，主要用于公网主机和私有网络互联互通。在Linux系统中支持多种隧道技术，其底层实现原理都是基于Tun设备。 TAP接口的典型应用场景是在虚拟化网络中。例如，我们通过KVM创建的多个VM（虚拟机），以LinuxBridge（桥接网络）互通；实际上即是通过像vnet0这样的TAP接口来接入LinuxBridge的。在这种场景下，KVM程序就是向TAP接口读写数据的用户空间程序。当VM0向本机的eth0接口发送数据，KVM会将数据发送到TAP接口vnet0，再通过LinuxBridge将数据转发到vnet1上。然后，KVM将数据发送到VM1的eth0口。 Tun 配置 1 2 3 4 5 6 7 8 \\# 创建网卡并配置IP ip tuntap add dev tun0 mode tun ip link set dev tun0 up ip addr add 10.0.0.1/24 dev tun0 ip route add 10.0.0.0/24 via 10.0.0.1 \\# 清除网卡 ip link set dev tun0 down ip tuntap del dev tun0 mode tun 转载自\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/linux%E8%99%9A%E6%8B%9F%E7%BD%91%E5%8D%A1tun%E5%92%8Ctap/'>
-<meta property='og:site_name' content=''>
+<meta property='og:site_name' content='Charles'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2025-08-07T15:17:36&#43;08:00'/><meta property='article:modified_time' content='2025-08-07T15:26:17&#43;08:00'/>
 <meta name="twitter:title" content="Linux虚拟网卡TUN和TAP">
 <meta name="twitter:description" content="什么是虚拟网卡？ 虚拟网卡是软件实现的网络接口，与物理网卡不同，它没有物理硬件，只存在于操作系统的内存中。虚拟网卡可以用来模拟网络环境，进行数据包的捕获、分析和处理。 TUN 和 TAP 的基本概念 Tun （Network TUNnel） TUN 是三层（网络层）的虚拟网络设备，主要用于 IP 数据包的处理。TUN 设备会模拟一个网络层接口，接收到的数据包会被传递给用户空间的程序进行处理，处理完的数据包会被发送回内核网络栈。\nTAP（Network TAP） TAP 是二层（数据链路层）的虚拟网络设备，主要用于以太网帧的处理。TAP 设备可以模拟一个以太网接口，能够接收和发送原始的以太网帧。这使得 TAP 设备非常适合用于桥接不同的网络环境，或者在虚拟机中模拟物理网卡。TAP是数据链路层的虚拟网络设备。\nTun和Tap的异同 Tun是三层的设备，该设备没有MAC地址，从字符设备上读取IP数据包，写入的也是IP数据包，因此不能进行二层的操作，例如发ARP包和以太网广播 Tab是二层的设备，该设备有MAC地址，处理的是数据链路层的数据帧，从字符设备上读取的是数据链路层的数据帧，写入的也是数据。\n在使用上面，两者都是通过字符设备的方式进行读取和写入，Tun是三层网络设备，而Tab是二层网络设备，Tun常用于VPN等技术，由于工作在IP层，无法与物理网卡做bridge，但可以通过三层交换（如 ip_forward）与物理网卡连通，Tab设备工作在第二层，收发的是MAC层数据包，拥有MAC层的功能，可以与物理网卡做bridge，支持MAC层广播 Tun和Tap应用场景 Tun是一个网络层设备，支持点到点的网络通信，常用于tunnel隧道和VPN的构建，tunnel技术是网络设备把网络层数据包封装到另一个协议中以跨过网络传送到另一个网络设备的处理过程，主要用于公网主机和私有网络互联互通。在Linux系统中支持多种隧道技术，其底层实现原理都是基于Tun设备。 TAP接口的典型应用场景是在虚拟化网络中。例如，我们通过KVM创建的多个VM（虚拟机），以LinuxBridge（桥接网络）互通；实际上即是通过像vnet0这样的TAP接口来接入LinuxBridge的。在这种场景下，KVM程序就是向TAP接口读写数据的用户空间程序。当VM0向本机的eth0接口发送数据，KVM会将数据发送到TAP接口vnet0，再通过LinuxBridge将数据转发到vnet1上。然后，KVM将数据发送到VM1的eth0口。 Tun 配置 1 2 3 4 5 6 7 8 \\# 创建网卡并配置IP ip tuntap add dev tun0 mode tun ip link set dev tun0 up ip addr add 10.0.0.1/24 dev tun0 ip route add 10.0.0.0/24 via 10.0.0.1 \\# 清除网卡 ip link set dev tun0 down ip tuntap del dev tun0 mode tun 转载自\n">
@@ -63,8 +63,8 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/"></a></h1>
-            <h2 class="site-description"></h2>
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
         </div>
     </header><ol class="menu-social">
             

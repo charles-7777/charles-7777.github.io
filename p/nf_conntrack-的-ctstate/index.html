@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="nf_conntrack 的 ctstate">
 <meta property='og:description' content="ctstate ctstate 是 conntrack 对“当前报文相对连接跟踪条目”的分类标签（用于规则匹配），主要依据：\n是否绕过跟踪（raw 表 NOTRACK / nftables bypass）\n是否命中 conntrack 条目（original/reply 方向）\n是否已见 reply（常见关键位：SEEN_REPLY）\n是否命中 expectation 或可被关联（helper / ICMP 错误嵌套头）\n协议跟踪器是否接受该报文（否则可能是 INVALID）\nctstate 含义（策略视角） 典型判定要点 NEW 新流量/新建条目 查表未命中但允许创建；或条目存在但尚未见 reply（UDP 常见） ESTABLISHED 已有双向迹象 命中条目且已见 reply（常见依据：SEEN_REPLY=1） RELATED 与既有连接相关 命中 expectation（helper 预告）或 ICMP 错误可关联回已有条目 INVALID 无法可靠追踪/归属 解析失败/状态机不接受/分片校验问题/不可匹配等 UNTRACKED 明确不走 conntrack raw 表命中 NOTRACK 或 nftables bypass iptables/ebtables 示例 iptables：\n1 2 3 4 5 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT iptables -A INPUT -m conntrack --ctstate INVALID -j DROP iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT nftables：\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/nf_conntrack-%E7%9A%84-ctstate/'>
-<meta property='og:site_name' content=''>
+<meta property='og:site_name' content='Charles'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-01-19T17:42:15&#43;08:00'/><meta property='article:modified_time' content='2026-01-20T17:09:47&#43;08:00'/>
 <meta name="twitter:title" content="nf_conntrack 的 ctstate">
 <meta name="twitter:description" content="ctstate ctstate 是 conntrack 对“当前报文相对连接跟踪条目”的分类标签（用于规则匹配），主要依据：\n是否绕过跟踪（raw 表 NOTRACK / nftables bypass）\n是否命中 conntrack 条目（original/reply 方向）\n是否已见 reply（常见关键位：SEEN_REPLY）\n是否命中 expectation 或可被关联（helper / ICMP 错误嵌套头）\n协议跟踪器是否接受该报文（否则可能是 INVALID）\nctstate 含义（策略视角） 典型判定要点 NEW 新流量/新建条目 查表未命中但允许创建；或条目存在但尚未见 reply（UDP 常见） ESTABLISHED 已有双向迹象 命中条目且已见 reply（常见依据：SEEN_REPLY=1） RELATED 与既有连接相关 命中 expectation（helper 预告）或 ICMP 错误可关联回已有条目 INVALID 无法可靠追踪/归属 解析失败/状态机不接受/分片校验问题/不可匹配等 UNTRACKED 明确不走 conntrack raw 表命中 NOTRACK 或 nftables bypass iptables/ebtables 示例 iptables：\n1 2 3 4 5 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT iptables -A INPUT -m conntrack --ctstate INVALID -j DROP iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT nftables：\n">
@@ -63,8 +63,8 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/"></a></h1>
-            <h2 class="site-description"></h2>
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
         </div>
     </header><ol class="menu-social">
             

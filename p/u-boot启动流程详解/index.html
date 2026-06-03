@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="U-Boot启动流程详解">
 <meta property='og:description' content="U-Boot的多阶段启动架构 现代嵌入式系统中的U-Boot采用多阶段启动架构，这种设计主要是为了克服SoC内部SRAM容量有限(通常只有几十到几百KB)的限制。U-Boot的启动过程可以分为三个主要阶段：\nBootROM/BL1阶段（SoC内部固化的ROM）\n负责最基础的硬件初始化 配置内部时钟、设置复位向量 初始化用于加载下一阶段代码的存储接口 从预设的启动介质(如SD卡、eMMC、SPI Flash等)加载SPL（Secondary Program Loader次级程序加载器）到SRAM 将控制权移交给SPL SPL/BL2阶段（在芯片内部SRAM中运行）\n初始化DDR控制器和外部DRAM 检测内存大小和类型，建立初步内存映射 将完整的U-Boot镜像从外部存储设备加载到DRAM中 完成基本的堆栈设置和C语言运行环境准备 跳转到加载到DRAM中的完整U-Boot执行 U-Boot主体/BL3阶段（在外部DRAM中运行）\n使用C语言完成更复杂的外设初始化 加载和处理设备树(DTB) 读取环境变量设置(如bootargs、bootcmd) 提供交互式命令行界面 从存储介质加载Linux内核镜像 设置内核启动参数并跳转执行内核 这种分阶段的设计使得U-Boot能够在有限的硬件资源下逐步扩展可用内存空间，最终实现完整的引导功能。\nU-Boot启动过程详解 CPU初始化和异常向量设置 U-Boot的启动始于汇编代码的执行，这是因为在系统刚上电时，CPU处于一种非常原始的状态，没有栈、没有MMU，C代码无法直接运行。\n1 2 3 reset: bl _reset /* 复位入口 */ b . 复位入口处的代码会执行以下关键操作：\n模式切换：关闭中断，切换到SVC模式(特权模式)，确保执行环境稳定\n1 CPSR = 0x1F /* 进入SVC32模式，禁止FIQ/IRQ中断 */ 异常向量表设置：初始化中断/异常向量表，处理未定义指令、中断等事件\n1 VBAR = 0x87800000 /* 设置向量表地址 */ CP15寄存器初始化：关闭MMU和Cache，清除TLB\n1 2 3 4 MRC p15, 0, r0, c1, c0, 0 /* 读取SCTLR */ ORR r0, r0, #0x00000001 /* 设置V位，关闭MMU */ ORR r0, r0, #0x00000010 /* 设置C位，关闭Cache */ MCR p15, 0, r0, c1, c0, 0 /* 写回SCTLR */ 这一阶段的核心目标是为后续的C代码执行创建一个稳定、可预测的运行环境，确保在没有MMU和Cache的情况下，程序能够正确地访问物理地址空间。\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/u-boot%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E8%AF%A6%E8%A7%A3/'>
-<meta property='og:site_name' content=''>
+<meta property='og:site_name' content='Charles'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-04-03T00:33:55&#43;08:00'/><meta property='article:modified_time' content='2026-04-03T00:47:44&#43;08:00'/>
 <meta name="twitter:title" content="U-Boot启动流程详解">
 <meta name="twitter:description" content="U-Boot的多阶段启动架构 现代嵌入式系统中的U-Boot采用多阶段启动架构，这种设计主要是为了克服SoC内部SRAM容量有限(通常只有几十到几百KB)的限制。U-Boot的启动过程可以分为三个主要阶段：\nBootROM/BL1阶段（SoC内部固化的ROM）\n负责最基础的硬件初始化 配置内部时钟、设置复位向量 初始化用于加载下一阶段代码的存储接口 从预设的启动介质(如SD卡、eMMC、SPI Flash等)加载SPL（Secondary Program Loader次级程序加载器）到SRAM 将控制权移交给SPL SPL/BL2阶段（在芯片内部SRAM中运行）\n初始化DDR控制器和外部DRAM 检测内存大小和类型，建立初步内存映射 将完整的U-Boot镜像从外部存储设备加载到DRAM中 完成基本的堆栈设置和C语言运行环境准备 跳转到加载到DRAM中的完整U-Boot执行 U-Boot主体/BL3阶段（在外部DRAM中运行）\n使用C语言完成更复杂的外设初始化 加载和处理设备树(DTB) 读取环境变量设置(如bootargs、bootcmd) 提供交互式命令行界面 从存储介质加载Linux内核镜像 设置内核启动参数并跳转执行内核 这种分阶段的设计使得U-Boot能够在有限的硬件资源下逐步扩展可用内存空间，最终实现完整的引导功能。\nU-Boot启动过程详解 CPU初始化和异常向量设置 U-Boot的启动始于汇编代码的执行，这是因为在系统刚上电时，CPU处于一种非常原始的状态，没有栈、没有MMU，C代码无法直接运行。\n1 2 3 reset: bl _reset /* 复位入口 */ b . 复位入口处的代码会执行以下关键操作：\n模式切换：关闭中断，切换到SVC模式(特权模式)，确保执行环境稳定\n1 CPSR = 0x1F /* 进入SVC32模式，禁止FIQ/IRQ中断 */ 异常向量表设置：初始化中断/异常向量表，处理未定义指令、中断等事件\n1 VBAR = 0x87800000 /* 设置向量表地址 */ CP15寄存器初始化：关闭MMU和Cache，清除TLB\n1 2 3 4 MRC p15, 0, r0, c1, c0, 0 /* 读取SCTLR */ ORR r0, r0, #0x00000001 /* 设置V位，关闭MMU */ ORR r0, r0, #0x00000010 /* 设置C位，关闭Cache */ MCR p15, 0, r0, c1, c0, 0 /* 写回SCTLR */ 这一阶段的核心目标是为后续的C代码执行创建一个稳定、可预测的运行环境，确保在没有MMU和Cache的情况下，程序能够正确地访问物理地址空间。\n">
@@ -63,8 +63,8 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/"></a></h1>
-            <h2 class="site-description"></h2>
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
         </div>
     </header><ol class="menu-social">
             

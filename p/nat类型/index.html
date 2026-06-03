@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="NAT类型">
 <meta property='og:description' content="NAT类型详解 全锥形NAT 全锥形NAT是最宽松的一种NAT类型，也称为&quot;开放锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机发送数据包时，NAT设备会为A创建一个映射 一旦映射建立，任何外部主机都可以通过这个公网IP和端口与A通信 不需要事先建立连接或发送数据 特点：\n穿透性最好，安全性最低 适合P2P应用和PCDN技术 现代路由器中较少见 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[全锥形NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|映射| N N --&gt;|开放通道| S1 N --&gt;|开放通道| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 IP受限型NAT IP受限型NAT也称为&quot;限制锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机S1发送数据包后，NAT设备创建映射 只有S1可以通过该公网端口向A发送数据 其他主机即使知道公网IP和端口也无法通信 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[IP受限型NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|建立连接| N N --&gt;|允许| S1 N -.-&gt;|拒绝| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 端口受限型NAT 端口受限型NAT是限制性更强的一种锥形NAT。\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/nat%E7%B1%BB%E5%9E%8B/'>
-<meta property='og:site_name' content=''>
+<meta property='og:site_name' content='Charles'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='network' /><meta property='article:published_time' content='2026-04-28T17:16:59&#43;08:00'/><meta property='article:modified_time' content='2026-04-28T17:26:08&#43;08:00'/>
 <meta name="twitter:title" content="NAT类型">
 <meta name="twitter:description" content="NAT类型详解 全锥形NAT 全锥形NAT是最宽松的一种NAT类型，也称为&quot;开放锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机发送数据包时，NAT设备会为A创建一个映射 一旦映射建立，任何外部主机都可以通过这个公网IP和端口与A通信 不需要事先建立连接或发送数据 特点：\n穿透性最好，安全性最低 适合P2P应用和PCDN技术 现代路由器中较少见 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[全锥形NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|映射| N N --&gt;|开放通道| S1 N --&gt;|开放通道| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 IP受限型NAT IP受限型NAT也称为&quot;限制锥形NAT&quot;。\n工作原理：\n内部主机A向外部主机S1发送数据包后，NAT设备创建映射 只有S1可以通过该公网端口向A发送数据 其他主机即使知道公网IP和端口也无法通信 graph TD subgraph 内网 A[内部主机A192.168.1.10:3000] end subgraph NAT设备 N[IP受限型NAT18.18.0.10] end subgraph 外网 S1[外部主机1155.99.24.2:8000] S2[外部主机213.13.0.10:1232] end A --&gt;|建立连接| N N --&gt;|允许| S1 N -.-&gt;|拒绝| S2 style A fill:#f9f,stroke:#333 style N fill:#bbf,stroke:#333,color:#fff style S1 fill:#9f9,stroke:#333 style S2 fill:#9f9,stroke:#333 端口受限型NAT 端口受限型NAT是限制性更强的一种锥形NAT。\n">
@@ -63,8 +63,8 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/"></a></h1>
-            <h2 class="site-description"></h2>
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
         </div>
     </header><ol class="menu-social">
             

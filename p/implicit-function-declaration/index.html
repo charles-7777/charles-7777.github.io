@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="implicit-function-declaration">
 <meta property='og:description' content="一般情况下如果我们想使用其他文件的函数时，常规操作是将该函数在头文件中声明，然后在需要使用的文件里引用这个头文件 但若是没声明呢？\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 11.c #include &lt;stdio.h&gt; extern char* b; int main() { printf(&#34;aaa--d:%x----%s--p\\n&#34;, aaa(),b,b); char*p = aaa(); printf(&#34;p = %p\\n&#34;, p); if(p) printf(&#34;---\\n&#34;); printf(&#34;value = %s\\n&#34;，p);// 崩溃! return 0; } 2.c char *b=&#34;aaa&#34;; char* aaa(){ return b;} 1 2 3 4 5 6 7 8 9 10 11 12 13 gcc 11.c 2.c -o test 11.c: In function ‘main&#39; 11.c:4:37: warning:: implicit declaration of function ‘aaa&#39;[-Wimplicit-function-declaration] 4| printf(&#34;aaa--d:%x----%s--%p\\n&#34;,aaa(),b,b); | ^~~ 11.c:5:15: warning:： initialization of ‘char *’ fromn‘int&#39; makes pointer from integer without a cast [-Wint-conversion] 5| char *p = aaa(); | ^~~ ./test aaa--d:4b1c032----aaaa--0x560604b1c032 p=0x4b1c032 --- Segmentation fault (core dumped) 这里并没有引用这个头文件，为什么依然可以使用呢？\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/implicit-function-declaration/'>
-<meta property='og:site_name' content=''>
+<meta property='og:site_name' content='Charles'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='C' /><meta property='article:published_time' content='2025-08-15T16:22:16&#43;08:00'/><meta property='article:modified_time' content='2025-08-15T16:50:43&#43;08:00'/>
 <meta name="twitter:title" content="implicit-function-declaration">
 <meta name="twitter:description" content="一般情况下如果我们想使用其他文件的函数时，常规操作是将该函数在头文件中声明，然后在需要使用的文件里引用这个头文件 但若是没声明呢？\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 11.c #include &lt;stdio.h&gt; extern char* b; int main() { printf(&#34;aaa--d:%x----%s--p\\n&#34;, aaa(),b,b); char*p = aaa(); printf(&#34;p = %p\\n&#34;, p); if(p) printf(&#34;---\\n&#34;); printf(&#34;value = %s\\n&#34;，p);// 崩溃! return 0; } 2.c char *b=&#34;aaa&#34;; char* aaa(){ return b;} 1 2 3 4 5 6 7 8 9 10 11 12 13 gcc 11.c 2.c -o test 11.c: In function ‘main&#39; 11.c:4:37: warning:: implicit declaration of function ‘aaa&#39;[-Wimplicit-function-declaration] 4| printf(&#34;aaa--d:%x----%s--%p\\n&#34;,aaa(),b,b); | ^~~ 11.c:5:15: warning:： initialization of ‘char *’ fromn‘int&#39; makes pointer from integer without a cast [-Wint-conversion] 5| char *p = aaa(); | ^~~ ./test aaa--d:4b1c032----aaaa--0x560604b1c032 p=0x4b1c032 --- Segmentation fault (core dumped) 这里并没有引用这个头文件，为什么依然可以使用呢？\n">
@@ -63,8 +63,8 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/"></a></h1>
-            <h2 class="site-description"></h2>
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
         </div>
     </header><ol class="menu-social">
             

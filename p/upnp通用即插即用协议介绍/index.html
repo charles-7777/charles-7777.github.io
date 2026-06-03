@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="upnp(通用即插即用)协议介绍">
 <meta property='og:description' content="什么是 UPnP？ UPnP（Universal Plug and Play，通用即插即用）是一种网络协议标准，旨在让网络设备（如计算机、打印机、摄像头、智能电视、路由器、IoT设备等）在接入网络时能够自动发现彼此并建立功能性的网络服务，无需用户手动配置。其设计目标是实现“零配置”网络体验。 UPnP 基于开放的互联网标准和技术，如 TCP/IP、HTTP、XML、SOAP 和 SSDP，使其能在多种操作系统和硬件平台上运行。\nUPnP 基本原理 UPnP 网络通常包含三种角色：\n设备 (Device)：提供一项或多项服务的网络实体（如智能灯泡、网络摄像头）。\n服务 (Service)：设备提供的最小功能控制单元（如开关服务、亮度调节服务）。\n控制点 (Control Point)：发现并控制设备的控制器（如手机App、电脑上的软件）。\nUPnP 的工作流程可分为以下几个核心阶段：\n寻址（Addressing） 设备接入网络后，首先通过 DHCP 获取 IP 地址；若 DHCP 不可用，则使用 Auto-IP（如 169.254.x.x）自行分配一个局域网内可用的 IP。\n发现（Discovery） 设备使用 SSDP（Simple Service Discovery Protocol，简单服务发现协议）向局域网广播自己的存在：\n广播消息：设备发送 M-SEARCH 请求或 NOTIFY 通知。\n响应机制：控制点（如手机App或PC）监听这些广播，并向感兴趣的设备发送请求获取详细信息。\n使用组播地址 239.255.255.250:1900 进行通信。\n描述（Description） 控制点通过 HTTP GET 请求从设备提供的 URL 获取 XML 描述文件，该文件包含：\n设备类型、厂商信息、型号、序列号\n支持的服务列表（如端口映射、音量控制等）\n每个服务的控制URL、事件URL、描述URL\n控制（Control） 控制点通过 SOAP（Simple Object Access Protocol）协议向设备发送控制指令，调用其服务方法。例如：\n调用“AddPortMapping”在路由器上添加端口转发规则\n调用“SetVolume”调节音响音量 请求和响应均使用 XML 格式封装，通过 HTTP POST 发送。\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/upnp%E9%80%9A%E7%94%A8%E5%8D%B3%E6%8F%92%E5%8D%B3%E7%94%A8%E5%8D%8F%E8%AE%AE%E4%BB%8B%E7%BB%8D/'>
-<meta property='og:site_name' content=''>
+<meta property='og:site_name' content='Charles'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='upnp' /><meta property='article:published_time' content='2025-09-15T14:53:06&#43;08:00'/><meta property='article:modified_time' content='2025-09-15T15:10:27&#43;08:00'/>
 <meta name="twitter:title" content="upnp(通用即插即用)协议介绍">
 <meta name="twitter:description" content="什么是 UPnP？ UPnP（Universal Plug and Play，通用即插即用）是一种网络协议标准，旨在让网络设备（如计算机、打印机、摄像头、智能电视、路由器、IoT设备等）在接入网络时能够自动发现彼此并建立功能性的网络服务，无需用户手动配置。其设计目标是实现“零配置”网络体验。 UPnP 基于开放的互联网标准和技术，如 TCP/IP、HTTP、XML、SOAP 和 SSDP，使其能在多种操作系统和硬件平台上运行。\nUPnP 基本原理 UPnP 网络通常包含三种角色：\n设备 (Device)：提供一项或多项服务的网络实体（如智能灯泡、网络摄像头）。\n服务 (Service)：设备提供的最小功能控制单元（如开关服务、亮度调节服务）。\n控制点 (Control Point)：发现并控制设备的控制器（如手机App、电脑上的软件）。\nUPnP 的工作流程可分为以下几个核心阶段：\n寻址（Addressing） 设备接入网络后，首先通过 DHCP 获取 IP 地址；若 DHCP 不可用，则使用 Auto-IP（如 169.254.x.x）自行分配一个局域网内可用的 IP。\n发现（Discovery） 设备使用 SSDP（Simple Service Discovery Protocol，简单服务发现协议）向局域网广播自己的存在：\n广播消息：设备发送 M-SEARCH 请求或 NOTIFY 通知。\n响应机制：控制点（如手机App或PC）监听这些广播，并向感兴趣的设备发送请求获取详细信息。\n使用组播地址 239.255.255.250:1900 进行通信。\n描述（Description） 控制点通过 HTTP GET 请求从设备提供的 URL 获取 XML 描述文件，该文件包含：\n设备类型、厂商信息、型号、序列号\n支持的服务列表（如端口映射、音量控制等）\n每个服务的控制URL、事件URL、描述URL\n控制（Control） 控制点通过 SOAP（Simple Object Access Protocol）协议向设备发送控制指令，调用其服务方法。例如：\n调用“AddPortMapping”在路由器上添加端口转发规则\n调用“SetVolume”调节音响音量 请求和响应均使用 XML 格式封装，通过 HTTP POST 发送。\n">
@@ -63,8 +63,8 @@
         
         
         <div class="site-meta">
-            <h1 class="site-name"><a href="/"></a></h1>
-            <h2 class="site-description"></h2>
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
         </div>
     </header><ol class="menu-social">
             
