@@ -7,7 +7,363 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Thu, 14 May 2026 10:49:39 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/network/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Wed, 10 Jun 2026 19:36:09 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/network/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Cookie、Session、Token、JWT 与 OAuth2 的区别</title>
+        <link>https://charles-7777.github.io/p/cookiesessiontokenjwt-%E4%B8%8E-oauth2-%E7%9A%84%E5%8C%BA%E5%88%AB/</link>
+        <pubDate>Wed, 10 Jun 2026 19:11:14 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/cookiesessiontokenjwt-%E4%B8%8E-oauth2-%E7%9A%84%E5%8C%BA%E5%88%AB/</guid>
+        <description>&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.cnblogs.com/12lisu/p/19275618&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;cookie，session，token，jwt，oauth2 有什么区别？&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;cookiehttp-的记忆载体&#34;&gt;Cookie：HTTP 的“记忆载体”
+&lt;/h2&gt;&lt;h3 id=&#34;是什么&#34;&gt;是什么？
+&lt;/h3&gt;&lt;p&gt;Cookie 是服务器发送到用户浏览器并保存在本地的一小块数据。&lt;strong&gt;它本质上是一种存储机制和传输机制&lt;/strong&gt;，而不是认证协议本身。由于 HTTP 是无状态协议，Cookie 的出现就是为了让浏览器在后续请求中自动携带这段数据，从而让服务器“记住”用户。&lt;/p&gt;
+&lt;h3 id=&#34;核心特点&#34;&gt;核心特点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;自动携带&lt;/strong&gt;：浏览器会根据域名规则，在每次请求时自动将 Cookie 放入 Request Header。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;大小限制&lt;/strong&gt;：通常限制在 4KB 左右。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;安全性属性&lt;/strong&gt;：可通过 &lt;code&gt;HttpOnly&lt;/code&gt;（防 XSS 读取）、&lt;code&gt;Secure&lt;/code&gt;（仅 HTTPS 传输）、&lt;code&gt;SameSite&lt;/code&gt;（防 CSRF）等属性增强安全。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;跨域限制&lt;/strong&gt;：默认遵循同源策略，不支持跨域共享（除非特殊配置）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;工作原理&#34;&gt;工作原理
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;服务器通过 &lt;code&gt;Set-Cookie&lt;/code&gt; 响应头发送 Cookie 到浏览器。&lt;/li&gt;
+&lt;li&gt;浏览器按域/路径/过期时间存储 Cookie，并在后续请求中通过 &lt;code&gt;Cookie&lt;/code&gt; 请求头自动携带。&lt;/li&gt;
+&lt;li&gt;服务器解析请求中的 Cookie，根据内容执行个性化操作（如显示登录状态）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;一句话总结&#34;&gt;一句话总结
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;Cookie 只是一个“信封”，里面装什么内容（Session ID 还是 Token），由开发者决定。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;session服务端的状态记录本&#34;&gt;Session：服务端的“状态记录本”
+&lt;/h2&gt;&lt;h3 id=&#34;是什么-1&#34;&gt;是什么？
+&lt;/h3&gt;&lt;p&gt;Session 是一种&lt;strong&gt;服务端状态管理机制&lt;/strong&gt;。当用户登录后，服务器会在内存、数据库或 Redis 中创建一条会话记录，包含用户信息。然后服务器将该记录的 ID（Session ID）通过 Cookie 发送给客户端。&lt;/p&gt;
+&lt;h3 id=&#34;核心特点-1&#34;&gt;核心特点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;状态存在服务端&lt;/strong&gt;：用户数据存储在服务器，客户端仅持有 ID。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;可控性&lt;/strong&gt;：服务器可随时销毁 Session，强制用户下线。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;分布式挑战&lt;/strong&gt;：多服务器架构需共享 Session 存储（如 Redis）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;依赖传输载体&lt;/strong&gt;：通常通过 Cookie 传递 Session ID，也可通过 URL 参数（不推荐）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;工作原理-1&#34;&gt;工作原理
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;用户提交登录凭证，服务器验证后创建 Session 并生成 Session ID。&lt;/li&gt;
+&lt;li&gt;服务器通过 &lt;code&gt;Set-Cookie&lt;/code&gt; 响应头发送 Session ID 到浏览器。&lt;/li&gt;
+&lt;li&gt;浏览器在后续请求中通过 &lt;code&gt;Cookie&lt;/code&gt; 请求头携带 Session ID。&lt;/li&gt;
+&lt;li&gt;服务器根据 Session ID 查找服务端存储的 Session 数据，验证用户身份。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;一句话总结-1&#34;&gt;一句话总结
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;Session 是“服务端记账，客户端只拿凭证”的经典模式。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;token无状态的通行证&#34;&gt;Token：无状态的“通行证”
+&lt;/h2&gt;&lt;h3 id=&#34;是什么-2&#34;&gt;是什么？
+&lt;/h3&gt;&lt;p&gt;Token 是一个&lt;strong&gt;自包含的访问凭证&lt;/strong&gt;，通常是一串加密字符串。与 Session 不同，Token 模式下&lt;strong&gt;服务端不需要保存会话状态&lt;/strong&gt;。验证 Token 的有效性完全依靠算法（签名/加密），而非查库。&lt;/p&gt;
+&lt;h3 id=&#34;核心特点-2&#34;&gt;核心特点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;无状态&lt;/strong&gt;：服务端无需存储 Token 信息，仅需验证其合法性。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;轻量级&lt;/strong&gt;：通常比 Session 更小，适合频繁传输。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;灵活存储&lt;/strong&gt;：可存在浏览器 Cookie、HTTP Header（推荐）、LocalStorage 或内存中。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;有效期控制&lt;/strong&gt;：通过设置过期时间限制 Token 生命周期。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;工作原理-2&#34;&gt;工作原理
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;用户登录成功后，服务器生成 Token（如 JWT）并返回给客户端。&lt;/li&gt;
+&lt;li&gt;客户端存储 Token，并在后续请求中通过指定方式（如 Header）传递。&lt;/li&gt;
+&lt;li&gt;服务端接收请求后，直接验证 Token 的有效性（签名、过期时间等），无需查询数据库。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;一句话总结-2&#34;&gt;一句话总结
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;Token 把“查验身份”的计算压力从数据库查询转移到了 CPU 解密/验签上。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;jwt-json-web-tokentoken-的事实标准&#34;&gt;JWT (JSON Web Token)：Token 的事实标准
+&lt;/h2&gt;&lt;h3 id=&#34;是什么-3&#34;&gt;是什么？
+&lt;/h3&gt;&lt;p&gt;JWT 是 Token 的一种&lt;strong&gt;具体实现规范&lt;/strong&gt;（RFC 7519）。它定义了 Token 的结构和签名方式，是目前最流行的 Token 格式。&lt;/p&gt;
+&lt;h3 id=&#34;核心特点-3&#34;&gt;核心特点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;三段式结构&lt;/strong&gt;：Header（算法声明）、Payload（用户信息）、Signature（签名）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;自描述性&lt;/strong&gt;：Payload 包含用户身份和权限等声明（claims）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;无状态&lt;/strong&gt;：服务端无需存储 Token，仅需验证签名。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;跨域友好&lt;/strong&gt;：适合前后端分离、移动端和微服务架构。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;工作原理-3&#34;&gt;工作原理
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;服务器用密钥对 Header 和 Payload 进行签名，生成 Signature。&lt;/li&gt;
+&lt;li&gt;将三个部分用 Base64 编码后用 &lt;code&gt;.&lt;/code&gt; 连接，形成 JWT。&lt;/li&gt;
+&lt;li&gt;客户端存储 JWT，并在请求中通过 &lt;code&gt;Authorization: Bearer &amp;lt;token&amp;gt;&lt;/code&gt; 头部传递。&lt;/li&gt;
+&lt;li&gt;服务端接收 JWT 后，验证签名是否有效，解析 Payload 获取用户信息。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;注意事项&#34;&gt;注意事项
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Payload 不加密&lt;/strong&gt;：JWT 的 Payload 是 Base64 编码的明文，不要存储敏感数据。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;无法主动撤销&lt;/strong&gt;：一旦签发，除非设置极短有效期或引入黑名单机制，否则无法立即失效。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;签名密钥保护&lt;/strong&gt;：密钥泄露会导致 JWT 被伪造。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;一句话总结-3&#34;&gt;一句话总结
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;JWT 是一种标准化的、自描述的、可验证的 Token 格式。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;oauth2授权的委托协议&#34;&gt;OAuth2：授权的“委托协议”
+&lt;/h2&gt;&lt;h3 id=&#34;是什么-4&#34;&gt;是什么？
+&lt;/h3&gt;&lt;p&gt;OAuth2 既不是存储机制，也不是凭证格式，而是一个&lt;strong&gt;授权框架&lt;/strong&gt;（RFC 6749）。它解决的核心问题是：&lt;strong&gt;如何让用户在不暴露密码的前提下，授权第三方应用访问自己的资源？&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;核心特点-4&#34;&gt;核心特点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;授权而非认证&lt;/strong&gt;：OAuth2 负责授权第三方应用访问资源，不直接处理用户身份验证。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;标准化流程&lt;/strong&gt;：定义了明确的授权流程和角色分工。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;多种授权模式&lt;/strong&gt;：适应不同应用场景的需求。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;令牌交换&lt;/strong&gt;：通过授权码等中间凭证换取最终的访问令牌。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;工作原理-4&#34;&gt;工作原理
+&lt;/h3&gt;&lt;p&gt;以授权码模式为例：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;用户访问客户端应用，触发跳转到授权服务器（如 Google、Facebook）。&lt;/li&gt;
+&lt;li&gt;用户在授权服务器登录并授权客户端访问其资源。&lt;/li&gt;
+&lt;li&gt;授权服务器返回授权码（Authorization Code）给客户端。&lt;/li&gt;
+&lt;li&gt;客户端用授权码向授权服务器换取 Access Token 和 Refresh Token。&lt;/li&gt;
+&lt;li&gt;客户端使用 Access Token 访问资源服务器（如用户邮箱、照片）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;注意事项-1&#34;&gt;注意事项
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;需配合认证协议&lt;/strong&gt;：如 OpenID Connect (OIDC) 才能实现完整认证。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;密钥轮换&lt;/strong&gt;：定期更新签名密钥以增强安全性。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;令牌安全&lt;/strong&gt;：Access Token 应通过 HTTPS 传输，避免泄露。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;一句话总结-4&#34;&gt;一句话总结
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;OAuth2 是“我不给你密码，但我允许你代表我做事”的安全授权标准。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;技术全景对比表&#34;&gt;技术全景对比表
+&lt;/h2&gt;&lt;p&gt;下表总结了五大技术的核心区别：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;Cookie&lt;/th&gt;
+          &lt;th&gt;Session&lt;/th&gt;
+          &lt;th&gt;Token&lt;/th&gt;
+          &lt;th&gt;JWT&lt;/th&gt;
+          &lt;th&gt;OAuth2&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;本质&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;存储/传输机制&lt;/td&gt;
+          &lt;td&gt;服务端状态管理&lt;/td&gt;
+          &lt;td&gt;访问凭证&lt;/td&gt;
+          &lt;td&gt;Token 的标准格式&lt;/td&gt;
+          &lt;td&gt;授权框架&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;状态&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;客户端存储&lt;/td&gt;
+          &lt;td&gt;服务端有状态&lt;/td&gt;
+          &lt;td&gt;服务端无状态&lt;/td&gt;
+          &lt;td&gt;服务端无状态&lt;/td&gt;
+          &lt;td&gt;协议层面无状态&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;存储位置&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;浏览器&lt;/td&gt;
+          &lt;td&gt;服务器内存/Redis&lt;/td&gt;
+          &lt;td&gt;客户端(LocalStorage/Cookie)&lt;/td&gt;
+          &lt;td&gt;同 Token&lt;/td&gt;
+          &lt;td&gt;不涉及存储&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;大小限制&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;约4KB&lt;/td&gt;
+          &lt;td&gt;无限制&lt;/td&gt;
+          &lt;td&gt;无限制&lt;/td&gt;
+          &lt;td&gt;无限制&lt;/td&gt;
+          &lt;td&gt;无限制&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;跨域支持&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;❌ 受限&lt;/td&gt;
+          &lt;td&gt;❌ 受限&lt;/td&gt;
+          &lt;td&gt;✅ 友好&lt;/td&gt;
+          &lt;td&gt;✅ 友好&lt;/td&gt;
+          &lt;td&gt;✅ 专为跨域设计&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;移动端适配&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;❌ 差（依赖浏览器）&lt;/td&gt;
+          &lt;td&gt;❌ 差&lt;/td&gt;
+          &lt;td&gt;✅ 好&lt;/td&gt;
+          &lt;td&gt;✅ 好&lt;/td&gt;
+          &lt;td&gt;✅ 好&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;可扩展性&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;-&lt;/td&gt;
+          &lt;td&gt;❌ 需共享存储&lt;/td&gt;
+          &lt;td&gt;✅ 天然支持&lt;/td&gt;
+          &lt;td&gt;✅ 天然支持&lt;/td&gt;
+          &lt;td&gt;✅ 天然支持&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;能否主动失效&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;✅ 删除即可&lt;/td&gt;
+          &lt;td&gt;✅ 删除服务端记录&lt;/td&gt;
+          &lt;td&gt;❌ 需额外机制（如黑名单）&lt;/td&gt;
+          &lt;td&gt;❌ 需额外机制（如黑名单）&lt;/td&gt;
+          &lt;td&gt;✅ Refresh Token 轮换&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;典型用途&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;传递 Session ID 或 JWT&lt;/td&gt;
+          &lt;td&gt;传统 Web 登录&lt;/td&gt;
+          &lt;td&gt;API 认证&lt;/td&gt;
+          &lt;td&gt;现代 API 认证&lt;/td&gt;
+          &lt;td&gt;第三方授权/SSO&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;安全性&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;依赖属性（HttpOnly, Secure）&lt;/td&gt;
+          &lt;td&gt;依赖服务端安全&lt;/td&gt;
+          &lt;td&gt;依赖签名算法&lt;/td&gt;
+          &lt;td&gt;依赖签名算法&lt;/td&gt;
+          &lt;td&gt;依赖流程实现&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;数据来源：&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;场景化技术选型指南&#34;&gt;场景化技术选型指南
+&lt;/h2&gt;&lt;h3 id=&#34;传统服务端渲染-web-应用&#34;&gt;传统服务端渲染 Web 应用
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;推荐方案&lt;/strong&gt;：Cookie + Session&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;原因&lt;/strong&gt;：成熟稳定，服务端可控，适合内部系统或不需要对外暴露 API 的场景。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最佳实践&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;使用 &lt;code&gt;HttpOnly&lt;/code&gt; 和 &lt;code&gt;Secure&lt;/code&gt; 属性保护 Cookie。&lt;/li&gt;
+&lt;li&gt;设置合理的 Session 过期时间。&lt;/li&gt;
+&lt;li&gt;在分布式环境中使用 Redis 等共享存储。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;前后端分离应用&#34;&gt;前后端分离应用
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;推荐方案&lt;/strong&gt;：JWT + HTTP Header&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;原因&lt;/strong&gt;：无状态、易扩展、跨域友好，适合 API 驱动的现代应用。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最佳实践&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;将 JWT 存储在 &lt;code&gt;HttpOnly + Secure + SameSite=Strict&lt;/code&gt; 的 Cookie 中，或通过 Header 传递。&lt;/li&gt;
+&lt;li&gt;设置短期有效期（如15分钟），配合 Refresh Token 实现自动刷新。&lt;/li&gt;
+&lt;li&gt;避免在 URL 或 LocalStorage 中存储 JWT。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;移动端应用&#34;&gt;移动端应用
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;推荐方案&lt;/strong&gt;：JWT + 安全存储&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;原因&lt;/strong&gt;：轻量级、适合移动网络，且能实现离线访问。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最佳实践&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;使用 Android Keystore 或 iOS Keychain 加密存储 Token。&lt;/li&gt;
+&lt;li&gt;通过 HTTPS 传输 Token，避免中间人攻击。&lt;/li&gt;
+&lt;li&gt;定期刷新 Token，减少泄露风险。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;微服务架构&#34;&gt;微服务架构
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;推荐方案&lt;/strong&gt;：JWT + OAuth2&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;原因&lt;/strong&gt;：无状态设计适合分布式系统，JWT 支持细粒度权限控制。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最佳实践&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;使用 OAuth2 的 ClientCredentials 模式实现服务间通信。&lt;/li&gt;
+&lt;li&gt;在 JWT 中包含微服务所需的权限声明（如 &lt;code&gt;read:users&lt;/code&gt;, &lt;code&gt;write:products&lt;/code&gt;）。&lt;/li&gt;
+&lt;li&gt;避免完全依赖网关验证，各微服务应实施细粒度授权控制。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第三方登录&#34;&gt;第三方登录
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;推荐方案&lt;/strong&gt;：OAuth2 + JWT&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;原因&lt;/strong&gt;：OAuth2 提供安全授权流程，JWT 作为 Access Token 实现无状态验证。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最佳实践&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;使用 OAuth2 的 Authorization Code 模式（推荐）或 PKCE（移动端）。&lt;/li&gt;
+&lt;li&gt;授权服务器可返回 JWT 作为 Access Token，资源服务器验证签名即可。&lt;/li&gt;
+&lt;li&gt;配合 OpenID Connect (OIDC) 实现完整用户认证。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;企业内网-sso&#34;&gt;企业内网 SSO
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;推荐方案&lt;/strong&gt;：SSO + JWT&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;原因&lt;/strong&gt;：SSO 提供单点登录体验，JWT 实现跨系统无状态验证。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最佳实践&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;统一认证中心（如 Keycloak）生成 JWT 并通过 Cookie 或 Header 传递。&lt;/li&gt;
+&lt;li&gt;各子系统验证 JWT 签名，无需重复登录。&lt;/li&gt;
+&lt;li&gt;可结合 OAuth2 实现跨公司授权。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;常见误区澄清&#34;&gt;常见误区澄清
+&lt;/h2&gt;&lt;h3 id=&#34;误区-1&#34;&gt;误区 1：&lt;strong&gt;&amp;ldquo;JWT 比 Session 更安全&amp;rdquo;&lt;/strong&gt;
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;真相&lt;/strong&gt;：JWT 和 Session 的安全性取决于实现方式。Session 可随时在服务端销毁，而 JWT 一旦签发，在过期前无法主动撤销。因此，在敏感场景中，Session 可能更安全，但 JWT 更适合分布式系统。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;误区-2&#34;&gt;误区 2：&lt;strong&gt;&amp;ldquo;用了 OAuth2 就不需要 JWT 了&amp;rdquo;&lt;/strong&gt;
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;真相&lt;/strong&gt;：OAuth2 是授权框架，它规范了授权流程，但未限定令牌格式。JWT 是一种流行的令牌格式，常被 OAuth2 使用作为 Access Token。两者是互补关系，而非替代关系。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;误区-3&#34;&gt;误区 3：&lt;strong&gt;&amp;ldquo;Token 应该存在 LocalStorage 里&amp;rdquo;&lt;/strong&gt;
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;真相&lt;/strong&gt;：LocalStorage 易受 XSS 攻击，Token 应优先存在 &lt;code&gt;HttpOnly + Secure + SameSite=Strict&lt;/code&gt; 的 Cookie 中，或通过 HTTP Header 传递。若必须使用 LocalStorage，应结合加密和短期有效期。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;误区-4&#34;&gt;误区 4：&lt;strong&gt;&amp;ldquo;Cookie 就是 Session&amp;rdquo;&lt;/strong&gt;
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;真相&lt;/strong&gt;：Cookie 是传输机制，Session 是服务端状态管理。Cookie 可以存储任何数据（如 JWT），而 Session 需要服务端维护状态。两者是不同层次的概念，可以独立使用或结合使用。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;误区-5&#34;&gt;误区 5：&lt;strong&gt;&amp;ldquo;OAuth2 可以替代 JWT&amp;rdquo;&lt;/strong&gt;
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;真相&lt;/strong&gt;：OAuth2 处理授权流程，JWT 是具体令牌格式。OAuth2 可以返回 JWT 作为 Access Token，两者结合使用更为常见。JWT 也可独立用于 API 认证。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;技术关系图&#34;&gt;技术关系图
+&lt;/h2&gt;&lt;p&gt;这五者并非互斥关系，而是&lt;strong&gt;不同层次、不同职责的技术组件&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Cookie&lt;/strong&gt; 负责&amp;quot;搬运&amp;quot;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Session&lt;/strong&gt; 负责&amp;quot;记账&amp;quot;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Token&lt;/strong&gt; 负责&amp;quot;证明&amp;quot;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;JWT&lt;/strong&gt; 负责&amp;quot;标准化证明&amp;quot;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;OAuth2&lt;/strong&gt; 负责&amp;quot;制定授权规则&amp;quot;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;它们可以组合使用，例如：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;用户通过 OAuth2 授权第三方应用。&lt;/li&gt;
+&lt;li&gt;授权服务器返回 JWT 作为 Access Token。&lt;/li&gt;
+&lt;li&gt;客户端将 JWT 存储在 Cookie 中，并在请求中自动携带。&lt;/li&gt;
+&lt;li&gt;资源服务器验证 JWT 签名，无需服务端状态存储。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;总结&#34;&gt;总结
+&lt;/h2&gt;&lt;p&gt;理解这五个概念的区别，关键在于把握它们的&lt;strong&gt;本质定位&lt;/strong&gt;和&lt;strong&gt;技术层次&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Cookie&lt;/strong&gt;：HTTP 协议的无状态管理机制，负责数据存储和传输。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Session&lt;/strong&gt;：服务端状态管理机制，依赖 Cookie 传递 ID。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Token&lt;/strong&gt;：通用访问凭证，服务端无状态验证。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;JWT&lt;/strong&gt;：Token 的标准化实现，结构清晰且可验证。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;OAuth2&lt;/strong&gt;：授权框架，定义了令牌交换和资源访问的流程。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;没有最好的技术，只有最适合场景的技术&lt;/strong&gt;。选择时应考虑：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;安全性需求（如是否需要主动失效）&lt;/li&gt;
+&lt;li&gt;扩展性需求（如是否需要支持分布式系统）&lt;/li&gt;
+&lt;li&gt;跨域/移动端适配&lt;/li&gt;
+&lt;li&gt;实现复杂度与维护成本&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        <item>
         <title>Netfilter hooks</title>
         <link>https://charles-7777.github.io/p/netfilter-hooks/</link>
         <pubDate>Thu, 14 May 2026 09:57:26 +0800</pubDate>

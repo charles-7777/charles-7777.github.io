@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" cookie，session，token，jwt，oauth2 有什么区别？\nCookie：HTTP 的“记忆载体” 是什么？ Cookie 是服务器发送到用户浏览器并保存在本地的一小块数据。它本质上是一种存储机制和传输机制，而不是认证协议本身。由于 HTTP 是无状态协议，Cookie 的出现就是为了让浏览器在后续请求中自动携带这段数据，从而让服务器“记住”用户。\n核心特点 自动携带：浏览器会根据域名规则，在每次请求时自动将 Cookie 放入 Request Header。 大小限制：通常限制在 4KB 左右。 安全性属性：可通过 HttpOnly（防 XSS 读取）、Secure（仅 HTTPS 传输）、SameSite（防 CSRF）等属性增强安全。 跨域限制：默认遵循同源策略，不支持跨域共享（除非特殊配置）。 工作原理 服务器通过 Set-Cookie 响应头发送 Cookie 到浏览器。 浏览器按域/路径/过期时间存储 Cookie，并在后续请求中通过 Cookie 请求头自动携带。 服务器解析请求中的 Cookie，根据内容执行个性化操作（如显示登录状态）。 一句话总结 Cookie 只是一个“信封”，里面装什么内容（Session ID 还是 Token），由开发者决定。\nSession：服务端的“状态记录本” 是什么？ Session 是一种服务端状态管理机制。当用户登录后，服务器会在内存、数据库或 Redis 中创建一条会话记录，包含用户信息。然后服务器将该记录的 ID（Session ID）通过 Cookie 发送给客户端。\n核心特点 状态存在服务端：用户数据存储在服务器，客户端仅持有 ID。 可控性：服务器可随时销毁 Session，强制用户下线。 分布式挑战：多服务器架构需共享 Session 存储（如 Redis）。 依赖传输载体：通常通过 Cookie 传递 Session ID，也可通过 URL 参数（不推荐）。 工作原理 用户提交登录凭证，服务器验证后创建 Session 并生成 Session ID。 服务器通过 Set-Cookie 响应头发送 Session ID 到浏览器。 浏览器在后续请求中通过 Cookie 请求头携带 Session ID。 服务器根据 Session ID 查找服务端存储的 Session 数据，验证用户身份。 一句话总结 Session 是“服务端记账，客户端只拿凭证”的经典模式。\n">
+<title>Cookie、Session、Token、JWT 与 OAuth2 的区别</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/cookiesessiontokenjwt-%E4%B8%8E-oauth2-%E7%9A%84%E5%8C%BA%E5%88%AB/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Cookie、Session、Token、JWT 与 OAuth2 的区别">
+<meta property='og:description' content=" cookie，session，token，jwt，oauth2 有什么区别？\nCookie：HTTP 的“记忆载体” 是什么？ Cookie 是服务器发送到用户浏览器并保存在本地的一小块数据。它本质上是一种存储机制和传输机制，而不是认证协议本身。由于 HTTP 是无状态协议，Cookie 的出现就是为了让浏览器在后续请求中自动携带这段数据，从而让服务器“记住”用户。\n核心特点 自动携带：浏览器会根据域名规则，在每次请求时自动将 Cookie 放入 Request Header。 大小限制：通常限制在 4KB 左右。 安全性属性：可通过 HttpOnly（防 XSS 读取）、Secure（仅 HTTPS 传输）、SameSite（防 CSRF）等属性增强安全。 跨域限制：默认遵循同源策略，不支持跨域共享（除非特殊配置）。 工作原理 服务器通过 Set-Cookie 响应头发送 Cookie 到浏览器。 浏览器按域/路径/过期时间存储 Cookie，并在后续请求中通过 Cookie 请求头自动携带。 服务器解析请求中的 Cookie，根据内容执行个性化操作（如显示登录状态）。 一句话总结 Cookie 只是一个“信封”，里面装什么内容（Session ID 还是 Token），由开发者决定。\nSession：服务端的“状态记录本” 是什么？ Session 是一种服务端状态管理机制。当用户登录后，服务器会在内存、数据库或 Redis 中创建一条会话记录，包含用户信息。然后服务器将该记录的 ID（Session ID）通过 Cookie 发送给客户端。\n核心特点 状态存在服务端：用户数据存储在服务器，客户端仅持有 ID。 可控性：服务器可随时销毁 Session，强制用户下线。 分布式挑战：多服务器架构需共享 Session 存储（如 Redis）。 依赖传输载体：通常通过 Cookie 传递 Session ID，也可通过 URL 参数（不推荐）。 工作原理 用户提交登录凭证，服务器验证后创建 Session 并生成 Session ID。 服务器通过 Set-Cookie 响应头发送 Session ID 到浏览器。 浏览器在后续请求中通过 Cookie 请求头携带 Session ID。 服务器根据 Session ID 查找服务端存储的 Session 数据，验证用户身份。 一句话总结 Session 是“服务端记账，客户端只拿凭证”的经典模式。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/cookiesessiontokenjwt-%E4%B8%8E-oauth2-%E7%9A%84%E5%8C%BA%E5%88%AB/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='network' /><meta property='article:published_time' content='2026-06-10T19:11:14&#43;08:00'/><meta property='article:modified_time' content='2026-06-10T19:36:09&#43;08:00'/>
+<meta name="twitter:title" content="Cookie、Session、Token、JWT 与 OAuth2 的区别">
+<meta name="twitter:description" content=" cookie，session，token，jwt，oauth2 有什么区别？\nCookie：HTTP 的“记忆载体” 是什么？ Cookie 是服务器发送到用户浏览器并保存在本地的一小块数据。它本质上是一种存储机制和传输机制，而不是认证协议本身。由于 HTTP 是无状态协议，Cookie 的出现就是为了让浏览器在后续请求中自动携带这段数据，从而让服务器“记住”用户。\n核心特点 自动携带：浏览器会根据域名规则，在每次请求时自动将 Cookie 放入 Request Header。 大小限制：通常限制在 4KB 左右。 安全性属性：可通过 HttpOnly（防 XSS 读取）、Secure（仅 HTTPS 传输）、SameSite（防 CSRF）等属性增强安全。 跨域限制：默认遵循同源策略，不支持跨域共享（除非特殊配置）。 工作原理 服务器通过 Set-Cookie 响应头发送 Cookie 到浏览器。 浏览器按域/路径/过期时间存储 Cookie，并在后续请求中通过 Cookie 请求头自动携带。 服务器解析请求中的 Cookie，根据内容执行个性化操作（如显示登录状态）。 一句话总结 Cookie 只是一个“信封”，里面装什么内容（Session ID 还是 Token），由开发者决定。\nSession：服务端的“状态记录本” 是什么？ Session 是一种服务端状态管理机制。当用户登录后，服务器会在内存、数据库或 Redis 中创建一条会话记录，包含用户信息。然后服务器将该记录的 ID（Session ID）通过 Cookie 发送给客户端。\n核心特点 状态存在服务端：用户数据存储在服务器，客户端仅持有 ID。 可控性：服务器可随时销毁 Session，强制用户下线。 分布式挑战：多服务器架构需共享 Session 存储（如 Redis）。 依赖传输载体：通常通过 Cookie 传递 Session ID，也可通过 URL 参数（不推荐）。 工作原理 用户提交登录凭证，服务器验证后创建 Session 并生成 Session ID。 服务器通过 Set-Cookie 响应头发送 Session ID 到浏览器。 浏览器在后续请求中通过 Cookie 请求头携带 Session ID。 服务器根据 Session ID 查找服务端存储的 Session 数据，验证用户身份。 一句话总结 Session 是“服务端记账，客户端只拿凭证”的经典模式。\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://www.douyin.com/'
+                        target="_blank"
+                        title="douyin"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-tiktok"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 7.917v4.034a9.948 9.948 0 0 1 -5 -1.951v4.5a6.5 6.5 0 1 1 -8 -6.326v4.326a2.5 2.5 0 1 0 4 2v-11.5h4.083a6.005 6.005 0 0 0 4.917 4.917z" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#cookiehttp-的记忆载体">Cookie：HTTP 的“记忆载体”</a>
+      <ol>
+        <li><a href="#是什么">是什么？</a></li>
+        <li><a href="#核心特点">核心特点</a></li>
+        <li><a href="#工作原理">工作原理</a></li>
+        <li><a href="#一句话总结">一句话总结</a></li>
+      </ol>
+    </li>
+    <li><a href="#session服务端的状态记录本">Session：服务端的“状态记录本”</a>
+      <ol>
+        <li><a href="#是什么-1">是什么？</a></li>
+        <li><a href="#核心特点-1">核心特点</a></li>
+        <li><a href="#工作原理-1">工作原理</a></li>
+        <li><a href="#一句话总结-1">一句话总结</a></li>
+      </ol>
+    </li>
+    <li><a href="#token无状态的通行证">Token：无状态的“通行证”</a>
+      <ol>
+        <li><a href="#是什么-2">是什么？</a></li>
+        <li><a href="#核心特点-2">核心特点</a></li>
+        <li><a href="#工作原理-2">工作原理</a></li>
+        <li><a href="#一句话总结-2">一句话总结</a></li>
+      </ol>
+    </li>
+    <li><a href="#jwt-json-web-tokentoken-的事实标准">JWT (JSON Web Token)：Token 的事实标准</a>
+      <ol>
+        <li><a href="#是什么-3">是什么？</a></li>
+        <li><a href="#核心特点-3">核心特点</a></li>
+        <li><a href="#工作原理-3">工作原理</a></li>
+        <li><a href="#注意事项">注意事项</a></li>
+        <li><a href="#一句话总结-3">一句话总结</a></li>
+      </ol>
+    </li>
+    <li><a href="#oauth2授权的委托协议">OAuth2：授权的“委托协议”</a>
+      <ol>
+        <li><a href="#是什么-4">是什么？</a></li>
+        <li><a href="#核心特点-4">核心特点</a></li>
+        <li><a href="#工作原理-4">工作原理</a></li>
+        <li><a href="#注意事项-1">注意事项</a></li>
+        <li><a href="#一句话总结-4">一句话总结</a></li>
+      </ol>
+    </li>
+    <li><a href="#技术全景对比表">技术全景对比表</a></li>
+    <li><a href="#场景化技术选型指南">场景化技术选型指南</a>
+      <ol>
+        <li><a href="#传统服务端渲染-web-应用">传统服务端渲染 Web 应用</a></li>
+        <li><a href="#前后端分离应用">前后端分离应用</a></li>
+        <li><a href="#移动端应用">移动端应用</a></li>
+        <li><a href="#微服务架构">微服务架构</a></li>
+        <li><a href="#第三方登录">第三方登录</a></li>
+        <li><a href="#企业内网-sso">企业内网 SSO</a></li>
+      </ol>
+    </li>
+    <li><a href="#常见误区澄清">常见误区澄清</a>
+      <ol>
+        <li><a href="#误区-1">误区 1：<strong>&ldquo;JWT 比 Session 更安全&rdquo;</strong></a></li>
+        <li><a href="#误区-2">误区 2：<strong>&ldquo;用了 OAuth2 就不需要 JWT 了&rdquo;</strong></a></li>
+        <li><a href="#误区-3">误区 3：<strong>&ldquo;Token 应该存在 LocalStorage 里&rdquo;</strong></a></li>
+        <li><a href="#误区-4">误区 4：<strong>&ldquo;Cookie 就是 Session&rdquo;</strong></a></li>
+        <li><a href="#误区-5">误区 5：<strong>&ldquo;OAuth2 可以替代 JWT&rdquo;</strong></a></li>
+      </ol>
+    </li>
+    <li><a href="#技术关系图">技术关系图</a></li>
+    <li><a href="#总结">总结</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/network/" >
+                Network
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/cookiesessiontokenjwt-%E4%B8%8E-oauth2-%E7%9A%84%E5%8C%BA%E5%88%AB/">Cookie、Session、Token、JWT 与 OAuth2 的区别</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-06-10 19:11</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-06-10 19:36</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 3 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    610 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <blockquote>
+<p><a class="link" href="https://www.cnblogs.com/12lisu/p/19275618"  target="_blank" rel="noopener"
+    >cookie，session，token，jwt，oauth2 有什么区别？</a></p></blockquote>
+<hr>
+<h2 id="cookiehttp-的记忆载体">Cookie：HTTP 的“记忆载体”
+</h2><h3 id="是什么">是什么？
+</h3><p>Cookie 是服务器发送到用户浏览器并保存在本地的一小块数据。<strong>它本质上是一种存储机制和传输机制</strong>，而不是认证协议本身。由于 HTTP 是无状态协议，Cookie 的出现就是为了让浏览器在后续请求中自动携带这段数据，从而让服务器“记住”用户。</p>
+<h3 id="核心特点">核心特点
+</h3><ul>
+<li><strong>自动携带</strong>：浏览器会根据域名规则，在每次请求时自动将 Cookie 放入 Request Header。</li>
+<li><strong>大小限制</strong>：通常限制在 4KB 左右。</li>
+<li><strong>安全性属性</strong>：可通过 <code>HttpOnly</code>（防 XSS 读取）、<code>Secure</code>（仅 HTTPS 传输）、<code>SameSite</code>（防 CSRF）等属性增强安全。</li>
+<li><strong>跨域限制</strong>：默认遵循同源策略，不支持跨域共享（除非特殊配置）。</li>
+</ul>
+<h3 id="工作原理">工作原理
+</h3><ol>
+<li>服务器通过 <code>Set-Cookie</code> 响应头发送 Cookie 到浏览器。</li>
+<li>浏览器按域/路径/过期时间存储 Cookie，并在后续请求中通过 <code>Cookie</code> 请求头自动携带。</li>
+<li>服务器解析请求中的 Cookie，根据内容执行个性化操作（如显示登录状态）。</li>
+</ol>
+<h3 id="一句话总结">一句话总结
+</h3><blockquote>
+<p>Cookie 只是一个“信封”，里面装什么内容（Session ID 还是 Token），由开发者决定。</p></blockquote>
+<hr>
+<h2 id="session服务端的状态记录本">Session：服务端的“状态记录本”
+</h2><h3 id="是什么-1">是什么？
+</h3><p>Session 是一种<strong>服务端状态管理机制</strong>。当用户登录后，服务器会在内存、数据库或 Redis 中创建一条会话记录，包含用户信息。然后服务器将该记录的 ID（Session ID）通过 Cookie 发送给客户端。</p>
+<h3 id="核心特点-1">核心特点
+</h3><ul>
+<li><strong>状态存在服务端</strong>：用户数据存储在服务器，客户端仅持有 ID。</li>
+<li><strong>可控性</strong>：服务器可随时销毁 Session，强制用户下线。</li>
+<li><strong>分布式挑战</strong>：多服务器架构需共享 Session 存储（如 Redis）。</li>
+<li><strong>依赖传输载体</strong>：通常通过 Cookie 传递 Session ID，也可通过 URL 参数（不推荐）。</li>
+</ul>
+<h3 id="工作原理-1">工作原理
+</h3><ol>
+<li>用户提交登录凭证，服务器验证后创建 Session 并生成 Session ID。</li>
+<li>服务器通过 <code>Set-Cookie</code> 响应头发送 Session ID 到浏览器。</li>
+<li>浏览器在后续请求中通过 <code>Cookie</code> 请求头携带 Session ID。</li>
+<li>服务器根据 Session ID 查找服务端存储的 Session 数据，验证用户身份。</li>
+</ol>
+<h3 id="一句话总结-1">一句话总结
+</h3><blockquote>
+<p>Session 是“服务端记账，客户端只拿凭证”的经典模式。</p></blockquote>
+<hr>
+<h2 id="token无状态的通行证">Token：无状态的“通行证”
+</h2><h3 id="是什么-2">是什么？
+</h3><p>Token 是一个<strong>自包含的访问凭证</strong>，通常是一串加密字符串。与 Session 不同，Token 模式下<strong>服务端不需要保存会话状态</strong>。验证 Token 的有效性完全依靠算法（签名/加密），而非查库。</p>
+<h3 id="核心特点-2">核心特点
+</h3><ul>
+<li><strong>无状态</strong>：服务端无需存储 Token 信息，仅需验证其合法性。</li>
+<li><strong>轻量级</strong>：通常比 Session 更小，适合频繁传输。</li>
+<li><strong>灵活存储</strong>：可存在浏览器 Cookie、HTTP Header（推荐）、LocalStorage 或内存中。</li>
+<li><strong>有效期控制</strong>：通过设置过期时间限制 Token 生命周期。</li>
+</ul>
+<h3 id="工作原理-2">工作原理
+</h3><ol>
+<li>用户登录成功后，服务器生成 Token（如 JWT）并返回给客户端。</li>
+<li>客户端存储 Token，并在后续请求中通过指定方式（如 Header）传递。</li>
+<li>服务端接收请求后，直接验证 Token 的有效性（签名、过期时间等），无需查询数据库。</li>
+</ol>
+<h3 id="一句话总结-2">一句话总结
+</h3><blockquote>
+<p>Token 把“查验身份”的计算压力从数据库查询转移到了 CPU 解密/验签上。</p></blockquote>
+<hr>
+<h2 id="jwt-json-web-tokentoken-的事实标准">JWT (JSON Web Token)：Token 的事实标准
+</h2><h3 id="是什么-3">是什么？
+</h3><p>JWT 是 Token 的一种<strong>具体实现规范</strong>（RFC 7519）。它定义了 Token 的结构和签名方式，是目前最流行的 Token 格式。</p>
+<h3 id="核心特点-3">核心特点
+</h3><ul>
+<li><strong>三段式结构</strong>：Header（算法声明）、Payload（用户信息）、Signature（签名）。</li>
+<li><strong>自描述性</strong>：Payload 包含用户身份和权限等声明（claims）。</li>
+<li><strong>无状态</strong>：服务端无需存储 Token，仅需验证签名。</li>
+<li><strong>跨域友好</strong>：适合前后端分离、移动端和微服务架构。</li>
+</ul>
+<h3 id="工作原理-3">工作原理
+</h3><ol>
+<li>服务器用密钥对 Header 和 Payload 进行签名，生成 Signature。</li>
+<li>将三个部分用 Base64 编码后用 <code>.</code> 连接，形成 JWT。</li>
+<li>客户端存储 JWT，并在请求中通过 <code>Authorization: Bearer &lt;token&gt;</code> 头部传递。</li>
+<li>服务端接收 JWT 后，验证签名是否有效，解析 Payload 获取用户信息。</li>
+</ol>
+<h3 id="注意事项">注意事项
+</h3><ul>
+<li><strong>Payload 不加密</strong>：JWT 的 Payload 是 Base64 编码的明文，不要存储敏感数据。</li>
+<li><strong>无法主动撤销</strong>：一旦签发，除非设置极短有效期或引入黑名单机制，否则无法立即失效。</li>
+<li><strong>签名密钥保护</strong>：密钥泄露会导致 JWT 被伪造。</li>
+</ul>
+<h3 id="一句话总结-3">一句话总结
+</h3><blockquote>
+<p>JWT 是一种标准化的、自描述的、可验证的 Token 格式。</p></blockquote>
+<hr>
+<h2 id="oauth2授权的委托协议">OAuth2：授权的“委托协议”
+</h2><h3 id="是什么-4">是什么？
+</h3><p>OAuth2 既不是存储机制，也不是凭证格式，而是一个<strong>授权框架</strong>（RFC 6749）。它解决的核心问题是：<strong>如何让用户在不暴露密码的前提下，授权第三方应用访问自己的资源？</strong></p>
+<h3 id="核心特点-4">核心特点
+</h3><ul>
+<li><strong>授权而非认证</strong>：OAuth2 负责授权第三方应用访问资源，不直接处理用户身份验证。</li>
+<li><strong>标准化流程</strong>：定义了明确的授权流程和角色分工。</li>
+<li><strong>多种授权模式</strong>：适应不同应用场景的需求。</li>
+<li><strong>令牌交换</strong>：通过授权码等中间凭证换取最终的访问令牌。</li>
+</ul>
+<h3 id="工作原理-4">工作原理
+</h3><p>以授权码模式为例：</p>
+<ol>
+<li>用户访问客户端应用，触发跳转到授权服务器（如 Google、Facebook）。</li>
+<li>用户在授权服务器登录并授权客户端访问其资源。</li>
+<li>授权服务器返回授权码（Authorization Code）给客户端。</li>
+<li>客户端用授权码向授权服务器换取 Access Token 和 Refresh Token。</li>
+<li>客户端使用 Access Token 访问资源服务器（如用户邮箱、照片）。</li>
+</ol>
+<h3 id="注意事项-1">注意事项
+</h3><ul>
+<li><strong>需配合认证协议</strong>：如 OpenID Connect (OIDC) 才能实现完整认证。</li>
+<li><strong>密钥轮换</strong>：定期更新签名密钥以增强安全性。</li>
+<li><strong>令牌安全</strong>：Access Token 应通过 HTTPS 传输，避免泄露。</li>
+</ul>
+<h3 id="一句话总结-4">一句话总结
+</h3><blockquote>
+<p>OAuth2 是“我不给你密码，但我允许你代表我做事”的安全授权标准。</p></blockquote>
+<hr>
+<h2 id="技术全景对比表">技术全景对比表
+</h2><p>下表总结了五大技术的核心区别：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>Cookie</th>
+          <th>Session</th>
+          <th>Token</th>
+          <th>JWT</th>
+          <th>OAuth2</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>本质</strong></td>
+          <td>存储/传输机制</td>
+          <td>服务端状态管理</td>
+          <td>访问凭证</td>
+          <td>Token 的标准格式</td>
+          <td>授权框架</td>
+      </tr>
+      <tr>
+          <td><strong>状态</strong></td>
+          <td>客户端存储</td>
+          <td>服务端有状态</td>
+          <td>服务端无状态</td>
+          <td>服务端无状态</td>
+          <td>协议层面无状态</td>
+      </tr>
+      <tr>
+          <td><strong>存储位置</strong></td>
+          <td>浏览器</td>
+          <td>服务器内存/Redis</td>
+          <td>客户端(LocalStorage/Cookie)</td>
+          <td>同 Token</td>
+          <td>不涉及存储</td>
+      </tr>
+      <tr>
+          <td><strong>大小限制</strong></td>
+          <td>约4KB</td>
+          <td>无限制</td>
+          <td>无限制</td>
+          <td>无限制</td>
+          <td>无限制</td>
+      </tr>
+      <tr>
+          <td><strong>跨域支持</strong></td>
+          <td>❌ 受限</td>
+          <td>❌ 受限</td>
+          <td>✅ 友好</td>
+          <td>✅ 友好</td>
+          <td>✅ 专为跨域设计</td>
+      </tr>
+      <tr>
+          <td><strong>移动端适配</strong></td>
+          <td>❌ 差（依赖浏览器）</td>
+          <td>❌ 差</td>
+          <td>✅ 好</td>
+          <td>✅ 好</td>
+          <td>✅ 好</td>
+      </tr>
+      <tr>
+          <td><strong>可扩展性</strong></td>
+          <td>-</td>
+          <td>❌ 需共享存储</td>
+          <td>✅ 天然支持</td>
+          <td>✅ 天然支持</td>
+          <td>✅ 天然支持</td>
+      </tr>
+      <tr>
+          <td><strong>能否主动失效</strong></td>
+          <td>✅ 删除即可</td>
+          <td>✅ 删除服务端记录</td>
+          <td>❌ 需额外机制（如黑名单）</td>
+          <td>❌ 需额外机制（如黑名单）</td>
+          <td>✅ Refresh Token 轮换</td>
+      </tr>
+      <tr>
+          <td><strong>典型用途</strong></td>
+          <td>传递 Session ID 或 JWT</td>
+          <td>传统 Web 登录</td>
+          <td>API 认证</td>
+          <td>现代 API 认证</td>
+          <td>第三方授权/SSO</td>
+      </tr>
+      <tr>
+          <td><strong>安全性</strong></td>
+          <td>依赖属性（HttpOnly, Secure）</td>
+          <td>依赖服务端安全</td>
+          <td>依赖签名算法</td>
+          <td>依赖签名算法</td>
+          <td>依赖流程实现</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>数据来源：</p>
+<hr>
+<h2 id="场景化技术选型指南">场景化技术选型指南
+</h2><h3 id="传统服务端渲染-web-应用">传统服务端渲染 Web 应用
+</h3><p><strong>推荐方案</strong>：Cookie + Session</p>
+<ul>
+<li><strong>原因</strong>：成熟稳定，服务端可控，适合内部系统或不需要对外暴露 API 的场景。</li>
+<li><strong>最佳实践</strong>：
+<ul>
+<li>使用 <code>HttpOnly</code> 和 <code>Secure</code> 属性保护 Cookie。</li>
+<li>设置合理的 Session 过期时间。</li>
+<li>在分布式环境中使用 Redis 等共享存储。</li>
+</ul>
+</li>
+</ul>
+<h3 id="前后端分离应用">前后端分离应用
+</h3><p><strong>推荐方案</strong>：JWT + HTTP Header</p>
+<ul>
+<li><strong>原因</strong>：无状态、易扩展、跨域友好，适合 API 驱动的现代应用。</li>
+<li><strong>最佳实践</strong>：
+<ul>
+<li>将 JWT 存储在 <code>HttpOnly + Secure + SameSite=Strict</code> 的 Cookie 中，或通过 Header 传递。</li>
+<li>设置短期有效期（如15分钟），配合 Refresh Token 实现自动刷新。</li>
+<li>避免在 URL 或 LocalStorage 中存储 JWT。</li>
+</ul>
+</li>
+</ul>
+<h3 id="移动端应用">移动端应用
+</h3><p><strong>推荐方案</strong>：JWT + 安全存储</p>
+<ul>
+<li><strong>原因</strong>：轻量级、适合移动网络，且能实现离线访问。</li>
+<li><strong>最佳实践</strong>：
+<ul>
+<li>使用 Android Keystore 或 iOS Keychain 加密存储 Token。</li>
+<li>通过 HTTPS 传输 Token，避免中间人攻击。</li>
+<li>定期刷新 Token，减少泄露风险。</li>
+</ul>
+</li>
+</ul>
+<h3 id="微服务架构">微服务架构
+</h3><p><strong>推荐方案</strong>：JWT + OAuth2</p>
+<ul>
+<li><strong>原因</strong>：无状态设计适合分布式系统，JWT 支持细粒度权限控制。</li>
+<li><strong>最佳实践</strong>：
+<ul>
+<li>使用 OAuth2 的 ClientCredentials 模式实现服务间通信。</li>
+<li>在 JWT 中包含微服务所需的权限声明（如 <code>read:users</code>, <code>write:products</code>）。</li>
+<li>避免完全依赖网关验证，各微服务应实施细粒度授权控制。</li>
+</ul>
+</li>
+</ul>
+<h3 id="第三方登录">第三方登录
+</h3><p><strong>推荐方案</strong>：OAuth2 + JWT</p>
+<ul>
+<li><strong>原因</strong>：OAuth2 提供安全授权流程，JWT 作为 Access Token 实现无状态验证。</li>
+<li><strong>最佳实践</strong>：
+<ul>
+<li>使用 OAuth2 的 Authorization Code 模式（推荐）或 PKCE（移动端）。</li>
+<li>授权服务器可返回 JWT 作为 Access Token，资源服务器验证签名即可。</li>
+<li>配合 OpenID Connect (OIDC) 实现完整用户认证。</li>
+</ul>
+</li>
+</ul>
+<h3 id="企业内网-sso">企业内网 SSO
+</h3><p><strong>推荐方案</strong>：SSO + JWT</p>
+<ul>
+<li><strong>原因</strong>：SSO 提供单点登录体验，JWT 实现跨系统无状态验证。</li>
+<li><strong>最佳实践</strong>：
+<ul>
+<li>统一认证中心（如 Keycloak）生成 JWT 并通过 Cookie 或 Header 传递。</li>
+<li>各子系统验证 JWT 签名，无需重复登录。</li>
+<li>可结合 OAuth2 实现跨公司授权。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2 id="常见误区澄清">常见误区澄清
+</h2><h3 id="误区-1">误区 1：<strong>&ldquo;JWT 比 Session 更安全&rdquo;</strong>
+</h3><ul>
+<li><strong>真相</strong>：JWT 和 Session 的安全性取决于实现方式。Session 可随时在服务端销毁，而 JWT 一旦签发，在过期前无法主动撤销。因此，在敏感场景中，Session 可能更安全，但 JWT 更适合分布式系统。</li>
+</ul>
+<h3 id="误区-2">误区 2：<strong>&ldquo;用了 OAuth2 就不需要 JWT 了&rdquo;</strong>
+</h3><ul>
+<li><strong>真相</strong>：OAuth2 是授权框架，它规范了授权流程，但未限定令牌格式。JWT 是一种流行的令牌格式，常被 OAuth2 使用作为 Access Token。两者是互补关系，而非替代关系。</li>
+</ul>
+<h3 id="误区-3">误区 3：<strong>&ldquo;Token 应该存在 LocalStorage 里&rdquo;</strong>
+</h3><ul>
+<li><strong>真相</strong>：LocalStorage 易受 XSS 攻击，Token 应优先存在 <code>HttpOnly + Secure + SameSite=Strict</code> 的 Cookie 中，或通过 HTTP Header 传递。若必须使用 LocalStorage，应结合加密和短期有效期。</li>
+</ul>
+<h3 id="误区-4">误区 4：<strong>&ldquo;Cookie 就是 Session&rdquo;</strong>
+</h3><ul>
+<li><strong>真相</strong>：Cookie 是传输机制，Session 是服务端状态管理。Cookie 可以存储任何数据（如 JWT），而 Session 需要服务端维护状态。两者是不同层次的概念，可以独立使用或结合使用。</li>
+</ul>
+<h3 id="误区-5">误区 5：<strong>&ldquo;OAuth2 可以替代 JWT&rdquo;</strong>
+</h3><ul>
+<li><strong>真相</strong>：OAuth2 处理授权流程，JWT 是具体令牌格式。OAuth2 可以返回 JWT 作为 Access Token，两者结合使用更为常见。JWT 也可独立用于 API 认证。</li>
+</ul>
+<hr>
+<h2 id="技术关系图">技术关系图
+</h2><p>这五者并非互斥关系，而是<strong>不同层次、不同职责的技术组件</strong>：</p>
+<ul>
+<li><strong>Cookie</strong> 负责&quot;搬运&quot;</li>
+<li><strong>Session</strong> 负责&quot;记账&quot;</li>
+<li><strong>Token</strong> 负责&quot;证明&quot;</li>
+<li><strong>JWT</strong> 负责&quot;标准化证明&quot;</li>
+<li><strong>OAuth2</strong> 负责&quot;制定授权规则&quot;</li>
+</ul>
+<p>它们可以组合使用，例如：</p>
+<ol>
+<li>用户通过 OAuth2 授权第三方应用。</li>
+<li>授权服务器返回 JWT 作为 Access Token。</li>
+<li>客户端将 JWT 存储在 Cookie 中，并在请求中自动携带。</li>
+<li>资源服务器验证 JWT 签名，无需服务端状态存储。</li>
+</ol>
+<hr>
+<h2 id="总结">总结
+</h2><p>理解这五个概念的区别，关键在于把握它们的<strong>本质定位</strong>和<strong>技术层次</strong>：</p>
+<ul>
+<li><strong>Cookie</strong>：HTTP 协议的无状态管理机制，负责数据存储和传输。</li>
+<li><strong>Session</strong>：服务端状态管理机制，依赖 Cookie 传递 ID。</li>
+<li><strong>Token</strong>：通用访问凭证，服务端无状态验证。</li>
+<li><strong>JWT</strong>：Token 的标准化实现，结构清晰且可验证。</li>
+<li><strong>OAuth2</strong>：授权框架，定义了令牌交换和资源访问的流程。</li>
+</ul>
+<p><strong>没有最好的技术，只有最适合场景的技术</strong>。选择时应考虑：</p>
+<ul>
+<li>安全性需求（如是否需要主动失效）</li>
+<li>扩展性需求（如是否需要支持分布式系统）</li>
+<li>跨域/移动端适配</li>
+<li>实现复杂度与维护成本</li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/network/">Network</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/netfilter-hooks/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Netfilter hooks</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/nat%E7%B1%BB%E5%9E%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">NAT类型</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">FTP主动模式NAT穿透原理解析</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ipv6-nd-proxy/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">IPv6 ND proxy</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        let rightSideBar = document.querySelector(".right-sidebar");
+        if (!rightSideBar) {
+            return;
+        }
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop
+        rightSideBar.appendChild(btn)
+        
+        window.onscroll = function() {
+            
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        };
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
