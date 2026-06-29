@@ -7,7 +7,7 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Mon, 29 Jun 2026 13:23:58 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 29 Jun 2026 15:28:04 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>傅里叶级数</title>
         <link>https://charles-7777.github.io/p/%E5%82%85%E9%87%8C%E5%8F%B6%E7%BA%A7%E6%95%B0/</link>
         <pubDate>Mon, 29 Jun 2026 10:58:14 +0800</pubDate>
@@ -229,7 +229,27 @@ $$&lt;p&gt;其中&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://tonyddg.github.io/noteverse/course/machine/cybernetics/fourier.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;傅里叶变换 | Tonyddg&amp;rsquo;s Noteverse&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
-</description>
+&lt;h2 id=&#34;傅里叶变换和卷积&#34;&gt;傅里叶变换和卷积
+&lt;/h2&gt;&lt;p&gt;卷积&lt;/p&gt;
+$$
+f_1(x) * f_2(x) = \int_{-\infty}^{\infty} f_1(\xi) f_2(x - \xi) \, d\xi
+$$&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.cnblogs.com/lzhu/p/9149658.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;卷积的本质及物理意义(全面理解卷积)&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+&lt;p&gt;设两时域信号 $ f(t), g(t) $，对于卷积有：&lt;/p&gt;
+$$
+f(t) * g(t) = \int_{-\infty}^{\infty} f(\tau) g(t - \tau) \, d\tau
+$$&lt;p&gt;那么其傅氏变换为&lt;/p&gt;
+$$
+\begin{aligned}
+\mathcal{F}[f(t) * g(t)] &amp;= \int_{-\infty}^{\infty} \left[ \int_{-\infty}^{\infty} f(\tau) g(t - \tau) \, d\tau \right] e^{-j\omega t} \, dt \\
+&amp;= \int_{-\infty}^{\infty} f(\tau) \left[ \int_{-\infty}^{\infty} g(t - \tau) e^{-j\omega t} \, dt \right] d\tau \\
+\text{交换次序} \\
+&amp;= \int_{-\infty}^{\infty} f(\tau) e^{-j\omega \tau} \, d\tau \left[ \int_{-\infty}^{\infty} g(t - \tau) e^{-j\omega (t - \tau)} \, d(t - \tau) \right]  \\
+&amp;= \mathcal{F}[f(\tau)] \, \mathcal{F}[g(t - \tau)]  \\   
+&amp;= F_1(\omega) F_2(\omega)
+\end{aligned}  
+$$</description>
         </item>
         <item>
         <title>Cookie、Session、Token、JWT 与 OAuth2 的区别</title>
