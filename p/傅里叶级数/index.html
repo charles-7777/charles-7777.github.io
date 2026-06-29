@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="傅里叶级数 三角函数系 正交函数系 正交向量\n$$ \\mathbf{a} \\cdot \\mathbf{b} = \\sum_{i=1}^{n} a_i b_i = 0 $$ 我们知道对于一个向量空间，其中任意向量可由一组 线性无关的向量线性表出（极大无关组，向量空间的一组基）,对于一组基${\\mathbf{v}_1, \\mathbf{v}_2, \\dots, \\mathbf{v}_n}$ ，任一向量$\\mathbf{x}$,有\n$$ \\mathbf{x} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} $$正交基就是要求一组基中的向量，两两正交，这样可以更好的求出系数，$ \\mathbf{x} \\cdot \\mathbf{v_m} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} \\cdot \\mathbf{v_m} = k_m \\mathbf{v_m} \\mathbf{v_m} $\n正交函数 深入理解正交函数 - 知乎\n我们可以把函数看成一个无穷维向量\n$$ \\begin{equation*} f(x) = \\lim_{\\Delta x \\to 0} \\begin{pmatrix} f(a), & f(a+\\Delta x), & f(a+2\\Delta x), & \\ldots, & f(a+(M-1)\\Delta x) \\end{pmatrix} \\qquad x \\in [a,b] \\end{equation*} $$无穷维空间（如函数空间）中，我们可以类似地把一个函数视为在某种基底上的线性组合。假设我们考虑一个函数 ( f )，例如定义在某个区间上的实值连续函数。我们可以将函数表示为某种基（例如正交基）上的线性组合：\n">
-<title></title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="三角函数系 正交函数系 正交向量\n$$ \\mathbf{a} \\cdot \\mathbf{b} = \\sum_{i=1}^{n} a_i b_i = 0 $$ 我们知道对于一个向量空间，其中任意向量可由一组 线性无关的向量线性表出（极大无关组，向量空间的一组基）,对于一组基${\\mathbf{v}_1, \\mathbf{v}_2, \\dots, \\mathbf{v}_n}$ ，任一向量$\\mathbf{x}$,有\n$$ \\mathbf{x} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} $$正交基就是要求一组基中的向量，两两正交，这样可以更好的求出系数，$ \\mathbf{x} \\cdot \\mathbf{v_m} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} \\cdot \\mathbf{v_m} = k_m \\mathbf{v_m} \\mathbf{v_m} $\n正交函数 深入理解正交函数 - 知乎\n我们可以把函数看成一个无穷维向量\n$$ \\begin{equation*} f(x) = \\lim_{\\Delta x \\to 0} \\begin{pmatrix} f(a), & f(a+\\Delta x), & f(a+2\\Delta x), & \\ldots, & f(a+(M-1)\\Delta x) \\end{pmatrix} \\qquad x \\in [a,b] \\end{equation*} $$无穷维空间（如函数空间）中，我们可以类似地把一个函数视为在某种基底上的线性组合。假设我们考虑一个函数 ( f )，例如定义在某个区间上的实值连续函数。我们可以将函数表示为某种基（例如正交基）上的线性组合：\n">
+<title>傅里叶级数</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/p/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/%E5%82%85%E9%87%8C%E5%8F%B6%E7%BA%A7%E6%95%B0/'>
 
-<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="">
-<meta property='og:description' content="傅里叶级数 三角函数系 正交函数系 正交向量\n$$ \\mathbf{a} \\cdot \\mathbf{b} = \\sum_{i=1}^{n} a_i b_i = 0 $$ 我们知道对于一个向量空间，其中任意向量可由一组 线性无关的向量线性表出（极大无关组，向量空间的一组基）,对于一组基${\\mathbf{v}_1, \\mathbf{v}_2, \\dots, \\mathbf{v}_n}$ ，任一向量$\\mathbf{x}$,有\n$$ \\mathbf{x} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} $$正交基就是要求一组基中的向量，两两正交，这样可以更好的求出系数，$ \\mathbf{x} \\cdot \\mathbf{v_m} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} \\cdot \\mathbf{v_m} = k_m \\mathbf{v_m} \\mathbf{v_m} $\n正交函数 深入理解正交函数 - 知乎\n我们可以把函数看成一个无穷维向量\n$$ \\begin{equation*} f(x) = \\lim_{\\Delta x \\to 0} \\begin{pmatrix} f(a), & f(a+\\Delta x), & f(a+2\\Delta x), & \\ldots, & f(a+(M-1)\\Delta x) \\end{pmatrix} \\qquad x \\in [a,b] \\end{equation*} $$无穷维空间（如函数空间）中，我们可以类似地把一个函数视为在某种基底上的线性组合。假设我们考虑一个函数 ( f )，例如定义在某个区间上的实值连续函数。我们可以将函数表示为某种基（例如正交基）上的线性组合：\n">
-<meta property='og:url' content='https://charles-7777.github.io/p/'>
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="傅里叶级数">
+<meta property='og:description' content="三角函数系 正交函数系 正交向量\n$$ \\mathbf{a} \\cdot \\mathbf{b} = \\sum_{i=1}^{n} a_i b_i = 0 $$ 我们知道对于一个向量空间，其中任意向量可由一组 线性无关的向量线性表出（极大无关组，向量空间的一组基）,对于一组基${\\mathbf{v}_1, \\mathbf{v}_2, \\dots, \\mathbf{v}_n}$ ，任一向量$\\mathbf{x}$,有\n$$ \\mathbf{x} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} $$正交基就是要求一组基中的向量，两两正交，这样可以更好的求出系数，$ \\mathbf{x} \\cdot \\mathbf{v_m} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} \\cdot \\mathbf{v_m} = k_m \\mathbf{v_m} \\mathbf{v_m} $\n正交函数 深入理解正交函数 - 知乎\n我们可以把函数看成一个无穷维向量\n$$ \\begin{equation*} f(x) = \\lim_{\\Delta x \\to 0} \\begin{pmatrix} f(a), & f(a+\\Delta x), & f(a+2\\Delta x), & \\ldots, & f(a+(M-1)\\Delta x) \\end{pmatrix} \\qquad x \\in [a,b] \\end{equation*} $$无穷维空间（如函数空间）中，我们可以类似地把一个函数视为在某种基底上的线性组合。假设我们考虑一个函数 ( f )，例如定义在某个区间上的实值连续函数。我们可以将函数表示为某种基（例如正交基）上的线性组合：\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/%E5%82%85%E9%87%8C%E5%8F%B6%E7%BA%A7%E6%95%B0/'>
 <meta property='og:site_name' content='Charles'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:modified_time' content='2026-06-26T18:21:56&#43;08:00'/>
-<meta name="twitter:title" content="">
-<meta name="twitter:description" content="傅里叶级数 三角函数系 正交函数系 正交向量\n$$ \\mathbf{a} \\cdot \\mathbf{b} = \\sum_{i=1}^{n} a_i b_i = 0 $$ 我们知道对于一个向量空间，其中任意向量可由一组 线性无关的向量线性表出（极大无关组，向量空间的一组基）,对于一组基${\\mathbf{v}_1, \\mathbf{v}_2, \\dots, \\mathbf{v}_n}$ ，任一向量$\\mathbf{x}$,有\n$$ \\mathbf{x} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} $$正交基就是要求一组基中的向量，两两正交，这样可以更好的求出系数，$ \\mathbf{x} \\cdot \\mathbf{v_m} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} \\cdot \\mathbf{v_m} = k_m \\mathbf{v_m} \\mathbf{v_m} $\n正交函数 深入理解正交函数 - 知乎\n我们可以把函数看成一个无穷维向量\n$$ \\begin{equation*} f(x) = \\lim_{\\Delta x \\to 0} \\begin{pmatrix} f(a), & f(a+\\Delta x), & f(a+2\\Delta x), & \\ldots, & f(a+(M-1)\\Delta x) \\end{pmatrix} \\qquad x \\in [a,b] \\end{equation*} $$无穷维空间（如函数空间）中，我们可以类似地把一个函数视为在某种基底上的线性组合。假设我们考虑一个函数 ( f )，例如定义在某个区间上的实值连续函数。我们可以将函数表示为某种基（例如正交基）上的线性组合：\n">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='math' /><meta property='article:published_time' content='2026-06-29T10:58:14&#43;08:00'/><meta property='article:modified_time' content='2026-06-29T13:23:58&#43;08:00'/>
+<meta name="twitter:title" content="傅里叶级数">
+<meta name="twitter:description" content="三角函数系 正交函数系 正交向量\n$$ \\mathbf{a} \\cdot \\mathbf{b} = \\sum_{i=1}^{n} a_i b_i = 0 $$ 我们知道对于一个向量空间，其中任意向量可由一组 线性无关的向量线性表出（极大无关组，向量空间的一组基）,对于一组基${\\mathbf{v}_1, \\mathbf{v}_2, \\dots, \\mathbf{v}_n}$ ，任一向量$\\mathbf{x}$,有\n$$ \\mathbf{x} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} $$正交基就是要求一组基中的向量，两两正交，这样可以更好的求出系数，$ \\mathbf{x} \\cdot \\mathbf{v_m} = \\sum_{i=1}^{n} k_i \\mathbf{v_i} \\cdot \\mathbf{v_m} = k_m \\mathbf{v_m} \\mathbf{v_m} $\n正交函数 深入理解正交函数 - 知乎\n我们可以把函数看成一个无穷维向量\n$$ \\begin{equation*} f(x) = \\lim_{\\Delta x \\to 0} \\begin{pmatrix} f(a), & f(a+\\Delta x), & f(a+2\\Delta x), & \\ldots, & f(a+(M-1)\\Delta x) \\end{pmatrix} \\qquad x \\in [a,b] \\end{equation*} $$无穷维空间（如函数空间）中，我们可以类似地把一个函数视为在某种基底上的线性组合。假设我们考虑一个函数 ( f )，例如定义在某个区间上的实值连续函数。我们可以将函数表示为某种基（例如正交基）上的线性组合：\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -297,14 +297,19 @@
         <li><a href="#三角函数系-1">三角函数系</a></li>
       </ol>
     </li>
-    <li><a href="#傅里叶级数-1">傅里叶级数</a>
+    <li><a href="#傅里叶级数">傅里叶级数</a>
       <ol>
         <li><a href="#周期为2pi的傅里叶级数">周期为$2\pi$的傅里叶级数</a></li>
         <li><a href="#周期为-2l-的傅里叶级数">周期为 $2L$ 的傅里叶级数</a></li>
         <li><a href="#周期信号的傅里叶级数工程常用形式">周期信号的傅里叶级数（工程常用形式）</a></li>
       </ol>
     </li>
-    <li><a href="#傅里叶级数的复数形式">傅里叶级数的复数形式</a></li>
+    <li><a href="#傅里叶级数的复数形式">傅里叶级数的复数形式</a>
+      <ol>
+        <li><a href="#傅里叶级数的复数形式-1">傅里叶级数的复数形式</a></li>
+        <li><a href="#非周期函数的傅里叶变换">非周期函数的傅里叶变换</a></li>
+      </ol>
+    </li>
   </ol>
 </nav>
         </div>
@@ -321,10 +326,18 @@
 
     <div class="article-details">
     
+    <header class="article-category">
+        
+            <a href="/categories/math/" >
+                Math
+            </a>
+        
+    </header>
+    
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/"></a>
+            <a href="/p/%E5%82%85%E9%87%8C%E5%8F%B6%E7%BA%A7%E6%95%B0/">傅里叶级数</a>
         </h2>
     
         
@@ -335,9 +348,22 @@
     
     
     <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-06-29 10:58</time>
+            </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-06-26 18:21</time>
+            <time class="article-lastmod">2026-06-29 13:23</time>
         </div>
         
 
@@ -352,7 +378,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 5 分钟
+                    阅读时长: 6 分钟
                 </time>
             </div>
         
@@ -361,7 +387,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    888 字
+                    1081 字
                 </time>
             </div>
         
@@ -381,8 +407,7 @@
     <section class="article-content">
     
     
-    <h1 id="傅里叶级数">傅里叶级数
-</h1><h2 id="三角函数系">三角函数系
+    <h2 id="三角函数系">三角函数系
 </h2><h3 id="正交函数系">正交函数系
 </h3><ul>
 <li>
@@ -447,7 +472,7 @@ $$
   \int_{-\pi}^{\pi} \cos nx \cos nx  dx = \int_{-\pi}^{\pi} \frac{1}{2}[\cos(m-n)x + \cos(n+n)x] dx = \int_{-\pi}^{\pi} \frac{1}{2} (1 + \cos 2nx) dx = \pi
   $$</li>
 </ul>
-<h2 id="傅里叶级数-1">傅里叶级数
+<h2 id="傅里叶级数">傅里叶级数
 </h2><h3 id="周期为2pi的傅里叶级数">周期为$2\pi$的傅里叶级数
 </h3><p>对于一个以 $2\pi$ 为周期的函数 $f(x) = f(x + 2\pi)$，可以将其展开为傅里叶级数：</p>
 $$
@@ -504,7 +529,8 @@ a_n &= \frac{2}{T} \int_{0}^{T} \cos(n\omega_0 t) \cdot f(t) \, dt \\[6pt]
 b_n &= \frac{2}{T} \int_{0}^{T} \sin(n\omega_0 t) \cdot f(t) \, dt
 \end{aligned}
 $$<h2 id="傅里叶级数的复数形式">傅里叶级数的复数形式
-</h2><p>根据欧拉公式有：</p>
+</h2><h3 id="傅里叶级数的复数形式-1">傅里叶级数的复数形式
+</h3><p>根据欧拉公式有：</p>
 $$
 e^{i \theta} = \cos\theta + i \sin\theta
 $$<p>据此以及三角函数的奇偶性，可将三角函数表示为复数形式：</p>
@@ -526,18 +552,21 @@ $$<p>现推导系数 $C_n$：
 $$
 C_0 = \frac{a_0}{2} = \frac{1}{T} \int_0^T f(t) \, dt
 $$<p><strong>当 $ n &gt; 0 $ 时：</strong></p>
-<p>$$
-C_n = \frac{a_n - i b_n}{2}</p>
-<p>= \frac{1}{T} \int_0^T f(t) \cdot \left[ \cos(n\omega_0 t) - i \sin(n\omega_0 t) \right] dt</p>
-<p>= \frac{1}{T} \int_0^T f(t) \cdot e^{-i n \omega_0 t} , dt
-$$</p>
-<p><strong>当 $ n &lt; 0 $ 时：</strong></p>
-<p>$$
-C_n = \frac{a_{-n} + i b_{-n}}{2}</p>
-<p>= \frac{1}{T} \int_0^T f(t) \cdot \left[ \cos(-n\omega_0 t) + i \sin(-n\omega_0 t) \right] dt</p>
-<p>= \frac{1}{T} \int_0^T f(t) \cdot e^{-i n \omega_0 t} , dt
-$$</p>
-<p>故：</p>
+<!--\begin{aligned} ...\end{aligned}对齐 ;= 等号前面都加上就是按等号对齐；\\就是换行  -->
+$$
+\begin{aligned}
+C_n &= \frac{a_n - i b_n}{2} \\
+&= \frac{1}{T} \int_0^T f(t) \cdot \left[ \cos(n\omega_0 t) - i \sin(n\omega_0 t) \right] dt \\
+&= \frac{1}{T} \int_0^T f(t) \cdot e^{-i n \omega_0 t} \, dt
+\end{aligned}
+$$<p><strong>当 $ n &lt; 0 $ 时：</strong></p>
+$$
+\begin{aligned}
+C_n &= \frac{a_{-n} + i b_{-n}}{2}  \\
+&= \frac{1}{T} \int_0^T f(t) \cdot \left[ \cos(-n\omega_0 t) + i \sin(-n\omega_0 t) \right] dt  \\
+&= \frac{1}{T} \int_0^T f(t) \cdot e^{-i n \omega_0 t} \, dt
+\end{aligned}
+$$<p>故：</p>
 $$
 C_n = \frac{1}{T} \int_0^T f(t) \cdot e^{-i n \omega_0 t} \, dt     \qquad n \in Z
 $$<ul>
@@ -552,12 +581,60 @@ $$<p>在复平面上，傅里叶级数的每一项中：</p>
 <li>$ |C_n| $ 确定了这个向量的幅值</li>
 <li>$ \angle C_n $ 确定了这个向量在 $ t = 0 $ 的相位角</li>
 </ol>
+<p>对于复数 Cn=a+ib（其中 a 是实部，b 是虚部）：</p>
+<ul>
+<li>
+<p><strong>∣Cn∣</strong>：模长（幅值），$∣C_n∣=\sqrt {a^2+b^2} $</p>
+</li>
+<li>
+<p><strong>∠Cn</strong>：辐角（相位角），$∠C_n=arg(C_n)=arctan(\frac{b}{a})$ (需根据象限调整)</p>
+</li>
+</ul>
+<p>因此周期函数的傅里叶本质上是将周期函数分解为频率为基频的整数倍 nω0​ 的无数个周期性旋转  即周期函数的频域以 Δω=ω0 为间隔</p>
+$$
+f(t+T)=f(t) \to e^{iw(t+T)}=e^{iwt} \to e^{iwT}=1 \to wT=2n\pi \to w=n \cdot \frac{2 \pi}{T}
+\\
+w=n w_0 \to \Delta ω=ω0
+$$<h3 id="非周期函数的傅里叶变换">非周期函数的傅里叶变换
+</h3><p>对于非周期函数 $f(t)$ 其周期 $T\to\infty$, 基频 $\omega_0 = \frac{2 \pi}{T}\to 0$ 因此函数的频率分布之间的间隔 $\omega_0=\Delta\omega\to 0$, 此时函数的频域<strong>连续分布</strong>根据以下变换</p>
+<!-- \. 小空格 \:中空格 \;大空格 \ 词间空格 \quad 宽空格  \qquad 更宽的-->
+$$
+n \omega_0 \to \omega  \qquad T= \frac{2 \pi}{\omega _0} ;\; \frac{1}{T}= \frac{\Delta \omega}{2 \pi} \to \frac{\omega}{2 \pi}
+$$<p>带入 $f(t)$ 的傅里叶级数</p>
+$$
+\begin{aligned}
+f(t) &= \sum_{n=-\infty}^{\infty} C_n e^{in\omega_0 t} \\
+&= \frac{1}{T} \sum_{n=-\infty}^{\infty} \left( \int_{-\frac{T}{2}}^{\frac{T}{2}} f(t) e^{-in\omega_0 t} dt \right) e^{in\omega_0 t} \\
+&= \frac{d\omega}{2\pi} \int_{-\infty}^{\infty} \left( \int_{-\infty}^{\infty} f(t) e^{-i\omega t} dt \right) e^{i\omega t} \\
+&= \frac{1}{2\pi} \int_{-\infty}^{\infty} \left( \int_{-\infty}^{\infty} f(t) e^{-i\omega t} dt \right) e^{i\omega t} d\omega
+\end{aligned}
+$$<p>此时$ C_n $ 可以被表示成一个连续的函数$ F(\omega) $，因此有</p>
+$$
+F(\omega) = \mathcal{F}[f(t)] = \int_{-\infty}^{\infty} f(t) e^{-i\omega t} dt
+ \\
+f(t) = \mathcal{F}^{-1}[F(\omega)] = \frac{1}{2\pi} \int_{-\infty}^{\infty} F(\omega) e^{i\omega t} d\omega
+$$<p>其中</p>
+<p>$ F(\omega) = \mathcal{F}[f(t)] $ 为傅里叶正变换</p>
+<p>$ f(t) = \mathcal{F}^{-1}[F(\omega)] $ 为傅里叶逆变换</p>
+<p>根据推导可得, 傅里叶变换得到的 $F(\omega)$相当于$ C_n=F(\omega)d \omega$, 因此 $F(\omega)$ 并不代表信号中</p>
+<p>率为 $\omega$的成分, 而是在频率范围$ \omega \sim \omega + d\omega $内的密度</p>
+<p>因此 F(ω) 体现的是信号在 ω 的幅值密度而非幅值 (与傅里叶级数做区分)</p>
+<hr>
+<blockquote>
+<p><a class="link" href="https://tonyddg.github.io/noteverse/course/machine/cybernetics/fourier.html"  target="_blank" rel="noopener"
+    >傅里叶变换 | Tonyddg&rsquo;s Noteverse</a></p></blockquote>
 
 </section>
 
 
     <footer class="article-footer">
     
+    <section class="article-tags">
+        
+            <a href="/tags/math/">Math</a>
+        
+    </section>
+
 
     
     <section class="article-copyright">
@@ -578,11 +655,111 @@ $$<p>在复平面上，傅里叶级数的每一项中：</p>
 
 
     
+        <link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI&#43;WdtXRGWt2kTvGFasHpSy3SV"crossorigin="anonymous"
+            ><script 
+                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG&#43;vnGctmUb0ZY0l8"crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"integrity="sha384-&#43;VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4&#43;/RRE05"crossorigin="anonymous"
+                defer
+                >
+            </script><script>
+    window.addEventListener("DOMContentLoaded", () => {
+	const mainArticleElement = document.querySelector(".main-article");
+        renderMathInElement(mainArticleElement, {
+            delimiters: [
+                { left: "$$", right: "$$", display: true },
+                { left: "$", right: "$", display: false },
+                { left: "\\(", right: "\\)", display: false },
+                { left: "\\[", right: "\\]", display: true }
+            ],
+            ignoredClasses: ["gist"]
+        });})
+</script>
+
+    
 </article>
 
     
 
     
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/banach%E4%B8%8D%E5%8A%A8%E7%82%B9%E5%AE%9A%E7%90%86/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Banach不动点定理</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ramsey%E9%97%AE%E9%A2%98/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Ramsey问题</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E5%8F%98%E5%88%86%E6%B3%95%E8%AF%81%E6%98%8E%E7%AD%89%E5%91%A8%E9%97%AE%E9%A2%98/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">变分法证明等周问题</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E5%8F%98%E5%88%86%E6%B3%95/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">变分法</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E6%A0%B7%E6%9C%AC%E6%96%B9%E5%B7%AE/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">样本方差</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
 
      
     

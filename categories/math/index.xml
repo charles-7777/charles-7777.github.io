@@ -7,7 +7,231 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Thu, 02 Apr 2026 17:31:43 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/math/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 29 Jun 2026 13:23:58 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/math/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>傅里叶级数</title>
+        <link>https://charles-7777.github.io/p/%E5%82%85%E9%87%8C%E5%8F%B6%E7%BA%A7%E6%95%B0/</link>
+        <pubDate>Mon, 29 Jun 2026 10:58:14 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/%E5%82%85%E9%87%8C%E5%8F%B6%E7%BA%A7%E6%95%B0/</guid>
+        <description>&lt;h2 id=&#34;三角函数系&#34;&gt;三角函数系
+&lt;/h2&gt;&lt;h3 id=&#34;正交函数系&#34;&gt;正交函数系
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;正交向量&lt;/p&gt;
+$$
+  \mathbf{a} \cdot \mathbf{b} = \sum_{i=1}^{n} a_i b_i = 0
+  $$&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我们知道对于一个向量空间，其中任意向量可由一组 线性无关的向量线性表出（极大无关组，向量空间的一组基）,对于一组基${\mathbf{v}_1, \mathbf{v}_2, \dots, \mathbf{v}_n}$ ，任一向量$\mathbf{x}$,有&lt;/p&gt;
+$$
+\mathbf{x} = \sum_{i=1}^{n} k_i \mathbf{v_i}
+$$&lt;p&gt;正交基就是要求一组基中的向量，两两正交，这样可以更好的求出系数，$ \mathbf{x} \cdot \mathbf{v_m} = \sum_{i=1}^{n} k_i \mathbf{v_i} \cdot \mathbf{v_m} = k_m \mathbf{v_m} \mathbf{v_m} $&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;正交函数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://zhuanlan.zhihu.com/p/338045910&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;深入理解正交函数 - 知乎&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+&lt;p&gt;我们可以把函数看成一个无穷维向量&lt;/p&gt;
+$$
+\begin{equation*}
+f(x) = \lim_{\Delta x \to 0}
+\begin{pmatrix}
+f(a), &amp; f(a+\Delta x), &amp; f(a+2\Delta x), &amp; \ldots, &amp; f(a+(M-1)\Delta x)   
+\end{pmatrix}
+\qquad x \in [a,b]
+\end{equation*}
+$$&lt;p&gt;无穷维空间（如函数空间）中，我们可以类似地把一个函数视为在某种基底上的线性组合。假设我们考虑一个函数 ( f )，例如定义在某个区间上的实值连续函数。我们可以将函数表示为某种基（例如正交基）上的线性组合：&lt;/p&gt;
+$$
+\mathbf{f(x)} = \sum_{i=1}^\infty c_i \mathbf{v(x)}
+$$&lt;p&gt;那么类似$\mathbf{a} \cdot \mathbf{b} = \sum_{i=1}^{n} a_i b_i = 0$两个函数正交:&lt;/p&gt;
+$$
+\langle f, g \rangle = \int_{a}^{b} f(x)g(x)dx =0
+$$$$
+\langle f, v_m \rangle = \int_{a}^{b} f(x)v_m(x)dx = \int_{a}^{b} \sum_{i=1}^\infty c_i v_i(x) v_m(x)dx = \int_{a}^{b}  c_m v_m(x) v_m(x)dx = c_m \langle v_m, v_m \rangle
+$$&lt;h3 id=&#34;三角函数系-1&#34;&gt;三角函数系
+&lt;/h3&gt;&lt;p&gt;对于函数集合&lt;/p&gt;
+$$
+C = \left\{ 1, \sin x, \cos x, \sin 2x, \cos 2x, \ldots, \sin nx, \cos nx \mid x \in (-\pi, \pi) \right\}
+$$&lt;p&gt;称之为三角函数系&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;正交性&lt;/p&gt;
+&lt;p&gt;对于$\sin nx, \cos nx$,有&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+$$
+\int_{-\pi}^{\pi} \sin nx \sin mx dx = 0, \qquad \int_{-\pi}^{\pi} \cos nx \, dx = 0
+$$&lt;p&gt;由$\sin(a + b) = \sin a \cos b + \cos a \sin b$ $和\cos(a + b) = \cos a \cos b - \sin a \sin b$&lt;/p&gt;
+$$
+\int_{-\pi}^{\pi} \sin nx \sin mx  dx = \int_{-\pi}^{\pi} \frac{1}{2}[\cos(m-n)x - \cos(m+n)x] dx = 0
+$$$$
+\int_{-\pi}^{\pi} \cos nx \cos mx  dx = \int_{-\pi}^{\pi} \frac{1}{2}[\cos(m-n)x + \cos(m+n)x] dx = 0
+$$$$
+\int_{-\pi}^{\pi} \sin nx \cos mx  dx = \int_{-\pi}^{\pi} \frac{1}{2}[\sin(n+m)x - \sin(n-m)x] dx = 0
+$$&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;特别地&lt;/p&gt;
+$$
+  \int_{-\pi}^{\pi} \sin nx \sin nx  dx = \int_{-\pi}^{\pi} \frac{1}{2}[\cos(n-n)x - \cos(n+n)x] dx = \int_{-\pi}^{\pi} \frac{1}{2} (1 - \cos 2nx) dx = \pi
+  $$$$
+  \int_{-\pi}^{\pi} \cos nx \cos nx  dx = \int_{-\pi}^{\pi} \frac{1}{2}[\cos(m-n)x + \cos(n+n)x] dx = \int_{-\pi}^{\pi} \frac{1}{2} (1 + \cos 2nx) dx = \pi
+  $$&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;傅里叶级数&#34;&gt;傅里叶级数
+&lt;/h2&gt;&lt;h3 id=&#34;周期为2pi的傅里叶级数&#34;&gt;周期为$2\pi$的傅里叶级数
+&lt;/h3&gt;&lt;p&gt;对于一个以 $2\pi$ 为周期的函数 $f(x) = f(x + 2\pi)$，可以将其展开为傅里叶级数：&lt;/p&gt;
+$$
+f(x) = \frac{a_0}{2} + \sum_{n=1}^{\infty} (a_n \cos nx + b_n \sin nx)
+$$&lt;p&gt;根据三角函数的正交性：&lt;/p&gt;
+&lt;p&gt;对于 $1 \cdot f(x)$，仅 $\frac{a_0}{2}$ 项的积分结果不为 0：&lt;/p&gt;
+$$
+\int_{-\pi}^{\pi} f(x) \, dx = \frac{1}{2} a_0 \int_{-\pi}^{\pi} dx = \pi a_0
+$$&lt;p&gt;对于 $\cos nx \cdot f(x)$，仅 $a_n \cos nx$ 项的积分结果不为 0：&lt;/p&gt;
+$$
+\int_{-\pi}^{\pi} \cos nx \cdot f(x) \, dx = a_n \int_{-\pi}^{\pi} \cos^2 nx \, dx = \pi a_n
+$$&lt;p&gt;对于 $\sin nx \cdot f(x)$，仅 $b_n \sin nx$ 项的积分结果不为 0：&lt;/p&gt;
+$$
+\int_{-\pi}^{\pi} \sin nx \cdot f(x) \, dx = b_n \int_{-\pi}^{\pi} \sin^2 nx \, dx = \pi b_n
+$$&lt;p&gt;因此傅里叶级数中的系数满足：&lt;/p&gt;
+$$
+a_0 = \frac{1}{\pi} \int_{-\pi}^{\pi} f(x) \, dx
+$$$$
+a_n = \frac{1}{\pi} \int_{-\pi}^{\pi} \cos nx \cdot f(x) \, dx
+$$$$
+b_n = \frac{1}{\pi} \int_{-\pi}^{\pi} \sin nx \cdot f(x) \, dx
+$$&lt;h3 id=&#34;周期为-2l-的傅里叶级数&#34;&gt;周期为 $2L$ 的傅里叶级数
+&lt;/h3&gt;&lt;p&gt;对于一个以 $2L$ 为周期的函数 $f(t) = f(t + 2L)$，可以使用变量代换 $t = \frac{L}{\pi}x$ 将其转变为一个以 $2\pi$ 为周期的函数：&lt;/p&gt;
+$$
+g(x) = f(t) = f( \frac{L}{\pi}x ) \quad \Rightarrow \quad g(x + 2\pi) = f\left(\frac{L}{\pi}(x + 2\pi)\right)
+$$&lt;p&gt;因此将 $x = \frac{\pi}{L}t $ 代入 $g(x)$ 的傅里叶级数中，即可得到$f(t)$ 的傅里叶级数。&lt;/p&gt;
+&lt;p&gt;定义 $\omega_0 = \frac{\pi}{L}$，三角函数换元后有：&lt;/p&gt;
+$$
+\sin nx = \sin n\omega_0 x, \qquad \cos nx = \cos n\omega_0 x
+$$&lt;p&gt;积分换元后有：&lt;/p&gt;
+$$
+\int_{-\pi}^{\pi} g(x) \, dx = \frac{\pi}{L} \int_{-L}^{L} f(t) \, dt
+$$&lt;p&gt;因此对于周期为 $2L$ 的傅里叶级数有：&lt;/p&gt;
+$$
+\begin{aligned}
+f(t) &amp;= \frac{a_0}{2} + \sum_{n=1}^{\infty} \left[ a_n \cos(n\omega_0 t) + b_n \sin(n\omega_0 t) \right] \\[6pt]
+a_0 &amp;= \frac{1}{L} \int_{-L}^{L} f(t) \, dt \\[6pt]
+a_n &amp;= \frac{1}{L} \int_{-L}^{L} \cos(n\omega_0 t) \cdot f(t) \, dt \\[6pt]
+b_n &amp;= \frac{1}{L} \int_{-L}^{L} \sin(n\omega_0 t) \cdot f(t) \, dt
+\end{aligned}
+$$&lt;h3 id=&#34;周期信号的傅里叶级数工程常用形式&#34;&gt;周期信号的傅里叶级数（工程常用形式）
+&lt;/h3&gt;&lt;p&gt;在工程中，信号为从 0 开始、以 T 为周期的函数，因此定义变换（其中 $\omega_0$ 为基频）：&lt;/p&gt;
+$$
+T = 2L, \qquad \omega_0 = \frac{\pi}{L} = \frac{2\pi}{T}
+$$&lt;p&gt;易得对于周期为 T 的函数：&lt;/p&gt;
+$$
+\int_{-L}^{L} f(t) \, dt = \int_{0}^{2L} f(t) \, dt = \int_{0}^{T} f(t) \, dt
+$$&lt;p&gt;由此可以得到工程中常用的傅里叶级数形式：&lt;/p&gt;
+$$
+\begin{aligned}
+f(t) &amp;= \frac{a_0}{2} + \sum_{n=1}^{\infty} \left[ a_n \cos(n\omega_0 t) + b_n \sin(n\omega_0 t) \right] \\[6pt]
+a_0 &amp;= \frac{2}{T} \int_{0}^{T} f(t) \, dt \\[6pt]
+a_n &amp;= \frac{2}{T} \int_{0}^{T} \cos(n\omega_0 t) \cdot f(t) \, dt \\[6pt]
+b_n &amp;= \frac{2}{T} \int_{0}^{T} \sin(n\omega_0 t) \cdot f(t) \, dt
+\end{aligned}
+$$&lt;h2 id=&#34;傅里叶级数的复数形式&#34;&gt;傅里叶级数的复数形式
+&lt;/h2&gt;&lt;h3 id=&#34;傅里叶级数的复数形式-1&#34;&gt;傅里叶级数的复数形式
+&lt;/h3&gt;&lt;p&gt;根据欧拉公式有：&lt;/p&gt;
+$$
+e^{i \theta} = \cos\theta + i \sin\theta
+$$&lt;p&gt;据此以及三角函数的奇偶性，可将三角函数表示为复数形式：&lt;/p&gt;
+$$
+\sin\theta = \frac{1}{2i}(e^{i\theta} - e^{-i\theta}) = -\frac{i}{2}(e^{i\theta} - e^{-i\theta})
+$$$$
+\cos\theta = \frac{1}{2}(e^{i\theta} + e^{-i\theta})
+$$&lt;p&gt;复数形式的展开将复数形式的三角函数代入傅里叶级数：&lt;/p&gt;
+$$
+f(t) = \frac{a_0}{2} + \sum_{n=1}^{\infty} \left[ a_n \cos(n\omega_0 t) + b_n \sin(n\omega_0 t) \right]
+$$$$
+= \frac{a_0}{2} + \sum_{n=1}^{\infty} \left[ \frac{a_n - i b_n}{2} e^{i n \omega_0 t} + \frac{a_n + i b_n}{2} e^{-i n \omega_0 t} \right]
+$$$$
+= \frac{a_0}{2} + \sum_{n=1}^{\infty} \frac{a_n - i b_n}{2} e^{i n \omega_0 t} + \sum_{n=-\infty}^{-1} \frac{a_n + i b_n}{2} e^{i n \omega_0 t}
+$$$$
+= \sum_{n=-\infty}^{\infty} C_n e^{i n \omega_0 t}
+$$&lt;p&gt;现推导系数 $C_n$：
+&lt;strong&gt;当 $ n = 0 $ 时：&lt;/strong&gt;&lt;/p&gt;
+$$
+C_0 = \frac{a_0}{2} = \frac{1}{T} \int_0^T f(t) \, dt
+$$&lt;p&gt;&lt;strong&gt;当 $ n &amp;gt; 0 $ 时：&lt;/strong&gt;&lt;/p&gt;
+&lt;!--\begin{aligned} ...\end{aligned}对齐 ;= 等号前面都加上就是按等号对齐；\\就是换行  --&gt;
+$$
+\begin{aligned}
+C_n &amp;= \frac{a_n - i b_n}{2} \\
+&amp;= \frac{1}{T} \int_0^T f(t) \cdot \left[ \cos(n\omega_0 t) - i \sin(n\omega_0 t) \right] dt \\
+&amp;= \frac{1}{T} \int_0^T f(t) \cdot e^{-i n \omega_0 t} \, dt
+\end{aligned}
+$$&lt;p&gt;&lt;strong&gt;当 $ n &amp;lt; 0 $ 时：&lt;/strong&gt;&lt;/p&gt;
+$$
+\begin{aligned}
+C_n &amp;= \frac{a_{-n} + i b_{-n}}{2}  \\
+&amp;= \frac{1}{T} \int_0^T f(t) \cdot \left[ \cos(-n\omega_0 t) + i \sin(-n\omega_0 t) \right] dt  \\
+&amp;= \frac{1}{T} \int_0^T f(t) \cdot e^{-i n \omega_0 t} \, dt
+\end{aligned}
+$$&lt;p&gt;故：&lt;/p&gt;
+$$
+C_n = \frac{1}{T} \int_0^T f(t) \cdot e^{-i n \omega_0 t} \, dt     \qquad n \in Z
+$$&lt;ul&gt;
+&lt;li&gt;周期函数傅里叶级数的特点&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;根据傅里叶级数的复数表达：&lt;/p&gt;
+$$
+f(t) = \sum_{n=-\infty}^{\infty} C_n e^{i n \omega_0 t}
+$$&lt;p&gt;在复平面上，傅里叶级数的每一项中：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;$ e^{i n \omega_0 t} $体现了一个以 $ n \omega_0 $为角速度旋转的向量&lt;/li&gt;
+&lt;li&gt;$ |C_n| $ 确定了这个向量的幅值&lt;/li&gt;
+&lt;li&gt;$ \angle C_n $ 确定了这个向量在 $ t = 0 $ 的相位角&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;对于复数 Cn=a+ib（其中 a 是实部，b 是虚部）：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;∣Cn∣&lt;/strong&gt;：模长（幅值），$∣C_n∣=\sqrt {a^2+b^2} $&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;∠Cn&lt;/strong&gt;：辐角（相位角），$∠C_n=arg(C_n)=arctan(\frac{b}{a})$ (需根据象限调整)&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;因此周期函数的傅里叶本质上是将周期函数分解为频率为基频的整数倍 nω0​ 的无数个周期性旋转  即周期函数的频域以 Δω=ω0 为间隔&lt;/p&gt;
+$$
+f(t+T)=f(t) \to e^{iw(t+T)}=e^{iwt} \to e^{iwT}=1 \to wT=2n\pi \to w=n \cdot \frac{2 \pi}{T}
+\\
+w=n w_0 \to \Delta ω=ω0
+$$&lt;h3 id=&#34;非周期函数的傅里叶变换&#34;&gt;非周期函数的傅里叶变换
+&lt;/h3&gt;&lt;p&gt;对于非周期函数 $f(t)$ 其周期 $T\to\infty$, 基频 $\omega_0 = \frac{2 \pi}{T}\to 0$ 因此函数的频率分布之间的间隔 $\omega_0=\Delta\omega\to 0$, 此时函数的频域&lt;strong&gt;连续分布&lt;/strong&gt;根据以下变换&lt;/p&gt;
+&lt;!-- \. 小空格 \:中空格 \;大空格 \ 词间空格 \quad 宽空格  \qquad 更宽的--&gt;
+$$
+n \omega_0 \to \omega  \qquad T= \frac{2 \pi}{\omega _0} ;\; \frac{1}{T}= \frac{\Delta \omega}{2 \pi} \to \frac{\omega}{2 \pi}
+$$&lt;p&gt;带入 $f(t)$ 的傅里叶级数&lt;/p&gt;
+$$
+\begin{aligned}
+f(t) &amp;= \sum_{n=-\infty}^{\infty} C_n e^{in\omega_0 t} \\
+&amp;= \frac{1}{T} \sum_{n=-\infty}^{\infty} \left( \int_{-\frac{T}{2}}^{\frac{T}{2}} f(t) e^{-in\omega_0 t} dt \right) e^{in\omega_0 t} \\
+&amp;= \frac{d\omega}{2\pi} \int_{-\infty}^{\infty} \left( \int_{-\infty}^{\infty} f(t) e^{-i\omega t} dt \right) e^{i\omega t} \\
+&amp;= \frac{1}{2\pi} \int_{-\infty}^{\infty} \left( \int_{-\infty}^{\infty} f(t) e^{-i\omega t} dt \right) e^{i\omega t} d\omega
+\end{aligned}
+$$&lt;p&gt;此时$ C_n $ 可以被表示成一个连续的函数$ F(\omega) $，因此有&lt;/p&gt;
+$$
+F(\omega) = \mathcal{F}[f(t)] = \int_{-\infty}^{\infty} f(t) e^{-i\omega t} dt
+ \\
+f(t) = \mathcal{F}^{-1}[F(\omega)] = \frac{1}{2\pi} \int_{-\infty}^{\infty} F(\omega) e^{i\omega t} d\omega
+$$&lt;p&gt;其中&lt;/p&gt;
+&lt;p&gt;$ F(\omega) = \mathcal{F}[f(t)] $ 为傅里叶正变换&lt;/p&gt;
+&lt;p&gt;$ f(t) = \mathcal{F}^{-1}[F(\omega)] $ 为傅里叶逆变换&lt;/p&gt;
+&lt;p&gt;根据推导可得, 傅里叶变换得到的 $F(\omega)$相当于$ C_n=F(\omega)d \omega$, 因此 $F(\omega)$ 并不代表信号中&lt;/p&gt;
+&lt;p&gt;率为 $\omega$的成分, 而是在频率范围$ \omega \sim \omega + d\omega $内的密度&lt;/p&gt;
+&lt;p&gt;因此 F(ω) 体现的是信号在 ω 的幅值密度而非幅值 (与傅里叶级数做区分)&lt;/p&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://tonyddg.github.io/noteverse/course/machine/cybernetics/fourier.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;傅里叶变换 | Tonyddg&amp;rsquo;s Noteverse&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+</description>
+        </item>
+        <item>
         <title>Banach不动点定理</title>
         <link>https://charles-7777.github.io/p/banach%E4%B8%8D%E5%8A%A8%E7%82%B9%E5%AE%9A%E7%90%86/</link>
         <pubDate>Thu, 02 Apr 2026 10:00:00 +0800</pubDate>
