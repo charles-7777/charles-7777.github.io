@@ -7,7 +7,7 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Thu, 02 Jul 2026 17:22:06 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/network/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Thu, 02 Jul 2026 17:31:16 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/network/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Cookie、Session、Token、JWT 与 OAuth2 的区别</title>
         <link>https://charles-7777.github.io/p/cookiesessiontokenjwt-%E4%B8%8E-oauth2-%E7%9A%84%E5%8C%BA%E5%88%AB/</link>
         <pubDate>Wed, 10 Jun 2026 19:11:14 +0800</pubDate>
@@ -748,7 +748,7 @@ ebtables 的配置分为表、链和规则三级。&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;filter&lt;/strong&gt; 表：过滤（放行/拒绝）&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;nat&lt;/strong&gt; 表：网络地址转换&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;mangle&lt;/strong&gt; 表：修改 IP 头,可以修改数据包的 TTL;还可以对数据包打上只在内核内有效的“标记”（internal kernel “mark”），后续的 table 或工具可以根据这些标记进行处理。标记不会修改包本身，只是在包的内核表示上做标记。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;mangle&lt;/strong&gt; 表：修改 IP 头,可以修改数据包的 TTL;还可以对数据包打上只在内核内有效的“标记”（internal kernel “mark”），后续的 table 或工具可以根据这些标记进行处理。标记不会修改包本身，只是在包的内核表示上做标记。iptables 只能在 mangle 表中打 mark，在 ebtables 中，所有的表（filter、nat、broute）都可以用来打 mark。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;raw&lt;/strong&gt; 表：conntrack 相关，iptables 防火墙是有状态的：对每个数据包进行判断的时候是依赖已经判断过的数据包。建立在 netfilter 之上的连接跟踪（connection tracking）特性使得 iptables 将数据包看作是已有连接或会话的一部分，而不是一个由独立、不相关的数据包而组成的流。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
