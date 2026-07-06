@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 信息\n从网络协议栈：IP地址 tx/rx packets\n从驱动程序获取：IOCTL(userspace app 与驱动程序通信)\ngraph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
+<title>网络设备驱动内部原理</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="网络设备驱动内部原理">
+<meta property='og:description' content=" graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 信息\n从网络协议栈：IP地址 tx/rx packets\n从驱动程序获取：IOCTL(userspace app 与驱动程序通信)\ngraph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-07T00:07:47&#43;08:00'/><meta property='article:modified_time' content='2026-07-07T00:14:37&#43;08:00'/>
+<meta name="twitter:title" content="网络设备驱动内部原理">
+<meta name="twitter:description" content=" graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 信息\n从网络协议栈：IP地址 tx/rx packets\n从驱动程序获取：IOCTL(userspace app 与驱动程序通信)\ngraph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://www.douyin.com/'
+                        target="_blank"
+                        title="douyin"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-tiktok"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 7.917v4.034a9.948 9.948 0 0 1 -5 -1.951v4.5a6.5 6.5 0 1 1 -8 -6.326v4.326a2.5 2.5 0 1 0 4 2v-11.5h4.083a6.005 6.005 0 0 0 4.917 4.917z" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/linux/" >
+                Linux
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/">网络设备驱动内部原理</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-07-07 00:07</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-07-07 00:14</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 8 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    1561 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <pre class="mermaid">
+  graph LR
+    subgraph Application[&#34;Application&#34;]
+    end
+
+    subgraph UserSpace[&#34;User Space&#34;]
+        Application
+    end
+
+    subgraph KernelSpace[&#34;Kernel Space&#34;]
+        SystemCall[&#34;System Call&#34;]
+        SocketLayer[&#34;Socket Layer&#34;]
+        TransportLayer[&#34;Transport Layer&#34;]
+        NetworkLayer[&#34;Network Layer&#34;]
+        NetworkDriver[&#34;Network Driver&#34;]
+    end
+
+    subgraph Hardware[&#34;Hardware&#34;]
+        NIC[&#34;NIC&#34;]
+    end
+
+    Application &lt;--&gt; SystemCall
+    SystemCall &lt;--&gt; SocketLayer
+    SocketLayer &lt;--&gt; TransportLayer
+    TransportLayer &lt;--&gt; NetworkLayer
+    NetworkLayer &lt;--&gt; NetworkDriver
+    NetworkDriver &lt;--&gt; NIC
+
+    %% 从系统调用直接连接到网络驱动器
+    SystemCall -.-&gt; NetworkDriver
+    
+    
+    style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
+    style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
+    style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
+</pre>
+<p>ifconfig 信息</p>
+<p>从网络协议栈：IP地址 tx/rx packets</p>
+<p>从驱动程序获取：IOCTL(userspace app 与驱动程序通信)</p>
+<pre class="mermaid">
+  graph LR
+    subgraph Application[&#34;Application&#34;]
+    end
+
+    subgraph UserSpace[&#34;User Space&#34;]
+        Application
+    end
+
+    subgraph KernelSpace[&#34;Kernel Space&#34;]
+        SystemCall[&#34;System Call&#34;]
+        NetworkStack[&#34;Network Stack&#34;]
+        eth0[&#34;eth0&#34;]
+        wifi0[&#34;wifi0&#34;]
+        EthernetDriver[&#34;Ethernet Driver&#34;]
+        WirelessDriver[&#34;Wireless Driver&#34;]
+    end
+
+    subgraph Hardware[&#34;Hardware&#34;]
+        EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;]
+        WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;]
+    end
+
+    Application --&gt; SystemCall
+    SystemCall &lt;--&gt; NetworkStack
+    NetworkStack &lt;--&gt; eth0
+    NetworkStack &lt;--&gt; wifi0
+    eth0 &lt;--&gt; EthernetDriver
+    wifi0 &lt;--&gt; WirelessDriver
+    EthernetDriver &lt;--&gt; EthernetController
+    WirelessDriver &lt;--&gt; WirelessController
+    
+    style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
+    style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
+    style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
+</pre>
+<p>ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi</p>
+<p>网络接口，底层有一个网络驱动程序这个驱动程序你不了解，它实际上是一个抽象层。</p>
+<p>所以不管是物理接回迹是软件接回从用戸的角度是不知道的</p>
+<p>甚至网络协议栈也不知道。好了这就是分层架构的美妙之处</p>
+<p>Network stack needs to make decisions about where to route IP packets during transmission（route table)</p>
+<pre class="mermaid">
+  graph LR
+    subgraph Application[&#34;Application&#34;]
+    end
+
+    subgraph UserSpace[&#34;User Space&#34;]
+        Application
+    end
+
+    subgraph KernelSpace[&#34;Kernel Space&#34;]
+        SystemCall[&#34;System Call&#34;]
+        SocketLayer[&#34;Socket Layer&#34;]
+        TransportLayer[&#34;Transport Layer&#34;]
+        subgraph NetworkLayer[&#34;Network Layer&#34;]
+            RoutingTable[&#34;Routing Table&#34;]
+        end
+        NetworkDriver[&#34;Network Driver&#34;]
+    end
+
+    subgraph Hardware[&#34;Hardware&#34;]
+        NIC[&#34;NIC&#34;]
+    end
+
+    Application --&gt; SystemCall
+    SystemCall &lt;--&gt; SocketLayer
+    SocketLayer &lt;--&gt; TransportLayer
+    TransportLayer &lt;--&gt; NetworkLayer
+    NetworkLayer &lt;--&gt; NetworkDriver
+    NetworkDriver &lt;--&gt; NIC
+
+    style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
+    style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
+    style NetworkLayer fill:#fce4ec,stroke:#e74c3c,stroke-width:2px
+    style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
+</pre>
+<pre class="mermaid">
+  graph LR
+    subgraph UserSpace[&#34;User Space&#34;]
+        Application[&#34;Application&#34;]
+    end
+
+    subgraph KernelSpace[&#34;Kernel Space&#34;]
+        SystemCall[&#34;System Call&#34;]
+        NetworkStack[&#34;Network Stack&#34;]
+        eth0[&#34;eth0&#34;]
+        NetworkDriver[&#34;Network Driver&#34;]
+        TX[&#34;TX&#34;]
+        RX[&#34;RX&#34;]
+        Interrupt[&#34;Interrupt&#34;]
+    end
+
+    subgraph Hardware[&#34;Hardware&#34;]
+        NetworkController[&#34;Network Controller&#34;]
+    end
+
+    Application --&gt; SystemCall
+    SystemCall &lt;--&gt; NetworkStack
+    NetworkStack &lt;--&gt; eth0
+    eth0 &lt;--&gt; NetworkDriver
+    NetworkDriver &lt;--&gt; TX
+    NetworkDriver &lt;--&gt; RX
+    NetworkController --&gt; Interrupt
+    Interrupt --&gt; NetworkDriver
+    TX &lt;--&gt; NetworkController
+    RX &lt;--&gt; NetworkController
+
+    style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
+    style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
+    style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
+</pre>
+<p>设备驱动程序 主要功能： 初始化硬件特定信息  初始化网络设备 和网络协议栈</p>
+<p>因为每当你安装这个网络协议栈的时候，这个网络驱动程序可以开发成内核模块
+也就是说，在启动过程中这个驱动程序是不可用的,所以现在你正在加载网络驱动程序。</p>
+<p>所以这意味着你实际上是在创建这个网络接口，而且这些信息必须跟网络协议栈共享.所以，这是网络驱动程序要做的关键任务之一，另外“</p>
+<p>另一个主要工作就是去初始化网络控制器 但除此之外还有三个常规的 事件或常规任务。网络驱动程序需要处理这些</p>
+<p>一是向网络控制器发送数据包 二是从网络控制器那里接收网络数据包。然后把它送回网络协议栈，或者转发给网络协议栈</p>
+<p>第三点，就是从网络控制器那里接收到一个中断通知.  请注意，这个中断信号会因为各种不同的原因被触发产生</p>
+<p>第一，也是最名最条最常见的事件，就是收到数据包.   所以每当网络控制器收到任何数据包  网络控制器会生一个中断，然后
+这个中断会通过操作系统到达网络驱动程序驱动程序会检查数据包</p>
+<p>第二种情况是，π当你每次拔掉它的时候 插上网线或者拔掉网线，也就是链路状态变成up或down   这时网络控制器也会产生一些事件</p>
+<p>类似地，无论何时你通过TX发送数据包时。通常，网络驱动程序会检查数据包是否发送成功。 所以有一个非常常见的中断，它叫做TX完成中断。所以第元种情況就是RX中断第二种是设备插拔状态相关的信息中断 第三种是常见的TX完成中断，也就是发送完成中断</p>
+<p>除此之外，发送或接收过程中可能发生一些错误或者还有其他类型的错误。所以网络控制器也会将一些错误相关信息</p>
+<p>通过中断机制传递给网络驱动程序</p>
+<p>当我们说网络控制器在收到一个数据包的时候  会向网络驱动程序发送一个中断： 如果网络接收大量数据包</p>
+<p>中断驱动I/O并非首选方式。轮询才是更好的。中断驱动I/O和轮询驱动I/O之间的切换是自动发生的吗这通常不是在运行时自动切換的
+而是事先确定的。当然，这只是个一般性的说法。不能一概而论，这取決于具体硬件。这是CORS 。这个说法只是你应该遵循的原则，实际情况总是有变化</p>
+<p>你需要自己判断一下在这个场景中轮询机制是不是更好的选择。或者中断是更好的选择。另外，处理这个中断也有各种不同的方式。你们所有人都可以完全避免使用下半部  中断服务例程也可以这样做，所以这种方式同样是可行的</p>
+<p>也就是说，短时间内有几百个数据包涌上来，对吧。对于快速数据包，网络驱动收到中断  在网络服务路由中，它实际上立即</p>
+<p>禁用掉这个中断，然后再去处理这个数据包。 如果它用这种方式也就是收到一个数据包之后， 就把它禁用掉。禁用中断，处理数据包，再发送 给网络协议栈，然后重新启用中断，退出中断处理  所以你可以理解，对于一个高吞吐量的系统来说它总是会不断地收到中断。</p>
+<p>这样CPU就=直在处理网络驱动程序的工作，但 在我们的系统中，收到数据包是很常见的。但还有其他工作需要完成。所以它的作用就是，像你说的轮询这种方法是可以被使用的。另一个可以做的事情就是，每当网络驱动程序 当收到中断信号时。我们不是只读取一个数据包 而是检查网络控制器硬件队列中当前可用的所有数据包. 所以它会一次性接收所有数据包。可能那里有几百个数据包.所以它会先检查一下  看看总共有多少个数据包? 它不再只从网络控制器向网络驱动复制一个数据包 .所以通过这个，它实际上提高了性能表现 所以，在网络驱动里做性能调优，这一步非常关键.</p>
+<p>中断也达不到我们期望的性能，这可不是我们想要的结果。轮询是另一种方式，但数据包不频繁时，这种设计会很糟糕 .要根据实际使用场景</p>
+<p>现在的硬件已经非常强大了 我见过非常差的网络驱动程序中中断机制是唯一的方式如令k硬件有更多能力了 网络控制器里可以支持更多的队列来工作。它的中断机制也更好了 它还能替网络协议栈做些工作，比如处理一些数据包。比如，你知道网络协议栈的每一层：它们都会计算一个校验和 每个数据包的校验和计算都需要一些时间。 所以现在网络控制器有这种能力，可以检查和验证校验和  所以如果这些正作是由硬件来完成的，那么肯定比在协议栈里处理要快得多  如果它跟网络协议栈有关那就有很多机制可以用来提升性能。 轮询就是其中之一。</p>
+<p>网络协议栈和网络驱动程序之间进行通信的主要接口，就是网络接口。所以这个接口必须被创建出来并且要把它共享给网络协议栈。第一步就是创建那个network interface。 Linux内核维护一个叫net_device的结构体我们习惯叫它net device。</p>
+<p>这个net device结构体是用来对应每个网络接口，都要单独设置。网络接口可以是物理的 ，也可以是虚拟的</p>
+<p>Kernel uses <em><strong>struct net_device</strong></em> to maintain each of the network device.Like other structure, it has to be dynamically created using ***alloc_netdev().***Here, struct dummy_ priv is the size of the driver&rsquo;s &ldquo;private data&rdquo; area; with network devices, that area is allocated along with the net _device structure.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">net_device</span> <span class="o">*</span><span class="n">dev_dummy</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev_dummy</span> <span class="o">=</span><span class="nf">alloc_netdev</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">dummy_priv</span><span class="p">)</span><span class="err">，</span>
+</span></span><span class="line"><span class="cl"><span class="s">&#34;deth%d&#34;</span><span class="err">，</span><span class="n">NET_NAME_ENUM</span><span class="err">，</span><span class="n">dummy_Setup</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>在alloc_netdevAPI中，我们需要提供四个参数。第一个是私有数据的大小 第二个是网络接口名，第三个是名称分配类型 ，影响 <code>%d</code> 的替换逻辑和 name的最终赋值。第四个是一个函数。所以它是一个函数指针，由我代码中的dummy_setup函数来填充</p>
+<p>第一个参数是私有数据每个设备都提供了一种机制用来与网络协议栈共享一些私有数据。某些情况下需要这么做，但这是可选的，你也可以不用。若使用，需要在网络设备结构体本身里面，给它分配一些内存空间。所以这就是为什么只是传递了大小在allocnetdev里传入我的私有数据结构的大小。这样，每当我的网络设备被创建，这块额外内存也会被创建。然后函数处理程序是dummy_setupe</p>
+<p>当初始化完成也就是与内核的信息共享完成后这个函数就会被调用  然后网络协议栈会调用这个函数来开始与驱动程序通信</p>
+<p>这通常是网络协议栈调用的第一个函数</p>
+<p>Driver needs to register its device(s) to kernel using *<strong>register_ netdevice</strong>().Here driver needs to pass the net_device instance which was earlier created by *<strong>alloc_netdev()</strong>.
+As soon as <em><strong>register_ netdevO</strong></em>, the driver may be called by network stack to operate on the device. Hence, driver should not register the device until everything has been completely initialized.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="n">dev_dummy</span><span class="o">-&gt;</span><span class="n">rtnl_link_ops</span><span class="o">=</span> <span class="o">&amp;</span><span class="n">dummy_link_ops</span>
+</span></span><span class="line"><span class="cl"><span class="n">err</span> <span class="o">=</span> <span class="nf">register_netdevice</span><span class="p">(</span><span class="n">dev_dunmy</span><span class="p">)</span>   
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>所以，一旦我们用alloc_netdev创建了设备，就需要通知网络协议栈，或者我们常说这个设备需要把这个特定的网络设备注册到网络协议栈里。通过调用另一个APl，register_netdev。这里我特意放了一个设备，就在这个位置</p>
+<p>因为要告诉你，网络设备可能拥有多个网络接口  如果你对路由器比较熟悉的话 	你可能会看到两个端口。一个是WAN口，它是用来连接互联网的。另一个是给LAN的，你的LAN设备可以连上去。 但底层设备驱动可能相同多数情況下，在我们现在的路由器设备里实际上只运行了一个驱动程序的实例   所以驱动程序可能有多个网络接口  同样，如果你用Wi-Fi，那么现在至少有两个接口：一个用于2.4GHz，另一个是5GHZ。但底层的设备驱动程序实际上只运行了一个，只有一个。一个Wi-Fi设备实例在运行，负责处理两个接口。</p>
+<p>所以一个网络驱动程序可以有多个网络接口。但反过来不成立  一个网络接口是不能同时对应多个网络设备的。</p>
+<p>所以注册机制是这样的：我们调用一个从alloc_netdev获取的虚拟接口，  从alloc  nedev获取信息并将该信息与注册的网络设备结构体共享。</p>
+<p>在此之前，我们需要先设置好一组操作函数指针，这样网络协议栈就会调用这些函数。在特定场景，比如打开、
+关闭或向网络接口发送数据包。针对这些操作网络设备中的某些函数会被调用到对应的函数处理器func handler中。 所以这一组处理函数实际上就是在这里Initializes的dummy_link_ops  开发网络设备驱动程序的时候，有一点你必须特别注意：一旦你调用了这个register_netdev	网络协议栈就会开始与驱动程序通信。所以务必确保在调用register_netdev之前，硬件相关的初始化已经完成，否则你就会遇到问题。</p>
+<p>Usually up to registration, full device initialization is not done, mainly initialization with respect to network stack is not done.
+The below code is a fairly routine initialization of the net_device structure:it is mostly a matter of storing pointers to our various driver functions.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="nf">ether_setup</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* Initialize the device structure. */</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">netdev_ops</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">dummy_netdev_ops</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">ethtool_ops</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">dummy_ethtool_ops</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* Fill in device structure with ethernet-generic values. */</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">flags</span> <span class="o">|=</span> <span class="n">IFF_NOARP</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">flags</span> <span class="o">&amp;=</span> <span class="o">~</span><span class="n">IFF_MULTICAST</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">priv_flags</span> <span class="o">|=</span> <span class="n">IFF_LIVE_ADDR_CHANGE</span> <span class="o">|</span> <span class="n">IFF_NO_QUEUE</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">features</span>    <span class="o">|=</span> <span class="n">NETIF_F_SG</span> <span class="o">|</span> <span class="n">NETIF_F_FRAGLIST</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">features</span>    <span class="o">|=</span> <span class="n">NETIF_F_ALL_TSO</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">features</span>    <span class="o">|=</span> <span class="n">NETIF_F_HW_CSUM</span> <span class="o">|</span> <span class="n">NETIF_F_HIGHDMA</span> <span class="o">|</span> <span class="n">NETIF_F_LLTX</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">features</span>    <span class="o">|=</span> <span class="n">NETIF_F_GSO_ENCAP_ALL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">hw_features</span> <span class="o">|=</span> <span class="n">dev</span><span class="o">-&gt;</span><span class="n">features</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">hw_enc_features</span> <span class="o">|=</span> <span class="n">dev</span><span class="o">-&gt;</span><span class="n">features</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nf">eth_hw_addr_random</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">min_mtu</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">max_mtu</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>register_netdev时，内核或网络栈会调用你的虚拟设置或你提供的任何函数 这里有一个叫法，然后你需要去填充网络设备操作处理函数。分配一个MAC地址以及其他相关设置然后你的驱动程序就完全准备好了 可以开始发送和接收数据包，并与网络协议栈通信了。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">  1
+</span><span class="lnt">  2
+</span><span class="lnt">  3
+</span><span class="lnt">  4
+</span><span class="lnt">  5
+</span><span class="lnt">  6
+</span><span class="lnt">  7
+</span><span class="lnt">  8
+</span><span class="lnt">  9
+</span><span class="lnt"> 10
+</span><span class="lnt"> 11
+</span><span class="lnt"> 12
+</span><span class="lnt"> 13
+</span><span class="lnt"> 14
+</span><span class="lnt"> 15
+</span><span class="lnt"> 16
+</span><span class="lnt"> 17
+</span><span class="lnt"> 18
+</span><span class="lnt"> 19
+</span><span class="lnt"> 20
+</span><span class="lnt"> 21
+</span><span class="lnt"> 22
+</span><span class="lnt"> 23
+</span><span class="lnt"> 24
+</span><span class="lnt"> 25
+</span><span class="lnt"> 26
+</span><span class="lnt"> 27
+</span><span class="lnt"> 28
+</span><span class="lnt"> 29
+</span><span class="lnt"> 30
+</span><span class="lnt"> 31
+</span><span class="lnt"> 32
+</span><span class="lnt"> 33
+</span><span class="lnt"> 34
+</span><span class="lnt"> 35
+</span><span class="lnt"> 36
+</span><span class="lnt"> 37
+</span><span class="lnt"> 38
+</span><span class="lnt"> 39
+</span><span class="lnt"> 40
+</span><span class="lnt"> 41
+</span><span class="lnt"> 42
+</span><span class="lnt"> 43
+</span><span class="lnt"> 44
+</span><span class="lnt"> 45
+</span><span class="lnt"> 46
+</span><span class="lnt"> 47
+</span><span class="lnt"> 48
+</span><span class="lnt"> 49
+</span><span class="lnt"> 50
+</span><span class="lnt"> 51
+</span><span class="lnt"> 52
+</span><span class="lnt"> 53
+</span><span class="lnt"> 54
+</span><span class="lnt"> 55
+</span><span class="lnt"> 56
+</span><span class="lnt"> 57
+</span><span class="lnt"> 58
+</span><span class="lnt"> 59
+</span><span class="lnt"> 60
+</span><span class="lnt"> 61
+</span><span class="lnt"> 62
+</span><span class="lnt"> 63
+</span><span class="lnt"> 64
+</span><span class="lnt"> 65
+</span><span class="lnt"> 66
+</span><span class="lnt"> 67
+</span><span class="lnt"> 68
+</span><span class="lnt"> 69
+</span><span class="lnt"> 70
+</span><span class="lnt"> 71
+</span><span class="lnt"> 72
+</span><span class="lnt"> 73
+</span><span class="lnt"> 74
+</span><span class="lnt"> 75
+</span><span class="lnt"> 76
+</span><span class="lnt"> 77
+</span><span class="lnt"> 78
+</span><span class="lnt"> 79
+</span><span class="lnt"> 80
+</span><span class="lnt"> 81
+</span><span class="lnt"> 82
+</span><span class="lnt"> 83
+</span><span class="lnt"> 84
+</span><span class="lnt"> 85
+</span><span class="lnt"> 86
+</span><span class="lnt"> 87
+</span><span class="lnt"> 88
+</span><span class="lnt"> 89
+</span><span class="lnt"> 90
+</span><span class="lnt"> 91
+</span><span class="lnt"> 92
+</span><span class="lnt"> 93
+</span><span class="lnt"> 94
+</span><span class="lnt"> 95
+</span><span class="lnt"> 96
+</span><span class="lnt"> 97
+</span><span class="lnt"> 98
+</span><span class="lnt"> 99
+</span><span class="lnt">100
+</span><span class="lnt">101
+</span><span class="lnt">102
+</span><span class="lnt">103
+</span><span class="lnt">104
+</span><span class="lnt">105
+</span><span class="lnt">106
+</span><span class="lnt">107
+</span><span class="lnt">108
+</span><span class="lnt">109
+</span><span class="lnt">110
+</span><span class="lnt">111
+</span><span class="lnt">112
+</span><span class="lnt">113
+</span><span class="lnt">114
+</span><span class="lnt">115
+</span><span class="lnt">116
+</span><span class="lnt">117
+</span><span class="lnt">118
+</span><span class="lnt">119
+</span><span class="lnt">120
+</span><span class="lnt">121
+</span><span class="lnt">122
+</span><span class="lnt">123
+</span><span class="lnt">124
+</span><span class="lnt">125
+</span><span class="lnt">126
+</span><span class="lnt">127
+</span><span class="lnt">128
+</span><span class="lnt">129
+</span><span class="lnt">130
+</span><span class="lnt">131
+</span><span class="lnt">132
+</span><span class="lnt">133
+</span><span class="lnt">134
+</span><span class="lnt">135
+</span><span class="lnt">136
+</span><span class="lnt">137
+</span><span class="lnt">138
+</span><span class="lnt">139
+</span><span class="lnt">140
+</span><span class="lnt">141
+</span><span class="lnt">142
+</span><span class="lnt">143
+</span><span class="lnt">144
+</span><span class="lnt">145
+</span><span class="lnt">146
+</span><span class="lnt">147
+</span><span class="lnt">148
+</span><span class="lnt">149
+</span><span class="lnt">150
+</span><span class="lnt">151
+</span><span class="lnt">152
+</span><span class="lnt">153
+</span><span class="lnt">154
+</span><span class="lnt">155
+</span><span class="lnt">156
+</span><span class="lnt">157
+</span><span class="lnt">158
+</span><span class="lnt">159
+</span><span class="lnt">160
+</span><span class="lnt">161
+</span><span class="lnt">162
+</span><span class="lnt">163
+</span><span class="lnt">164
+</span><span class="lnt">165
+</span><span class="lnt">166
+</span><span class="lnt">167
+</span><span class="lnt">168
+</span><span class="lnt">169
+</span><span class="lnt">170
+</span><span class="lnt">171
+</span><span class="lnt">172
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">int32_t</span> <span class="nf">dummy_eth_rx</span><span class="p">(</span><span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">iphdr</span> <span class="o">*</span><span class="n">iph</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">icmphdr</span> <span class="o">*</span><span class="n">icmph</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int32_t</span> <span class="n">addr</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">char</span> <span class="n">eth_addr</span><span class="p">[</span><span class="n">ETH_ALEN</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">skb</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DETH: skb is null</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="o">-</span><span class="n">EINVAL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* Mangle the packet to send ICMP/ping reply */</span>
+</span></span><span class="line"><span class="cl">    <span class="n">iph</span> <span class="o">=</span> <span class="nf">ip_hdr</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">iph</span> <span class="o">&amp;&amp;</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">IPPROTO_ICMP</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">__wsum</span> <span class="n">csum</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">icmph</span> <span class="o">=</span> <span class="nf">icmp_hdr</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">icmph</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DETH: no such ICMP header</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">goto</span> <span class="n">free</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">print_hex_dump</span><span class="p">(</span><span class="n">KERN_ERR</span><span class="p">,</span> <span class="s">&#34;DETH B: &#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">len</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* Alter MAC addresses */</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">memcpy</span><span class="p">(</span><span class="n">eth_addr</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="n">ETH_ALEN</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">memmove</span><span class="p">(</span><span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">+</span> <span class="n">ETH_ALEN</span><span class="p">,</span> <span class="n">ETH_ALEN</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">memcpy</span><span class="p">(</span><span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">+</span> <span class="n">ETH_ALEN</span><span class="p">,</span> <span class="n">eth_addr</span><span class="p">,</span> <span class="n">ETH_ALEN</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* Alter IP addresses */</span>
+</span></span><span class="line"><span class="cl">    <span class="n">addr</span> <span class="o">=</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">daddr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">iph</span><span class="o">-&gt;</span><span class="n">daddr</span> <span class="o">=</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">saddr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">iph</span><span class="o">-&gt;</span><span class="n">saddr</span> <span class="o">=</span> <span class="n">addr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* ICMP echo reply */</span>
+</span></span><span class="line"><span class="cl">    <span class="n">icmph</span><span class="o">-&gt;</span><span class="n">type</span> <span class="o">=</span> <span class="n">ICMP_ECHO_REPLY</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="cm">/* FIXME: Recast IP头部协议或者类似的东西，都包含在 */</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* 以下为推测的后续代码（需要补全） */</span>
+</span></span><span class="line"><span class="cl">    <span class="cm">/* 重新计算 IP 校验和 */</span>
+</span></span><span class="line"><span class="cl">    <span class="n">iph</span><span class="o">-&gt;</span><span class="n">check</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">iph</span><span class="o">-&gt;</span><span class="n">check</span> <span class="o">=</span> <span class="nf">ip_fast_csum</span><span class="p">((</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">iph</span><span class="p">,</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">ihl</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* 重新计算 ICMP 校验和（因为 type 改变了） */</span>
+</span></span><span class="line"><span class="cl">    <span class="n">icmph</span><span class="o">-&gt;</span><span class="n">checksum</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">icmph</span><span class="o">-&gt;</span><span class="n">checksum</span> <span class="o">=</span> <span class="nf">csum_fold</span><span class="p">(</span><span class="nf">skb_checksum</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="nf">skb_network_header_len</span><span class="p">(</span><span class="n">skb</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">                                <span class="n">skb</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">-</span> <span class="nf">skb_network_header_len</span><span class="p">(</span><span class="n">skb</span><span class="p">),</span> <span class="mi">0</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">     <span class="nf">print_hex_dump</span><span class="p">(</span><span class="n">KERN_ERR</span><span class="p">,</span> <span class="s">&#34;DETH A: &#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">len</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* 反转方向：将 skb 重新发送回协议栈 */</span>
+</span></span><span class="line"><span class="cl">    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">pkt_type</span> <span class="o">=</span> <span class="n">PACKET_HOST</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">protocol</span> <span class="o">=</span> <span class="nf">eth_type_trans</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">dev</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">netif_rx</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nl">free</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">dev_kfree_skb</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="o">-</span><span class="n">EINVAL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="nf">dummy_open</span><span class="p">(</span><span class="k">struct</span> <span class="n">net_device</span> <span class="o">*</span><span class="n">dev</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DETH: %s() - called</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">__func__</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">netif_start_queue</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="nf">dummy_close</span><span class="p">(</span><span class="k">struct</span> <span class="n">net_device</span> <span class="o">*</span><span class="n">dev</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DETH: %s() - called</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">__func__</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">netif_stop_queue</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">netdev_tx_t</span> <span class="nf">dummy_xmit</span><span class="p">(</span><span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">,</span> <span class="k">struct</span> <span class="n">net_device</span> <span class="o">*</span><span class="n">dev</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">pcp_u_dstats</span> <span class="o">*</span><span class="n">dstats</span> <span class="o">=</span> <span class="nf">this_cpu_ptr</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">dstats</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DETH: %s() - called</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">__func__</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">u64_stats_update_begin</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dstats</span><span class="o">-&gt;</span><span class="n">syncp</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dstats</span><span class="o">-&gt;</span><span class="n">tx_packets</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dstats</span><span class="o">-&gt;</span><span class="n">tx_bytes</span> <span class="o">+=</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">len</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">u64_stats_update_end</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dstats</span><span class="o">-&gt;</span><span class="n">syncp</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">skb_tx_timestamp</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* Call HW xmit function */</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="nf">lt_hw_tx</span><span class="p">(</span><span class="n">skb</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">dev_kfree_skb</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">NETDEV_TX_OK</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="k">const</span> <span class="k">struct</span> <span class="n">net_device_ops</span> <span class="n">dummy_netdev_ops</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">ndo_init</span>    <span class="o">=</span> <span class="n">dummy_dev_init</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">ndo_unit</span>    <span class="o">=</span> <span class="n">dummy_dev_unit</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">ndo_start_xmit</span> <span class="o">=</span> <span class="n">dummy_xmit</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">ndo_validate_addr</span> <span class="o">=</span> <span class="n">eth_validate_addr</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">ndo_set_mac_address</span> <span class="o">=</span> <span class="n">eth_mac_addr</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">ndo_change_carrier</span> <span class="o">=</span> <span class="n">dummy_change_carrier</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">ndo_open</span>    <span class="o">=</span> <span class="n">dummy_open</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">ndo_stop</span>    <span class="o">=</span> <span class="n">dummy_close</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="k">struct</span> <span class="n">rtnl_link_ops</span> <span class="n">dummy_link_ops</span> <span class="n">__read_mostly</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">kind</span>      <span class="o">=</span> <span class="n">DRV_NAME</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">priv_size</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">dummy_priv</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">setup</span>     <span class="o">=</span> <span class="n">dummy_setup</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="n">__init</span> <span class="nf">dummy_init_one</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">err</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">net_device</span> <span class="o">*</span><span class="n">dev_dummy</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">dev_dummy</span> <span class="o">=</span> <span class="nf">alloc_netdev</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">dummy_priv</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">                             <span class="s">&#34;deth%d&#34;</span><span class="p">,</span> <span class="n">NET_NAME_ENUM</span><span class="p">,</span> <span class="n">dummy_setup</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">dev_dummy</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">dev_dummy</span><span class="o">-&gt;</span><span class="n">rtnl_link_ops</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">dummy_link_ops</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">err</span> <span class="o">=</span> <span class="nf">register_netdevice</span><span class="p">(</span><span class="n">dev_dummy</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">goto</span> <span class="n">err</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* True : Register, False : Deregister */</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">((</span><span class="n">err</span> <span class="o">=</span> <span class="nf">lt_request_irq</span><span class="p">(</span><span class="nb">true</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">dummy_eth_rx</span><span class="p">)))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">err</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nl">err</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">free_netdev</span><span class="p">(</span><span class="n">dev_dummy</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">err</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="n">__init</span> <span class="nf">dummy_init_module</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">err</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_INFO</span> <span class="s">&#34;Dummy eth module init</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">rtnl_lock</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">err</span> <span class="o">=</span> <span class="nf">__rtnl_link_register</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dummy_link_ops</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">goto</span> <span class="n">out</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">err</span> <span class="o">=</span> <span class="nf">dummy_init_one</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">__rtnl_link_unregister</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dummy_link_ops</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nl">out</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">rtnl_unlock</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">err</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">void</span> <span class="n">__exit</span> <span class="nf">dummy_cleanup_module</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_INFO</span> <span class="s">&#34;Dummy eth module exit</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">__rtnl_link_unregister</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dummy_link_ops</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nf">module_init</span><span class="p">(</span><span class="n">dummy_init_module</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="nf">module_exit</span><span class="p">(</span><span class="n">dummy_cleanup_module</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="nf">MODULE_LICENSE</span><span class="p">(</span><span class="s">&#34;GPL&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="nf">MODULE_ALIAS_RTNL_LINK</span><span class="p">(</span><span class="n">DRV_NAME</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="nf">MODULE_VERSION</span><span class="p">(</span><span class="n">DRV_VERSION</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="nf">MODULE_AUTHOR</span><span class="p">(</span><span class="n">DRV_AUTHOR</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="c1">//dummy-eth.c
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>.ndo_start_xmit 这个函数在网络协议栈发送数据包时被调用。那么网络协议栈是怎么做的呢?它实际上会先检查IP层然后查一下路由表”再决定下一步怎么走。网络接回也就是我们用来发送数据包的那个东西，然后比如说接口是deth0  然后它会检查网络设备链表，也就是netdevicelinklist。找到哪个网络设备实例，它的接口名称是deth0 	然后调用对应的ndo_start_xmit函数  也就是说这个dummy_xmit会被执行  所以如果你在开发网络接口驱动程序，不管是不管是无线还是Wi-Fi、无线还是以太网、物理还是虚拟，这些信息它必须向网络协议栈进行注册才行。否则网络协议栈无法给你发数据包也无法和你的网络设备驱动程序通信
+<code>err =register_netdevice(devdummy)</code>如果这一步能够正确地完成，那么我们实际上就是在向网络协议栈注册我的设备，也就是在注册设备本身
+<code>dev_dummy-&gt;rtnl_link_ops = &amp;dummy_link_ops;</code>这是一个链路相关操作,do the job: up   down up</p>
+<p>注册dummy_setup时，我们分配所有硬件相关的东西之后，我们调用register_netdev。那注册netdev之后，路由表就会更新吗 ?注册之后，因为这个时候这个设备目前还没有注册到系统里面。网络协议栈或net_device结构体这个人的信息完全不知道，因为只有个IP地址而且register_netdev也不会填充路由表。安装驱动程序时，当时没有IP地址。对，没错。所以除非你手动分配一个IP地址否则路由表里的条自是不会被填充进去的。所以那个路由表并不在注册的网络协议栈里，对吧？路由表在IP层的网络协议栈里，对吧? 	 在这个register_netdeviceAPl里，你没分配任何IP地址你只是往设备链里添加了一个网络设备实例，明自吗？
+就是说，通过ifconfig你能看到这个网络接口，但这个接回目前还没有分配IP地址 也就是说，路由表里不会有对应的表项</p>
+<p>当你用ifconfig分配地址时 用ifconfig或者其他机制给网络接口分配IP地址后，只有到那个时候，路由表里才会添加一条记录因为路由表主要就是用来处理IP地址的它建立IP地址、掩码和接口的映射 把IP地址和掩码对应到接口上。除非接口有IP地址，否则不会有记录。而这实际上跟设备驱动程序本身没有关系。</p>
+<p>驱动程序会接收任何数据包然后它就会直接把这些数据传给网络层然后它会检查，我的源IP地址是什么。目的IP地址，以及所有相关信息根据路由表、防火墙设置等情况决定丢弃或正确处理数据包  但网络设备，它绝不会根据P地址来丢弃任何数据包。这只是一个generic的说法。为什么?因为在性能优化中，有些情况会这样做。在某些情况下，它比中断机制更有效</p>
+<p>我们需要将从以太网接收到的数据包发送出去。并将数据包传递给Wi-Fi好的，通常的行为是数据包会被以太网驱动程序接收。它会将数据包发送到网络协议栈。网络协议栈会根据路由表来决定怎么走然后将其发送回Wi-Fi传输函数.Wi-Fi驱动程序将发送数据包但这个不是必要的这需要一些时间，因为网络协议栈的IP层会进行完整性检查。检查这个数据包是否正确看看有些地方对不对，还有那些乱七八糟的。所以它会检查IP头部，某些情况下我们可能会知道这个数据包是正确的。我们不需要可能快速发送10或20个数据包在Ethernet和WiFi 之间对IP地址每个数据包做完整性检查，是个好选择。  所以我们可以，在这种情况下在驱动程序本身中检查IP字段  在驱动程序本身里面。所以这算是一种hacking   这并没有违反网络协议栈的架构设计理念。 但有时候，为了提升性能，你可能确实需要这么做</p>
+<p>也就是说，从Ethermet驱动拿到数据包后，检查源P等信息。这里有一个条目，因为这是合法的。这个条目是给老朋友的。所以我们可以信任他。因此不用把数据包发到网络协议栈，直接调用W-Fi驱动。它们之间有一些修补逻辑，而且还在不断更新。他们可以调用这个，但通常不会在驱动里这么做，明自吧。</p>
+<p>对于ifconfig，会调用一个ioctl传入特定的唯一编号和网络接口名称。那么这些信息就会通过网络套接字。发送到网络协议栈那里去。网络协议栈现在会获得这些信息，用户应用程序正尝试将IP地址设置为192.168.88.23 到veth0 然后它会立即相应地更新net_device结构体司时还会在路由表中添加一条条目</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    /* Call HW xmit function */
+</span></span><span class="line"><span class="cl">    if (lt_hw_tx(skb))
+</span></span><span class="line"><span class="cl">        dev_kfree_skb(skb);
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>DMA 内部DMA控製器，外部DMA控製器</p>
+<p>InternalDMA指的是以太网控製器有专用的DMA引擎 这个只服务于特定的外设，比如以太网、Wi-Fi或者其他类似的设备</p>
+<p>externalDMA控制器像共享库，大家都能用。当然如果你有一个内部DMA控制器，那么性能可能会更好</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">void</span> <span class="nf">dummy_hw_send_irq</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span> <span class="o">=</span> <span class="nf">skb_dequeue</span><span class="p">(</span><span class="o">&amp;</span><span class="n">skb_tx_q</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">skb</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DHW: unable to dequeue TX skb</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DHW: sending RX interrupt for skb=%p</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">dummy_drv_rx</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DHW: ASL interrupt not requested freeing</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">dev_kfree_skb</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">dummy_drv_rx</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="nf">dummy_hw_thread</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_INFO</span> <span class="s">&#34;DHW thread started: %p ...</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">current</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="nf">kthread_should_stop</span><span class="p">())</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">set_current_state</span><span class="p">(</span><span class="n">TASK_INTERRUPTIBLE</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="cm">/* Going to sleep for 10ms to simulate hardware processing */</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">msleep</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="cm">/* Do TX (send) here */</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nf">skb_queue_empty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">skb_tx_q</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="nf">dummy_hw_send_irq</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_INFO</span> <span class="s">&#34;DHW thread closed</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">lt_hw_tx</span><span class="p">(</span><span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DHW: adding skb=%p into HW Q</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="cm">/* Insert into tail and pick from head */</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">skb_queue_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="n">skb_tx_q</span><span class="p">,</span> <span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="nf">EXPORT_SYMBOL_GPL</span><span class="p">(</span><span class="n">lt_hw_tx</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">int32_t</span> <span class="nf">lt_request_irq</span><span class="p">(</span><span class="kt">bool</span> <span class="n">mode</span><span class="p">,</span> <span class="kt">int32_t</span> <span class="p">(</span><span class="o">*</span><span class="n">rx_fn</span><span class="p">)(</span><span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">((</span><span class="n">mode</span> <span class="o">==</span> <span class="nb">true</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">dummy_drv_rx</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DHW: ASL register IRQ for RX</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">dummy_drv_rx</span> <span class="o">=</span> <span class="n">rx_fn</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">((</span><span class="n">mode</span> <span class="o">==</span> <span class="nb">false</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">dummy_drv_rx</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">printk</span><span class="p">(</span><span class="n">KERN_ERR</span> <span class="s">&#34;DHW: ASL deregister IRQ for RX</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="cm">/* To cleanup the TX Q */</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">wake_up_process</span><span class="p">(</span><span class="n">hw_thread_id</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="cm">/* XXX: Thread may call this - do not assign NULL dummy_drv_rx = NULL; */</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="nf">EXPORT_SYMBOL_GPL</span><span class="p">(</span><span class="n">lt_request_irq</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="c1">//dummy-hw.c
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>《Linux设备驱动程序》 <a class="link" href="https://github.com/stelectronic/doc/blob/master/Linux%e8%ae%be%e5%a4%87%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%28%e4%b8%ad%e6%96%87%e7%89%88%e7%ac%ac%e4%b8%89%e7%89%88%e5%ae%8c%e7%be%8e%e7%bc%96%e8%be%91%e5%b8%a6%e4%ba%8c%e7%ba%a7%e4%b9%a6%e7%ad%be%29.pdf"  target="_blank" rel="noopener"
+    >doc/Linux设备驱动程序(中文版第三版完美编辑带二级书签).pdf at master · stelectronic/doc</a></p>
+<p><a class="link" href="https://github.com/huqianshan/linux-drivers-study"  target="_blank" rel="noopener"
+    >huqianshan/linux-drivers-study: 关于Linux设备驱动程序开发与设计的学习仓库</a></p>
+<p><a class="link" href="https://www.linuxkernelfoundation.com/"  target="_blank" rel="noopener"
+    >Master Linux Kernel &amp; Linux Device Driver - Linux Kernel Foundation</a></p>
+<p>Linux Karnataka Education网站</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/%E5%AE%89%E8%A3%85wsl2-%E5%88%B0d%E7%9B%98/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">安装WSL2 到D盘</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E7%A1%AC%E4%B8%AD%E6%96%AD%E4%B8%8E%E8%BD%AF%E4%B8%AD%E6%96%AD/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">硬中断与软中断</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux 收包流程</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/tcp%E7%B2%98%E5%8C%85/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">TCP粘包</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/u-boot%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B%E8%AF%A6%E8%A7%A3/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">U-Boot启动流程详解</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        let rightSideBar = document.querySelector(".right-sidebar");
+        if (!rightSideBar) {
+            return;
+        }
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop
+        rightSideBar.appendChild(btn)
+        
+        window.onscroll = function() {
+            
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        };
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true ,look: 'handDrawn'});
+    </script>
