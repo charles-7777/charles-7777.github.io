@@ -7,13 +7,15 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Tue, 07 Jul 2026 00:14:37 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 07 Jul 2026 17:50:31 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>网络设备驱动内部原理</title>
         <link>https://charles-7777.github.io/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/</link>
         <pubDate>Tue, 07 Jul 2026 00:07:47 +0800</pubDate>
         
         <guid>https://charles-7777.github.io/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/</guid>
-        <description>&lt;pre class=&#34;mermaid&#34;&gt;
+        <description>&lt;hr&gt;
+&lt;h2 id=&#34;ifconfig&#34;&gt;ifconfig
+&lt;/h2&gt;&lt;pre class=&#34;mermaid&#34;&gt;
   graph LR
     subgraph Application[&amp;#34;Application&amp;#34;]
     end
@@ -43,15 +45,21 @@
 
     %% 从系统调用直接连接到网络驱动器
     SystemCall -.-&amp;gt; NetworkDriver
-    
-    
+
+
     style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
     style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
     style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
 &lt;/pre&gt;
-&lt;p&gt;ifconfig 信息&lt;/p&gt;
-&lt;p&gt;从网络协议栈：IP地址 tx/rx packets&lt;/p&gt;
-&lt;p&gt;从驱动程序获取：IOCTL(userspace app 与驱动程序通信)&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;ifconfig 获取信息：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;从网络协议栈：IP地址 tx/rx packets&lt;/li&gt;
+&lt;li&gt;从驱动程序获取：IOCTL(userspace app 与驱动程序通信)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
 &lt;pre class=&#34;mermaid&#34;&gt;
   graph LR
     subgraph Application[&amp;#34;Application&amp;#34;]
@@ -83,7 +91,7 @@
     wifi0 &amp;lt;--&amp;gt; WirelessDriver
     EthernetDriver &amp;lt;--&amp;gt; EthernetController
     WirelessDriver &amp;lt;--&amp;gt; WirelessController
-    
+
     style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
     style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
     style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
@@ -163,7 +171,8 @@
     style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
     style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
 &lt;/pre&gt;
-&lt;p&gt;设备驱动程序 主要功能： 初始化硬件特定信息  初始化网络设备 和网络协议栈&lt;/p&gt;
+&lt;h2 id=&#34;设备驱动程序-主要功能&#34;&gt;设备驱动程序 主要功能
+&lt;/h2&gt;&lt;p&gt;设备驱动程序 主要功能： 初始化硬件特定信息  初始化网络设备 和网络协议栈&lt;/p&gt;
 &lt;p&gt;因为每当你安装这个网络协议栈的时候，这个网络驱动程序可以开发成内核模块
 也就是说，在启动过程中这个驱动程序是不可用的,所以现在你正在加载网络驱动程序。&lt;/p&gt;
 &lt;p&gt;所以这意味着你实际上是在创建这个网络接口，而且这些信息必须跟网络协议栈共享.所以，这是网络驱动程序要做的关键任务之一，另外“&lt;/p&gt;
@@ -185,7 +194,8 @@
 &lt;p&gt;这样CPU就=直在处理网络驱动程序的工作，但 在我们的系统中，收到数据包是很常见的。但还有其他工作需要完成。所以它的作用就是，像你说的轮询这种方法是可以被使用的。另一个可以做的事情就是，每当网络驱动程序 当收到中断信号时。我们不是只读取一个数据包 而是检查网络控制器硬件队列中当前可用的所有数据包. 所以它会一次性接收所有数据包。可能那里有几百个数据包.所以它会先检查一下  看看总共有多少个数据包? 它不再只从网络控制器向网络驱动复制一个数据包 .所以通过这个，它实际上提高了性能表现 所以，在网络驱动里做性能调优，这一步非常关键.&lt;/p&gt;
 &lt;p&gt;中断也达不到我们期望的性能，这可不是我们想要的结果。轮询是另一种方式，但数据包不频繁时，这种设计会很糟糕 .要根据实际使用场景&lt;/p&gt;
 &lt;p&gt;现在的硬件已经非常强大了 我见过非常差的网络驱动程序中中断机制是唯一的方式如令k硬件有更多能力了 网络控制器里可以支持更多的队列来工作。它的中断机制也更好了 它还能替网络协议栈做些工作，比如处理一些数据包。比如，你知道网络协议栈的每一层：它们都会计算一个校验和 每个数据包的校验和计算都需要一些时间。 所以现在网络控制器有这种能力，可以检查和验证校验和  所以如果这些正作是由硬件来完成的，那么肯定比在协议栈里处理要快得多  如果它跟网络协议栈有关那就有很多机制可以用来提升性能。 轮询就是其中之一。&lt;/p&gt;
-&lt;p&gt;网络协议栈和网络驱动程序之间进行通信的主要接口，就是网络接口。所以这个接口必须被创建出来并且要把它共享给网络协议栈。第一步就是创建那个network interface。 Linux内核维护一个叫net_device的结构体我们习惯叫它net device。&lt;/p&gt;
+&lt;h2 id=&#34;驱动实例&#34;&gt;驱动实例
+&lt;/h2&gt;&lt;p&gt;网络协议栈和网络驱动程序之间进行通信的主要接口，就是网络接口。所以这个接口必须被创建出来并且要把它共享给网络协议栈。第一步就是创建那个network interface。 Linux内核维护一个叫net_device的结构体我们习惯叫它net device。&lt;/p&gt;
 &lt;p&gt;这个net device结构体是用来对应每个网络接口，都要单独设置。网络接口可以是物理的 ，也可以是虚拟的&lt;/p&gt;
 &lt;p&gt;Kernel uses &lt;em&gt;&lt;strong&gt;struct net_device&lt;/strong&gt;&lt;/em&gt; to maintain each of the network device.Like other structure, it has to be dynamically created using ***alloc_netdev().***Here, struct dummy_ priv is the size of the driver&amp;rsquo;s &amp;ldquo;private data&amp;rdquo; area; with network devices, that area is allocated along with the net _device structure.&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
@@ -217,11 +227,11 @@ As soon as &lt;em&gt;&lt;strong&gt;register_ netdevO&lt;/strong&gt;&lt;/em&gt;, 
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;所以，一旦我们用alloc_netdev创建了设备，就需要通知网络协议栈，或者我们常说这个设备需要把这个特定的网络设备注册到网络协议栈里。通过调用另一个APl，register_netdev。这里我特意放了一个设备，就在这个位置&lt;/p&gt;
-&lt;p&gt;因为要告诉你，网络设备可能拥有多个网络接口  如果你对路由器比较熟悉的话 	你可能会看到两个端口。一个是WAN口，它是用来连接互联网的。另一个是给LAN的，你的LAN设备可以连上去。 但底层设备驱动可能相同多数情況下，在我们现在的路由器设备里实际上只运行了一个驱动程序的实例   所以驱动程序可能有多个网络接口  同样，如果你用Wi-Fi，那么现在至少有两个接口：一个用于2.4GHz，另一个是5GHZ。但底层的设备驱动程序实际上只运行了一个，只有一个。一个Wi-Fi设备实例在运行，负责处理两个接口。&lt;/p&gt;
+&lt;p&gt;因为要告诉你，网络设备可能拥有多个网络接口  如果你对路由器比较熟悉的话     你可能会看到两个端口。一个是WAN口，它是用来连接互联网的。另一个是给LAN的，你的LAN设备可以连上去。 但底层设备驱动可能相同多数情況下，在我们现在的路由器设备里实际上只运行了一个驱动程序的实例   所以驱动程序可能有多个网络接口  同样，如果你用Wi-Fi，那么现在至少有两个接口：一个用于2.4GHz，另一个是5GHZ。但底层的设备驱动程序实际上只运行了一个，只有一个。一个Wi-Fi设备实例在运行，负责处理两个接口。&lt;/p&gt;
 &lt;p&gt;所以一个网络驱动程序可以有多个网络接口。但反过来不成立  一个网络接口是不能同时对应多个网络设备的。&lt;/p&gt;
 &lt;p&gt;所以注册机制是这样的：我们调用一个从alloc_netdev获取的虚拟接口，  从alloc  nedev获取信息并将该信息与注册的网络设备结构体共享。&lt;/p&gt;
 &lt;p&gt;在此之前，我们需要先设置好一组操作函数指针，这样网络协议栈就会调用这些函数。在特定场景，比如打开、
-关闭或向网络接口发送数据包。针对这些操作网络设备中的某些函数会被调用到对应的函数处理器func handler中。 所以这一组处理函数实际上就是在这里Initializes的dummy_link_ops  开发网络设备驱动程序的时候，有一点你必须特别注意：一旦你调用了这个register_netdev	网络协议栈就会开始与驱动程序通信。所以务必确保在调用register_netdev之前，硬件相关的初始化已经完成，否则你就会遇到问题。&lt;/p&gt;
+关闭或向网络接口发送数据包。针对这些操作网络设备中的某些函数会被调用到对应的函数处理器func handler中。 所以这一组处理函数实际上就是在这里Initializes的dummy_link_ops  开发网络设备驱动程序的时候，有一点你必须特别注意：一旦你调用了这个register_netdev    网络协议栈就会开始与驱动程序通信。所以务必确保在调用register_netdev之前，硬件相关的初始化已经完成，否则你就会遇到问题。&lt;/p&gt;
 &lt;p&gt;Usually up to registration, full device initialization is not done, mainly initialization with respect to network stack is not done.
 The below code is a fairly routine initialization of the net_device structure:it is mostly a matter of storing pointers to our various driver functions.&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
@@ -444,11 +454,9 @@ The below code is a fairly routine initialization of the net_device structure:it
 &lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;169
 &lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;170
 &lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;171
-&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;172
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td class=&#34;lntd&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;kt&#34;&gt;int32_t&lt;/span&gt; &lt;span class=&#34;nf&#34;&gt;dummy_eth_rx&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;k&#34;&gt;struct&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;sk_buff&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;skb&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;kt&#34;&gt;int32_t&lt;/span&gt; &lt;span class=&#34;nf&#34;&gt;dummy_eth_rx&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;k&#34;&gt;struct&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;sk_buff&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;skb&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;k&#34;&gt;struct&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;iphdr&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;iph&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;nb&#34;&gt;NULL&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;k&#34;&gt;struct&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;icmphdr&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;icmph&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;nb&#34;&gt;NULL&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;;&lt;/span&gt;
@@ -621,10 +629,10 @@ The below code is a fairly routine initialization of the net_device structure:it
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;//dummy-eth.c
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;.ndo_start_xmit 这个函数在网络协议栈发送数据包时被调用。那么网络协议栈是怎么做的呢?它实际上会先检查IP层然后查一下路由表”再决定下一步怎么走。网络接回也就是我们用来发送数据包的那个东西，然后比如说接口是deth0  然后它会检查网络设备链表，也就是netdevicelinklist。找到哪个网络设备实例，它的接口名称是deth0 	然后调用对应的ndo_start_xmit函数  也就是说这个dummy_xmit会被执行  所以如果你在开发网络接口驱动程序，不管是不管是无线还是Wi-Fi、无线还是以太网、物理还是虚拟，这些信息它必须向网络协议栈进行注册才行。否则网络协议栈无法给你发数据包也无法和你的网络设备驱动程序通信
+&lt;/div&gt;&lt;p&gt;.ndo_start_xmit 这个函数在网络协议栈发送数据包时被调用。那么网络协议栈是怎么做的呢?它实际上会先检查IP层然后查一下路由表”再决定下一步怎么走。网络接回也就是我们用来发送数据包的那个东西，然后比如说接口是deth0  然后它会检查网络设备链表，也就是netdevicelinklist。找到哪个网络设备实例，它的接口名称是deth0     然后调用对应的ndo_start_xmit函数  也就是说这个dummy_xmit会被执行  所以如果你在开发网络接口驱动程序，不管是不管是无线还是Wi-Fi、无线还是以太网、物理还是虚拟，这些信息它必须向网络协议栈进行注册才行。否则网络协议栈无法给你发数据包也无法和你的网络设备驱动程序通信
 &lt;code&gt;err =register_netdevice(devdummy)&lt;/code&gt;如果这一步能够正确地完成，那么我们实际上就是在向网络协议栈注册我的设备，也就是在注册设备本身
 &lt;code&gt;dev_dummy-&amp;gt;rtnl_link_ops = &amp;amp;dummy_link_ops;&lt;/code&gt;这是一个链路相关操作,do the job: up   down up&lt;/p&gt;
-&lt;p&gt;注册dummy_setup时，我们分配所有硬件相关的东西之后，我们调用register_netdev。那注册netdev之后，路由表就会更新吗 ?注册之后，因为这个时候这个设备目前还没有注册到系统里面。网络协议栈或net_device结构体这个人的信息完全不知道，因为只有个IP地址而且register_netdev也不会填充路由表。安装驱动程序时，当时没有IP地址。对，没错。所以除非你手动分配一个IP地址否则路由表里的条自是不会被填充进去的。所以那个路由表并不在注册的网络协议栈里，对吧？路由表在IP层的网络协议栈里，对吧? 	 在这个register_netdeviceAPl里，你没分配任何IP地址你只是往设备链里添加了一个网络设备实例，明自吗？
+&lt;p&gt;注册dummy_setup时，我们分配所有硬件相关的东西之后，我们调用register_netdev。那注册netdev之后，路由表就会更新吗 ?注册之后，因为这个时候这个设备目前还没有注册到系统里面。网络协议栈或net_device结构体这个人的信息完全不知道，因为只有个IP地址而且register_netdev也不会填充路由表。安装驱动程序时，当时没有IP地址。对，没错。所以除非你手动分配一个IP地址否则路由表里的条自是不会被填充进去的。所以那个路由表并不在注册的网络协议栈里，对吧？路由表在IP层的网络协议栈里，对吧?      在这个register_netdeviceAPl里，你没分配任何IP地址你只是往设备链里添加了一个网络设备实例，明自吗？
 就是说，通过ifconfig你能看到这个网络接口，但这个接回目前还没有分配IP地址 也就是说，路由表里不会有对应的表项&lt;/p&gt;
 &lt;p&gt;当你用ifconfig分配地址时 用ifconfig或者其他机制给网络接口分配IP地址后，只有到那个时候，路由表里才会添加一条记录因为路由表主要就是用来处理IP地址的它建立IP地址、掩码和接口的映射 把IP地址和掩码对应到接口上。除非接口有IP地址，否则不会有记录。而这实际上跟设备驱动程序本身没有关系。&lt;/p&gt;
 &lt;p&gt;驱动程序会接收任何数据包然后它就会直接把这些数据传给网络层然后它会检查，我的源IP地址是什么。目的IP地址，以及所有相关信息根据路由表、防火墙设置等情况决定丢弃或正确处理数据包  但网络设备，它绝不会根据P地址来丢弃任何数据包。这只是一个generic的说法。为什么?因为在性能优化中，有些情况会这样做。在某些情况下，它比中断机制更有效&lt;/p&gt;
@@ -778,13 +786,18 @@ The below code is a fairly routine initialization of the net_device structure:it
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;//dummy-hw.c
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;《Linux设备驱动程序》 &lt;a class=&#34;link&#34; href=&#34;https://github.com/stelectronic/doc/blob/master/Linux%e8%ae%be%e5%a4%87%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%28%e4%b8%ad%e6%96%87%e7%89%88%e7%ac%ac%e4%b8%89%e7%89%88%e5%ae%8c%e7%be%8e%e7%bc%96%e8%be%91%e5%b8%a6%e4%ba%8c%e7%ba%a7%e4%b9%a6%e7%ad%be%29.pdf&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+&lt;/div&gt;&lt;hr&gt;
+&lt;p&gt;Linux设备驱动程序》 &lt;a class=&#34;link&#34; href=&#34;https://github.com/stelectronic/doc/blob/master/Linux%e8%ae%be%e5%a4%87%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%28%e4%b8%ad%e6%96%87%e7%89%88%e7%ac%ac%e4%b8%89%e7%89%88%e5%ae%8c%e7%be%8e%e7%bc%96%e8%be%91%e5%b8%a6%e4%ba%8c%e7%ba%a7%e4%b9%a6%e7%ad%be%29.pdf&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;doc/Linux设备驱动程序(中文版第三版完美编辑带二级书签).pdf at master · stelectronic/doc&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/huqianshan/linux-drivers-study&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;huqianshan/linux-drivers-study: 关于Linux设备驱动程序开发与设计的学习仓库&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.linuxkernelfoundation.com/&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;Master Linux Kernel &amp;amp; Linux Device Driver - Linux Kernel Foundation&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;Linux Karnataka Education网站&lt;/p&gt;
+&lt;p&gt;Linux Karnataka Education网站
+&lt;a class=&#34;link&#34; href=&#34;https://www.cnblogs.com/xiaojiang1025/p/6486267.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://www.cnblogs.com/xiaojiang1025/p/6486267.html&lt;/a&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://github.com/faquir-1990/itBooks/blob/master/Linux%20Kernel%20Networking%20-%20Implementation%20and%20Theory.pdf&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://github.com/faquir-1990/itBooks/blob/master/Linux%20Kernel%20Networking%20-%20Implementation%20and%20Theory.pdf&lt;/a&gt;&lt;/p&gt;
 </description>
         </item>
         <item>

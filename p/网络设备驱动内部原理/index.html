@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 信息\n从网络协议栈：IP地址 tx/rx packets\n从驱动程序获取：IOCTL(userspace app 与驱动程序通信)\ngraph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" ifconfig graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 获取信息：\n从网络协议栈：IP地址 tx/rx packets 从驱动程序获取：IOCTL(userspace app 与驱动程序通信) graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
 <title>网络设备驱动内部原理</title>
 
 <link rel='canonical' href='https://charles-7777.github.io/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/'>
 
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="网络设备驱动内部原理">
-<meta property='og:description' content=" graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 信息\n从网络协议栈：IP地址 tx/rx packets\n从驱动程序获取：IOCTL(userspace app 与驱动程序通信)\ngraph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
+<meta property='og:description' content=" ifconfig graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 获取信息：\n从网络协议栈：IP地址 tx/rx packets 从驱动程序获取：IOCTL(userspace app 与驱动程序通信) graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/'>
 <meta property='og:site_name' content='Charles'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-07T00:07:47&#43;08:00'/><meta property='article:modified_time' content='2026-07-07T00:14:37&#43;08:00'/>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-07T00:07:47&#43;08:00'/><meta property='article:modified_time' content='2026-07-07T17:50:31&#43;08:00'/>
 <meta name="twitter:title" content="网络设备驱动内部原理">
-<meta name="twitter:description" content=" graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 信息\n从网络协议栈：IP地址 tx/rx packets\n从驱动程序获取：IOCTL(userspace app 与驱动程序通信)\ngraph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
+<meta name="twitter:description" content=" ifconfig graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 获取信息：\n从网络协议栈：IP地址 tx/rx packets 从驱动程序获取：IOCTL(userspace app 与驱动程序通信) graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -269,7 +269,40 @@
     </ol>
 </aside>
 
-    
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#ifconfig">ifconfig</a></li>
+    <li><a href="#设备驱动程序-主要功能">设备驱动程序 主要功能</a></li>
+    <li><a href="#驱动实例">驱动实例</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
 
             <main class="main full-width">
     <article class="main-article">
@@ -314,7 +347,7 @@
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-07-07 00:14</time>
+            <time class="article-lastmod">2026-07-07 17:50</time>
         </div>
         
 
@@ -338,7 +371,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    1561 字
+                    1566 字
                 </time>
             </div>
         
@@ -358,7 +391,9 @@
     <section class="article-content">
     
     
-    <pre class="mermaid">
+    <hr>
+<h2 id="ifconfig">ifconfig
+</h2><pre class="mermaid">
   graph LR
     subgraph Application[&#34;Application&#34;]
     end
@@ -388,15 +423,21 @@
 
     %% 从系统调用直接连接到网络驱动器
     SystemCall -.-&gt; NetworkDriver
-    
-    
+
+
     style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
     style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
     style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
 </pre>
-<p>ifconfig 信息</p>
-<p>从网络协议栈：IP地址 tx/rx packets</p>
-<p>从驱动程序获取：IOCTL(userspace app 与驱动程序通信)</p>
+<ul>
+<li>
+<p>ifconfig 获取信息：</p>
+<ul>
+<li>从网络协议栈：IP地址 tx/rx packets</li>
+<li>从驱动程序获取：IOCTL(userspace app 与驱动程序通信)</li>
+</ul>
+</li>
+</ul>
 <pre class="mermaid">
   graph LR
     subgraph Application[&#34;Application&#34;]
@@ -428,7 +469,7 @@
     wifi0 &lt;--&gt; WirelessDriver
     EthernetDriver &lt;--&gt; EthernetController
     WirelessDriver &lt;--&gt; WirelessController
-    
+
     style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
     style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
     style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
@@ -508,7 +549,8 @@
     style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
     style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
 </pre>
-<p>设备驱动程序 主要功能： 初始化硬件特定信息  初始化网络设备 和网络协议栈</p>
+<h2 id="设备驱动程序-主要功能">设备驱动程序 主要功能
+</h2><p>设备驱动程序 主要功能： 初始化硬件特定信息  初始化网络设备 和网络协议栈</p>
 <p>因为每当你安装这个网络协议栈的时候，这个网络驱动程序可以开发成内核模块
 也就是说，在启动过程中这个驱动程序是不可用的,所以现在你正在加载网络驱动程序。</p>
 <p>所以这意味着你实际上是在创建这个网络接口，而且这些信息必须跟网络协议栈共享.所以，这是网络驱动程序要做的关键任务之一，另外“</p>
@@ -530,7 +572,8 @@
 <p>这样CPU就=直在处理网络驱动程序的工作，但 在我们的系统中，收到数据包是很常见的。但还有其他工作需要完成。所以它的作用就是，像你说的轮询这种方法是可以被使用的。另一个可以做的事情就是，每当网络驱动程序 当收到中断信号时。我们不是只读取一个数据包 而是检查网络控制器硬件队列中当前可用的所有数据包. 所以它会一次性接收所有数据包。可能那里有几百个数据包.所以它会先检查一下  看看总共有多少个数据包? 它不再只从网络控制器向网络驱动复制一个数据包 .所以通过这个，它实际上提高了性能表现 所以，在网络驱动里做性能调优，这一步非常关键.</p>
 <p>中断也达不到我们期望的性能，这可不是我们想要的结果。轮询是另一种方式，但数据包不频繁时，这种设计会很糟糕 .要根据实际使用场景</p>
 <p>现在的硬件已经非常强大了 我见过非常差的网络驱动程序中中断机制是唯一的方式如令k硬件有更多能力了 网络控制器里可以支持更多的队列来工作。它的中断机制也更好了 它还能替网络协议栈做些工作，比如处理一些数据包。比如，你知道网络协议栈的每一层：它们都会计算一个校验和 每个数据包的校验和计算都需要一些时间。 所以现在网络控制器有这种能力，可以检查和验证校验和  所以如果这些正作是由硬件来完成的，那么肯定比在协议栈里处理要快得多  如果它跟网络协议栈有关那就有很多机制可以用来提升性能。 轮询就是其中之一。</p>
-<p>网络协议栈和网络驱动程序之间进行通信的主要接口，就是网络接口。所以这个接口必须被创建出来并且要把它共享给网络协议栈。第一步就是创建那个network interface。 Linux内核维护一个叫net_device的结构体我们习惯叫它net device。</p>
+<h2 id="驱动实例">驱动实例
+</h2><p>网络协议栈和网络驱动程序之间进行通信的主要接口，就是网络接口。所以这个接口必须被创建出来并且要把它共享给网络协议栈。第一步就是创建那个network interface。 Linux内核维护一个叫net_device的结构体我们习惯叫它net device。</p>
 <p>这个net device结构体是用来对应每个网络接口，都要单独设置。网络接口可以是物理的 ，也可以是虚拟的</p>
 <p>Kernel uses <em><strong>struct net_device</strong></em> to maintain each of the network device.Like other structure, it has to be dynamically created using ***alloc_netdev().***Here, struct dummy_ priv is the size of the driver&rsquo;s &ldquo;private data&rdquo; area; with network devices, that area is allocated along with the net _device structure.</p>
 <div class="highlight"><div class="chroma">
@@ -562,11 +605,11 @@ As soon as <em><strong>register_ netdevO</strong></em>, the driver may be called
 </span></span></code></pre></td></tr></table>
 </div>
 </div><p>所以，一旦我们用alloc_netdev创建了设备，就需要通知网络协议栈，或者我们常说这个设备需要把这个特定的网络设备注册到网络协议栈里。通过调用另一个APl，register_netdev。这里我特意放了一个设备，就在这个位置</p>
-<p>因为要告诉你，网络设备可能拥有多个网络接口  如果你对路由器比较熟悉的话 	你可能会看到两个端口。一个是WAN口，它是用来连接互联网的。另一个是给LAN的，你的LAN设备可以连上去。 但底层设备驱动可能相同多数情況下，在我们现在的路由器设备里实际上只运行了一个驱动程序的实例   所以驱动程序可能有多个网络接口  同样，如果你用Wi-Fi，那么现在至少有两个接口：一个用于2.4GHz，另一个是5GHZ。但底层的设备驱动程序实际上只运行了一个，只有一个。一个Wi-Fi设备实例在运行，负责处理两个接口。</p>
+<p>因为要告诉你，网络设备可能拥有多个网络接口  如果你对路由器比较熟悉的话     你可能会看到两个端口。一个是WAN口，它是用来连接互联网的。另一个是给LAN的，你的LAN设备可以连上去。 但底层设备驱动可能相同多数情況下，在我们现在的路由器设备里实际上只运行了一个驱动程序的实例   所以驱动程序可能有多个网络接口  同样，如果你用Wi-Fi，那么现在至少有两个接口：一个用于2.4GHz，另一个是5GHZ。但底层的设备驱动程序实际上只运行了一个，只有一个。一个Wi-Fi设备实例在运行，负责处理两个接口。</p>
 <p>所以一个网络驱动程序可以有多个网络接口。但反过来不成立  一个网络接口是不能同时对应多个网络设备的。</p>
 <p>所以注册机制是这样的：我们调用一个从alloc_netdev获取的虚拟接口，  从alloc  nedev获取信息并将该信息与注册的网络设备结构体共享。</p>
 <p>在此之前，我们需要先设置好一组操作函数指针，这样网络协议栈就会调用这些函数。在特定场景，比如打开、
-关闭或向网络接口发送数据包。针对这些操作网络设备中的某些函数会被调用到对应的函数处理器func handler中。 所以这一组处理函数实际上就是在这里Initializes的dummy_link_ops  开发网络设备驱动程序的时候，有一点你必须特别注意：一旦你调用了这个register_netdev	网络协议栈就会开始与驱动程序通信。所以务必确保在调用register_netdev之前，硬件相关的初始化已经完成，否则你就会遇到问题。</p>
+关闭或向网络接口发送数据包。针对这些操作网络设备中的某些函数会被调用到对应的函数处理器func handler中。 所以这一组处理函数实际上就是在这里Initializes的dummy_link_ops  开发网络设备驱动程序的时候，有一点你必须特别注意：一旦你调用了这个register_netdev    网络协议栈就会开始与驱动程序通信。所以务必确保在调用register_netdev之前，硬件相关的初始化已经完成，否则你就会遇到问题。</p>
 <p>Usually up to registration, full device initialization is not done, mainly initialization with respect to network stack is not done.
 The below code is a fairly routine initialization of the net_device structure:it is mostly a matter of storing pointers to our various driver functions.</p>
 <div class="highlight"><div class="chroma">
@@ -789,11 +832,9 @@ The below code is a fairly routine initialization of the net_device structure:it
 </span><span class="lnt">169
 </span><span class="lnt">170
 </span><span class="lnt">171
-</span><span class="lnt">172
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kt">int32_t</span> <span class="nf">dummy_eth_rx</span><span class="p">(</span><span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">)</span>
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">int32_t</span> <span class="nf">dummy_eth_rx</span><span class="p">(</span><span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">iphdr</span> <span class="o">*</span><span class="n">iph</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">icmphdr</span> <span class="o">*</span><span class="n">icmph</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
@@ -966,10 +1007,10 @@ The below code is a fairly routine initialization of the net_device structure:it
 </span></span><span class="line"><span class="cl"><span class="c1">//dummy-eth.c
 </span></span></span></code></pre></td></tr></table>
 </div>
-</div><p>.ndo_start_xmit 这个函数在网络协议栈发送数据包时被调用。那么网络协议栈是怎么做的呢?它实际上会先检查IP层然后查一下路由表”再决定下一步怎么走。网络接回也就是我们用来发送数据包的那个东西，然后比如说接口是deth0  然后它会检查网络设备链表，也就是netdevicelinklist。找到哪个网络设备实例，它的接口名称是deth0 	然后调用对应的ndo_start_xmit函数  也就是说这个dummy_xmit会被执行  所以如果你在开发网络接口驱动程序，不管是不管是无线还是Wi-Fi、无线还是以太网、物理还是虚拟，这些信息它必须向网络协议栈进行注册才行。否则网络协议栈无法给你发数据包也无法和你的网络设备驱动程序通信
+</div><p>.ndo_start_xmit 这个函数在网络协议栈发送数据包时被调用。那么网络协议栈是怎么做的呢?它实际上会先检查IP层然后查一下路由表”再决定下一步怎么走。网络接回也就是我们用来发送数据包的那个东西，然后比如说接口是deth0  然后它会检查网络设备链表，也就是netdevicelinklist。找到哪个网络设备实例，它的接口名称是deth0     然后调用对应的ndo_start_xmit函数  也就是说这个dummy_xmit会被执行  所以如果你在开发网络接口驱动程序，不管是不管是无线还是Wi-Fi、无线还是以太网、物理还是虚拟，这些信息它必须向网络协议栈进行注册才行。否则网络协议栈无法给你发数据包也无法和你的网络设备驱动程序通信
 <code>err =register_netdevice(devdummy)</code>如果这一步能够正确地完成，那么我们实际上就是在向网络协议栈注册我的设备，也就是在注册设备本身
 <code>dev_dummy-&gt;rtnl_link_ops = &amp;dummy_link_ops;</code>这是一个链路相关操作,do the job: up   down up</p>
-<p>注册dummy_setup时，我们分配所有硬件相关的东西之后，我们调用register_netdev。那注册netdev之后，路由表就会更新吗 ?注册之后，因为这个时候这个设备目前还没有注册到系统里面。网络协议栈或net_device结构体这个人的信息完全不知道，因为只有个IP地址而且register_netdev也不会填充路由表。安装驱动程序时，当时没有IP地址。对，没错。所以除非你手动分配一个IP地址否则路由表里的条自是不会被填充进去的。所以那个路由表并不在注册的网络协议栈里，对吧？路由表在IP层的网络协议栈里，对吧? 	 在这个register_netdeviceAPl里，你没分配任何IP地址你只是往设备链里添加了一个网络设备实例，明自吗？
+<p>注册dummy_setup时，我们分配所有硬件相关的东西之后，我们调用register_netdev。那注册netdev之后，路由表就会更新吗 ?注册之后，因为这个时候这个设备目前还没有注册到系统里面。网络协议栈或net_device结构体这个人的信息完全不知道，因为只有个IP地址而且register_netdev也不会填充路由表。安装驱动程序时，当时没有IP地址。对，没错。所以除非你手动分配一个IP地址否则路由表里的条自是不会被填充进去的。所以那个路由表并不在注册的网络协议栈里，对吧？路由表在IP层的网络协议栈里，对吧?      在这个register_netdeviceAPl里，你没分配任何IP地址你只是往设备链里添加了一个网络设备实例，明自吗？
 就是说，通过ifconfig你能看到这个网络接口，但这个接回目前还没有分配IP地址 也就是说，路由表里不会有对应的表项</p>
 <p>当你用ifconfig分配地址时 用ifconfig或者其他机制给网络接口分配IP地址后，只有到那个时候，路由表里才会添加一条记录因为路由表主要就是用来处理IP地址的它建立IP地址、掩码和接口的映射 把IP地址和掩码对应到接口上。除非接口有IP地址，否则不会有记录。而这实际上跟设备驱动程序本身没有关系。</p>
 <p>驱动程序会接收任何数据包然后它就会直接把这些数据传给网络层然后它会检查，我的源IP地址是什么。目的IP地址，以及所有相关信息根据路由表、防火墙设置等情况决定丢弃或正确处理数据包  但网络设备，它绝不会根据P地址来丢弃任何数据包。这只是一个generic的说法。为什么?因为在性能优化中，有些情况会这样做。在某些情况下，它比中断机制更有效</p>
@@ -1123,13 +1164,18 @@ The below code is a fairly routine initialization of the net_device structure:it
 </span></span><span class="line"><span class="cl"><span class="c1">//dummy-hw.c
 </span></span></span></code></pre></td></tr></table>
 </div>
-</div><p>《Linux设备驱动程序》 <a class="link" href="https://github.com/stelectronic/doc/blob/master/Linux%e8%ae%be%e5%a4%87%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%28%e4%b8%ad%e6%96%87%e7%89%88%e7%ac%ac%e4%b8%89%e7%89%88%e5%ae%8c%e7%be%8e%e7%bc%96%e8%be%91%e5%b8%a6%e4%ba%8c%e7%ba%a7%e4%b9%a6%e7%ad%be%29.pdf"  target="_blank" rel="noopener"
+</div><hr>
+<p>Linux设备驱动程序》 <a class="link" href="https://github.com/stelectronic/doc/blob/master/Linux%e8%ae%be%e5%a4%87%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%28%e4%b8%ad%e6%96%87%e7%89%88%e7%ac%ac%e4%b8%89%e7%89%88%e5%ae%8c%e7%be%8e%e7%bc%96%e8%be%91%e5%b8%a6%e4%ba%8c%e7%ba%a7%e4%b9%a6%e7%ad%be%29.pdf"  target="_blank" rel="noopener"
     >doc/Linux设备驱动程序(中文版第三版完美编辑带二级书签).pdf at master · stelectronic/doc</a></p>
 <p><a class="link" href="https://github.com/huqianshan/linux-drivers-study"  target="_blank" rel="noopener"
     >huqianshan/linux-drivers-study: 关于Linux设备驱动程序开发与设计的学习仓库</a></p>
 <p><a class="link" href="https://www.linuxkernelfoundation.com/"  target="_blank" rel="noopener"
     >Master Linux Kernel &amp; Linux Device Driver - Linux Kernel Foundation</a></p>
-<p>Linux Karnataka Education网站</p>
+<p>Linux Karnataka Education网站
+<a class="link" href="https://www.cnblogs.com/xiaojiang1025/p/6486267.html"  target="_blank" rel="noopener"
+    >https://www.cnblogs.com/xiaojiang1025/p/6486267.html</a>
+<a class="link" href="https://github.com/faquir-1990/itBooks/blob/master/Linux%20Kernel%20Networking%20-%20Implementation%20and%20Theory.pdf"  target="_blank" rel="noopener"
+    >https://github.com/faquir-1990/itBooks/blob/master/Linux%20Kernel%20Networking%20-%20Implementation%20and%20Theory.pdf</a></p>
 
 </section>
 
