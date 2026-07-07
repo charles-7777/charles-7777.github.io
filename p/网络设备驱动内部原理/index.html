@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" ifconfig graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 获取信息：\n从网络协议栈：IP地址 tx/rx packets 从驱动程序获取：IOCTL(userspace app 与驱动程序通信) graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" ifconfig 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 deth0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet 192.168.57.100 netmask 255.255.255.0 broadcast 192.168.57.255 inet6 fe80::6c67:4aff:febf:707e prefixlen 64 scopeid 0x20&lt;link&gt; ether 6e:67:4a:bf:70:7e txqueuelen 1000 (Ethernet) RX packets 0 bytes 0 (0.0 B) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 11 bytes 866 (866.0 B) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 enp0s3: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet 10.0.2.15 netmask 255.255.255.0 broadcast 10.0.2.255 inet6 fd17:625c:f037:2:a00:27ff:fe91:b6ab prefixlen 64 scopeid 0x0&lt;global&gt; inet6 fe80::a00:27ff:fe91:b6ab prefixlen 64 scopeid 0x20&lt;link&gt; ether 08:00:27:91:b6:ab txqueuelen 1000 (Ethernet) RX packets 87025 bytes 129107565 (129.1 MB) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 5980 bytes 388262 (388.2 KB) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 enp0s8: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet 192.168.56.101 netmask 255.255.255.0 broadcast 192.168.56.255 inet6 fe80::a00:27ff:fe44:1c29 prefixlen 64 scopeid 0x20&lt;link&gt; ether 08:00:27:44:1c:29 txqueuelen 1000 (Ethernet) RX packets 7117 bytes 553441 (553.4 KB) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 10490 bytes 1379651 (1.3 MB) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 lo: flags=73&lt;UP,LOOPBACK,RUNNING&gt; mtu 65536 inet 127.0.0.1 netmask 255.0.0.0 inet6 ::1 prefixlen 128 scopeid 0x10&lt;host&gt; loop txqueuelen 1000 (Local Loopback) RX packets 176 bytes 16136 (16.1 KB) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 176 bytes 16136 (16.1 KB) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 获取信息：\n">
 <title>网络设备驱动内部原理</title>
 
 <link rel='canonical' href='https://charles-7777.github.io/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/'>
 
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="网络设备驱动内部原理">
-<meta property='og:description' content=" ifconfig graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 获取信息：\n从网络协议栈：IP地址 tx/rx packets 从驱动程序获取：IOCTL(userspace app 与驱动程序通信) graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
+<meta property='og:description' content=" ifconfig 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 deth0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet 192.168.57.100 netmask 255.255.255.0 broadcast 192.168.57.255 inet6 fe80::6c67:4aff:febf:707e prefixlen 64 scopeid 0x20&lt;link&gt; ether 6e:67:4a:bf:70:7e txqueuelen 1000 (Ethernet) RX packets 0 bytes 0 (0.0 B) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 11 bytes 866 (866.0 B) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 enp0s3: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet 10.0.2.15 netmask 255.255.255.0 broadcast 10.0.2.255 inet6 fd17:625c:f037:2:a00:27ff:fe91:b6ab prefixlen 64 scopeid 0x0&lt;global&gt; inet6 fe80::a00:27ff:fe91:b6ab prefixlen 64 scopeid 0x20&lt;link&gt; ether 08:00:27:91:b6:ab txqueuelen 1000 (Ethernet) RX packets 87025 bytes 129107565 (129.1 MB) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 5980 bytes 388262 (388.2 KB) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 enp0s8: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet 192.168.56.101 netmask 255.255.255.0 broadcast 192.168.56.255 inet6 fe80::a00:27ff:fe44:1c29 prefixlen 64 scopeid 0x20&lt;link&gt; ether 08:00:27:44:1c:29 txqueuelen 1000 (Ethernet) RX packets 7117 bytes 553441 (553.4 KB) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 10490 bytes 1379651 (1.3 MB) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 lo: flags=73&lt;UP,LOOPBACK,RUNNING&gt; mtu 65536 inet 127.0.0.1 netmask 255.0.0.0 inet6 ::1 prefixlen 128 scopeid 0x10&lt;host&gt; loop txqueuelen 1000 (Local Loopback) RX packets 176 bytes 16136 (16.1 KB) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 176 bytes 16136 (16.1 KB) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 获取信息：\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/'>
 <meta property='og:site_name' content='Charles'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-07T00:07:47&#43;08:00'/><meta property='article:modified_time' content='2026-07-07T17:50:31&#43;08:00'/>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-07T00:07:47&#43;08:00'/><meta property='article:modified_time' content='2026-07-08T00:21:13&#43;08:00'/>
 <meta name="twitter:title" content="网络设备驱动内部原理">
-<meta name="twitter:description" content=" ifconfig graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 获取信息：\n从网络协议栈：IP地址 tx/rx packets 从驱动程序获取：IOCTL(userspace app 与驱动程序通信) graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] NetworkStack[&#34;Network Stack&#34;] eth0[&#34;eth0&#34;] wifi0[&#34;wifi0&#34;] EthernetDriver[&#34;Ethernet Driver&#34;] WirelessDriver[&#34;Wireless Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] EthernetController[&#34;Ethernet&lt;br&gt;Controller&#34;] WirelessController[&#34;Wireless&lt;br&gt;Controller&#34;] end Application --&gt; SystemCall SystemCall &lt;--&gt; NetworkStack NetworkStack &lt;--&gt; eth0 NetworkStack &lt;--&gt; wifi0 eth0 &lt;--&gt; EthernetDriver wifi0 &lt;--&gt; WirelessDriver EthernetDriver &lt;--&gt; EthernetController WirelessDriver &lt;--&gt; WirelessController style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi\n">
+<meta name="twitter:description" content=" ifconfig 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 deth0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet 192.168.57.100 netmask 255.255.255.0 broadcast 192.168.57.255 inet6 fe80::6c67:4aff:febf:707e prefixlen 64 scopeid 0x20&lt;link&gt; ether 6e:67:4a:bf:70:7e txqueuelen 1000 (Ethernet) RX packets 0 bytes 0 (0.0 B) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 11 bytes 866 (866.0 B) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 enp0s3: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet 10.0.2.15 netmask 255.255.255.0 broadcast 10.0.2.255 inet6 fd17:625c:f037:2:a00:27ff:fe91:b6ab prefixlen 64 scopeid 0x0&lt;global&gt; inet6 fe80::a00:27ff:fe91:b6ab prefixlen 64 scopeid 0x20&lt;link&gt; ether 08:00:27:91:b6:ab txqueuelen 1000 (Ethernet) RX packets 87025 bytes 129107565 (129.1 MB) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 5980 bytes 388262 (388.2 KB) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 enp0s8: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet 192.168.56.101 netmask 255.255.255.0 broadcast 192.168.56.255 inet6 fe80::a00:27ff:fe44:1c29 prefixlen 64 scopeid 0x20&lt;link&gt; ether 08:00:27:44:1c:29 txqueuelen 1000 (Ethernet) RX packets 7117 bytes 553441 (553.4 KB) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 10490 bytes 1379651 (1.3 MB) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 lo: flags=73&lt;UP,LOOPBACK,RUNNING&gt; mtu 65536 inet 127.0.0.1 netmask 255.0.0.0 inet6 ::1 prefixlen 128 scopeid 0x10&lt;host&gt; loop txqueuelen 1000 (Local Loopback) RX packets 176 bytes 16136 (16.1 KB) RX errors 0 dropped 0 overruns 0 frame 0 TX packets 176 bytes 16136 (16.1 KB) TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0 graph LR subgraph Application[&#34;Application&#34;] end subgraph UserSpace[&#34;User Space&#34;] Application end subgraph KernelSpace[&#34;Kernel Space&#34;] SystemCall[&#34;System Call&#34;] SocketLayer[&#34;Socket Layer&#34;] TransportLayer[&#34;Transport Layer&#34;] NetworkLayer[&#34;Network Layer&#34;] NetworkDriver[&#34;Network Driver&#34;] end subgraph Hardware[&#34;Hardware&#34;] NIC[&#34;NIC&#34;] end Application &lt;--&gt; SystemCall SystemCall &lt;--&gt; SocketLayer SocketLayer &lt;--&gt; TransportLayer TransportLayer &lt;--&gt; NetworkLayer NetworkLayer &lt;--&gt; NetworkDriver NetworkDriver &lt;--&gt; NIC %% 从系统调用直接连接到网络驱动器 SystemCall -.-&gt; NetworkDriver style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px ifconfig 获取信息：\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -293,7 +293,13 @@
   <ol>
     <li><a href="#ifconfig">ifconfig</a></li>
     <li><a href="#设备驱动程序-主要功能">设备驱动程序 主要功能</a></li>
-    <li><a href="#驱动实例">驱动实例</a></li>
+    <li><a href="#驱动实例">驱动实例</a>
+      <ol>
+        <li><a href="#alloc_netdev">alloc_netdev</a></li>
+        <li><a href="#register_netdevice">register_netdevice</a></li>
+        <li><a href="#软件模拟硬件层">软件模拟硬件层</a></li>
+      </ol>
+    </li>
   </ol>
 </nav>
         </div>
@@ -347,7 +353,7 @@
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-07-07 17:50</time>
+            <time class="article-lastmod">2026-07-08 00:21</time>
         </div>
         
 
@@ -362,7 +368,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 8 分钟
+                    阅读时长: 9 分钟
                 </time>
             </div>
         
@@ -371,7 +377,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    1566 字
+                    1718 字
                 </time>
             </div>
         
@@ -393,7 +399,87 @@
     
     <hr>
 <h2 id="ifconfig">ifconfig
-</h2><pre class="mermaid">
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">deth0: <span class="nv">flags</span><span class="o">=</span>4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu <span class="m">1500</span>
+</span></span><span class="line"><span class="cl">        inet 192.168.57.100  netmask 255.255.255.0  broadcast 192.168.57.255
+</span></span><span class="line"><span class="cl">        inet6 fe80::6c67:4aff:febf:707e  prefixlen <span class="m">64</span>  scopeid 0x20&lt;link&gt;
+</span></span><span class="line"><span class="cl">        ether 6e:67:4a:bf:70:7e  txqueuelen <span class="m">1000</span>  <span class="o">(</span>Ethernet<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        RX packets <span class="m">0</span>  bytes <span class="m">0</span> <span class="o">(</span>0.0 B<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        RX errors <span class="m">0</span>  dropped <span class="m">0</span>  overruns <span class="m">0</span>  frame <span class="m">0</span>
+</span></span><span class="line"><span class="cl">        TX packets <span class="m">11</span>  bytes <span class="m">866</span> <span class="o">(</span>866.0 B<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        TX errors <span class="m">0</span>  dropped <span class="m">0</span> overruns <span class="m">0</span>  carrier <span class="m">0</span>  collisions <span class="m">0</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">enp0s3: <span class="nv">flags</span><span class="o">=</span>4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu <span class="m">1500</span>
+</span></span><span class="line"><span class="cl">        inet 10.0.2.15  netmask 255.255.255.0  broadcast 10.0.2.255
+</span></span><span class="line"><span class="cl">        inet6 fd17:625c:f037:2:a00:27ff:fe91:b6ab  prefixlen <span class="m">64</span>  scopeid 0x0&lt;global&gt;
+</span></span><span class="line"><span class="cl">        inet6 fe80::a00:27ff:fe91:b6ab  prefixlen <span class="m">64</span>  scopeid 0x20&lt;link&gt;
+</span></span><span class="line"><span class="cl">        ether 08:00:27:91:b6:ab  txqueuelen <span class="m">1000</span>  <span class="o">(</span>Ethernet<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        RX packets <span class="m">87025</span>  bytes <span class="m">129107565</span> <span class="o">(</span>129.1 MB<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        RX errors <span class="m">0</span>  dropped <span class="m">0</span>  overruns <span class="m">0</span>  frame <span class="m">0</span>
+</span></span><span class="line"><span class="cl">        TX packets <span class="m">5980</span>  bytes <span class="m">388262</span> <span class="o">(</span>388.2 KB<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        TX errors <span class="m">0</span>  dropped <span class="m">0</span> overruns <span class="m">0</span>  carrier <span class="m">0</span>  collisions <span class="m">0</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">enp0s8: <span class="nv">flags</span><span class="o">=</span>4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu <span class="m">1500</span>
+</span></span><span class="line"><span class="cl">        inet 192.168.56.101  netmask 255.255.255.0  broadcast 192.168.56.255
+</span></span><span class="line"><span class="cl">        inet6 fe80::a00:27ff:fe44:1c29  prefixlen <span class="m">64</span>  scopeid 0x20&lt;link&gt;
+</span></span><span class="line"><span class="cl">        ether 08:00:27:44:1c:29  txqueuelen <span class="m">1000</span>  <span class="o">(</span>Ethernet<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        RX packets <span class="m">7117</span>  bytes <span class="m">553441</span> <span class="o">(</span>553.4 KB<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        RX errors <span class="m">0</span>  dropped <span class="m">0</span>  overruns <span class="m">0</span>  frame <span class="m">0</span>
+</span></span><span class="line"><span class="cl">        TX packets <span class="m">10490</span>  bytes <span class="m">1379651</span> <span class="o">(</span>1.3 MB<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        TX errors <span class="m">0</span>  dropped <span class="m">0</span> overruns <span class="m">0</span>  carrier <span class="m">0</span>  collisions <span class="m">0</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">lo: <span class="nv">flags</span><span class="o">=</span>73&lt;UP,LOOPBACK,RUNNING&gt;  mtu <span class="m">65536</span>
+</span></span><span class="line"><span class="cl">        inet 127.0.0.1  netmask 255.0.0.0
+</span></span><span class="line"><span class="cl">        inet6 ::1  prefixlen <span class="m">128</span>  scopeid 0x10&lt;host&gt;
+</span></span><span class="line"><span class="cl">        loop  txqueuelen <span class="m">1000</span>  <span class="o">(</span>Local Loopback<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        RX packets <span class="m">176</span>  bytes <span class="m">16136</span> <span class="o">(</span>16.1 KB<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        RX errors <span class="m">0</span>  dropped <span class="m">0</span>  overruns <span class="m">0</span>  frame <span class="m">0</span>
+</span></span><span class="line"><span class="cl">        TX packets <span class="m">176</span>  bytes <span class="m">16136</span> <span class="o">(</span>16.1 KB<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        TX errors <span class="m">0</span>  dropped <span class="m">0</span> overruns <span class="m">0</span>  carrier <span class="m">0</span>  collisions <span class="m">0</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><pre class="mermaid">
   graph LR
     subgraph Application[&#34;Application&#34;]
     end
@@ -474,11 +560,7 @@
     style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
     style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
 </pre>
-<p>ifconfig ioctl看不出网络接口是否是虚拟的，以太网或wifi</p>
-<p>网络接口，底层有一个网络驱动程序这个驱动程序你不了解，它实际上是一个抽象层。</p>
-<p>所以不管是物理接回迹是软件接回从用戸的角度是不知道的</p>
-<p>甚至网络协议栈也不知道。好了这就是分层架构的美妙之处</p>
-<p>Network stack needs to make decisions about where to route IP packets during transmission（route table)</p>
+<p>从ifconfig的输出看不出网络接口是否是虚拟的，以太网或wifi；网络接口，底层有一个网络驱动程序这个驱动程序你不了解，它实际上是一个抽象层。所以不管是物理接回迹是软件接回从用戸的角度是不知道的；甚至网络协议栈也不知道。这就是分层架构的美妙之处。</p>
 <pre class="mermaid">
   graph LR
     subgraph Application[&#34;Application&#34;]
@@ -514,7 +596,34 @@
     style NetworkLayer fill:#fce4ec,stroke:#e74c3c,stroke-width:2px
     style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
 </pre>
-<pre class="mermaid">
+<p>在传输过程中，网络协议栈需要决定 IP 数据包的转发路径（即路由表）<br>
+发送数据包是将会调用驱动程序</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># route -n</span>
+</span></span><span class="line"><span class="cl">Kernel IP routing table
+</span></span><span class="line"><span class="cl">Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+</span></span><span class="line"><span class="cl">0.0.0.0         10.0.2.2        0.0.0.0         UG    <span class="m">100</span>    <span class="m">0</span>        <span class="m">0</span> enp0s3
+</span></span><span class="line"><span class="cl">10.0.2.0        0.0.0.0         255.255.255.0   U     <span class="m">100</span>    <span class="m">0</span>        <span class="m">0</span> enp0s3
+</span></span><span class="line"><span class="cl">10.0.2.2        0.0.0.0         255.255.255.255 UH    <span class="m">100</span>    <span class="m">0</span>        <span class="m">0</span> enp0s3
+</span></span><span class="line"><span class="cl">192.168.1.1     10.0.2.2        255.255.255.255 UGH   <span class="m">100</span>    <span class="m">0</span>        <span class="m">0</span> enp0s3
+</span></span><span class="line"><span class="cl">192.168.56.0    0.0.0.0         255.255.255.0   U     <span class="m">100</span>    <span class="m">0</span>        <span class="m">0</span> enp0s8
+</span></span><span class="line"><span class="cl">192.168.57.0    0.0.0.0         255.255.255.0   U     <span class="m">0</span>      <span class="m">0</span>        <span class="m">0</span> deth0
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="设备驱动程序-主要功能">设备驱动程序 主要功能
+</h2><pre class="mermaid">
   graph LR
     subgraph UserSpace[&#34;User Space&#34;]
         Application[&#34;Application&#34;]
@@ -536,6 +645,7 @@
 
     Application --&gt; SystemCall
     SystemCall &lt;--&gt; NetworkStack
+    %% SystemCall -.-&gt; NetworkDriver
     NetworkStack &lt;--&gt; eth0
     eth0 &lt;--&gt; NetworkDriver
     NetworkDriver &lt;--&gt; TX
@@ -545,37 +655,23 @@
     TX &lt;--&gt; NetworkController
     RX &lt;--&gt; NetworkController
 
+    SystemCall -.-&gt; NetworkDriver
+
     style UserSpace fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
     style KernelSpace fill:#fff3e0,stroke:#e67e22,stroke-width:2px
     style Hardware fill:#e8f8e8,stroke:#27ae60,stroke-width:2px
+    style NetworkDriver fill:#e8f8e8,stroke:#97a960
 </pre>
-<h2 id="设备驱动程序-主要功能">设备驱动程序 主要功能
-</h2><p>设备驱动程序 主要功能： 初始化硬件特定信息  初始化网络设备 和网络协议栈</p>
-<p>因为每当你安装这个网络协议栈的时候，这个网络驱动程序可以开发成内核模块
-也就是说，在启动过程中这个驱动程序是不可用的,所以现在你正在加载网络驱动程序。</p>
-<p>所以这意味着你实际上是在创建这个网络接口，而且这些信息必须跟网络协议栈共享.所以，这是网络驱动程序要做的关键任务之一，另外“</p>
-<p>另一个主要工作就是去初始化网络控制器 但除此之外还有三个常规的 事件或常规任务。网络驱动程序需要处理这些</p>
-<p>一是向网络控制器发送数据包 二是从网络控制器那里接收网络数据包。然后把它送回网络协议栈，或者转发给网络协议栈</p>
-<p>第三点，就是从网络控制器那里接收到一个中断通知.  请注意，这个中断信号会因为各种不同的原因被触发产生</p>
-<p>第一，也是最名最条最常见的事件，就是收到数据包.   所以每当网络控制器收到任何数据包  网络控制器会生一个中断，然后
-这个中断会通过操作系统到达网络驱动程序驱动程序会检查数据包</p>
-<p>第二种情况是，π当你每次拔掉它的时候 插上网线或者拔掉网线，也就是链路状态变成up或down   这时网络控制器也会产生一些事件</p>
-<p>类似地，无论何时你通过TX发送数据包时。通常，网络驱动程序会检查数据包是否发送成功。 所以有一个非常常见的中断，它叫做TX完成中断。所以第元种情況就是RX中断第二种是设备插拔状态相关的信息中断 第三种是常见的TX完成中断，也就是发送完成中断</p>
-<p>除此之外，发送或接收过程中可能发生一些错误或者还有其他类型的错误。所以网络控制器也会将一些错误相关信息</p>
-<p>通过中断机制传递给网络驱动程序</p>
-<p>当我们说网络控制器在收到一个数据包的时候  会向网络驱动程序发送一个中断： 如果网络接收大量数据包</p>
-<p>中断驱动I/O并非首选方式。轮询才是更好的。中断驱动I/O和轮询驱动I/O之间的切换是自动发生的吗这通常不是在运行时自动切換的
-而是事先确定的。当然，这只是个一般性的说法。不能一概而论，这取決于具体硬件。这是CORS 。这个说法只是你应该遵循的原则，实际情况总是有变化</p>
-<p>你需要自己判断一下在这个场景中轮询机制是不是更好的选择。或者中断是更好的选择。另外，处理这个中断也有各种不同的方式。你们所有人都可以完全避免使用下半部  中断服务例程也可以这样做，所以这种方式同样是可行的</p>
-<p>也就是说，短时间内有几百个数据包涌上来，对吧。对于快速数据包，网络驱动收到中断  在网络服务路由中，它实际上立即</p>
-<p>禁用掉这个中断，然后再去处理这个数据包。 如果它用这种方式也就是收到一个数据包之后， 就把它禁用掉。禁用中断，处理数据包，再发送 给网络协议栈，然后重新启用中断，退出中断处理  所以你可以理解，对于一个高吞吐量的系统来说它总是会不断地收到中断。</p>
-<p>这样CPU就=直在处理网络驱动程序的工作，但 在我们的系统中，收到数据包是很常见的。但还有其他工作需要完成。所以它的作用就是，像你说的轮询这种方法是可以被使用的。另一个可以做的事情就是，每当网络驱动程序 当收到中断信号时。我们不是只读取一个数据包 而是检查网络控制器硬件队列中当前可用的所有数据包. 所以它会一次性接收所有数据包。可能那里有几百个数据包.所以它会先检查一下  看看总共有多少个数据包? 它不再只从网络控制器向网络驱动复制一个数据包 .所以通过这个，它实际上提高了性能表现 所以，在网络驱动里做性能调优，这一步非常关键.</p>
-<p>中断也达不到我们期望的性能，这可不是我们想要的结果。轮询是另一种方式，但数据包不频繁时，这种设计会很糟糕 .要根据实际使用场景</p>
-<p>现在的硬件已经非常强大了 我见过非常差的网络驱动程序中中断机制是唯一的方式如令k硬件有更多能力了 网络控制器里可以支持更多的队列来工作。它的中断机制也更好了 它还能替网络协议栈做些工作，比如处理一些数据包。比如，你知道网络协议栈的每一层：它们都会计算一个校验和 每个数据包的校验和计算都需要一些时间。 所以现在网络控制器有这种能力，可以检查和验证校验和  所以如果这些正作是由硬件来完成的，那么肯定比在协议栈里处理要快得多  如果它跟网络协议栈有关那就有很多机制可以用来提升性能。 轮询就是其中之一。</p>
+<p>设备驱动程序三个主要功能： 初始化硬件特定信息  初始化网络设备 和 对接网络协议栈<br>
+因为每当你安装这个网络协议栈的时候，这个网络驱动程序可以开发成内核模块也就是说，在启动过程中这个驱动程序是不可用的,所以现在你正在加载网络驱动程序。所以这意味着你实际上是在<strong>创建这个网络接口</strong>，而且这些信息必须<strong>跟网络协议栈共享</strong>.所以，这是网络驱动程序要做的关键任务之一，另外另一个主要工作就是去<strong>初始化网络控制器</strong>。但除此之外还有三个常规的事件或常规任务。网络驱动程序需要处理这些一是向网络控制器<strong>发送数据包</strong> 二是从网络控制器那里<strong>接收网络数据包</strong>。然后把它送回网络协议栈，或者转发给网络协议栈。第三点，就是从网络控制器那里接收到一个<strong>中断通知</strong>。请注意，这个中断信号会因为各种不同的原因被触发产生。第一，也是最名最条最常见的事件，就是收到数据包。所以每当网络控制器收到任何数据包，网络控制器会生一个中断，然后这个中断会通过操作系统到达网络驱动，程序驱动程序会检查数据包。第二种情况是，当你每次拔掉它的时候，插上网线或者拔掉网线，也就是链路状态变成up或down，这时网络控制器也会产生一些事件。类似地，无论何时你通过TX发送数据包时，通常网络驱动程序会检查数据包是否发送成功，所以有一个非常常见的中断，它叫做TX完成中断。所以第一种情況就是RX中断，第二种是设备插拔状态相关的信息中断，第三种是常见的TX完成中断，也就是发送完成中断。除此之外，发送或接收过程中可能发生一些错误或者还有其他类型的错误。所以网络控制器也会将一些错误相关信息，通过中断机制传递给网络驱动程序。</p>
+<p>当我们说网络控制器在收到一个数据包的时候，会向网络驱动程序发送一个中断： 如果网络接收大量数据包，中断驱动I/O并非首选方式，轮询可能才是更好的。中断驱动I/O和轮询驱动I/O之间的切换是自动发生的吗这通常不是在运行时自动切換的，而是事先确定的。当然，这只是个一般性的说法。不能一概而论，这取決于具体硬件。这是CORS 。这个说法只是你应该遵循的原则，实际情况总是有变化，你需要自己判断一下在这个场景中轮询机制是不是更好的选择，或者中断是更好的选择。另外，处理这个中断也有各种不同的方式，所有人都可以完全避免使用下半部，中断服务例程也可以这样做。所以这种方式同样是可行的。也就是说，短时间内有几百个数据包涌上来，对于快速数据包，网络驱动收到中断  在网络服务路由中，它实际上立即禁用掉这个中断，然后再去处理这个数据包。 如果它用这种方式也就是收到一个数据包之后， 就把它禁用掉。禁用中断，处理数据包，再发送 给网络协议栈，然后重新启用中断，退出中断处理 ，所以你可以理解，对于一个高吞吐量的系统来说它总是会不断地收到中断。这样CPU就一直在处理网络驱动程序的工作；但 在我们的系统中，收到数据包是很常见的，但还有其他工作需要完成。所以它的作用就是，像你说的轮询这种方法是可以被使用的。另一个可以做的事情就是，每当网络驱动程序收到中断信号时，我们不是只读取一个数据包，而是检查网络控制器硬件队列中当前可用的所有数据包，所以它会一次性接收所有数据包，可能那里有几百个数据包。所以它会先检查一下 ，看看总共有多少个数据包， 它不再只从网络控制器向网络驱动复制一个数据包 ，所以通过这个，它实际上提高了性能表现。所以，在网络驱动里做性能调优，这一步非常关键。中断也达不到我们期望的性能，这可不是我们想要的结果。轮询是另一种方式，但数据包不频繁时，这种设计会很糟糕 ，要根据实际使用场景。现在的硬件已经非常强大了，我见过非常差的网络驱动程序中中断机制是唯一的方式如今硬件有更多能力了，网络控制器里可以支持更多的队列来工作，它的中断机制也更好了，它还能替网络协议栈做些工作，比如处理一些数据包，比如，你知道网络协议栈的每一层：它们都会计算一个校验和，每个数据包的校验和计算都需要一些时间，所以现在网络控制器有这种能力，可以检查和验证校验和。所以如果这些正作是由硬件来完成的，那么肯定比在协议栈里处理要快得多 ，如果它跟网络协议栈有关那就有很多机制可以用来提升性能，轮询就是其中之一。</p>
 <h2 id="驱动实例">驱动实例
-</h2><p>网络协议栈和网络驱动程序之间进行通信的主要接口，就是网络接口。所以这个接口必须被创建出来并且要把它共享给网络协议栈。第一步就是创建那个network interface。 Linux内核维护一个叫net_device的结构体我们习惯叫它net device。</p>
-<p>这个net device结构体是用来对应每个网络接口，都要单独设置。网络接口可以是物理的 ，也可以是虚拟的</p>
-<p>Kernel uses <em><strong>struct net_device</strong></em> to maintain each of the network device.Like other structure, it has to be dynamically created using ***alloc_netdev().***Here, struct dummy_ priv is the size of the driver&rsquo;s &ldquo;private data&rdquo; area; with network devices, that area is allocated along with the net _device structure.</p>
+</h2><blockquote>
+<p><a class="link" href="https://github.com/charles-7777/linux-netdevice-driver-test/tree/main"  target="_blank" rel="noopener"
+    >https://github.com/charles-7777/linux-netdevice-driver-test/tree/main</a></p></blockquote>
+<h3 id="alloc_netdev">alloc_netdev
+</h3><p>网络协议栈和网络驱动程序之间进行通信的主要接口，就是网络接口。所以这个接口必须被创建出来并且要把它共享给网络协议栈。第一步就是创建那个network interface。 Linux内核维护一个叫net_device的结构体我们习惯叫它net device。这个net device结构体是用来对应每个网络接口，都要单独设置。网络接口可以是物理的 ，也可以是虚拟的。</p>
+<p>内核使用 struct net_device 结构来管理每一个网络设备。与其他结构体类似，它必须通过 alloc_netdev() 函数动态创建。此处，struct dummy_priv 表示驱动“私有数据区”的大小；对于网络设备而言，该数据区是与 net_device 结构体一并分配的。</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
@@ -584,17 +680,14 @@
 </span></code></pre></td>
 <td class="lntd">
 <pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">net_device</span> <span class="o">*</span><span class="n">dev_dummy</span>
-</span></span><span class="line"><span class="cl"><span class="n">dev_dummy</span> <span class="o">=</span><span class="nf">alloc_netdev</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">dummy_priv</span><span class="p">)</span><span class="err">，</span>
+</span></span><span class="line"><span class="cl"><span class="n">dev_dummy</span> <span class="o">=</span><span class="nf">alloc_netdev</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">dummy_priv</span><span class="p">)</span><span class="err">，</span> \
 </span></span><span class="line"><span class="cl"><span class="s">&#34;deth%d&#34;</span><span class="err">，</span><span class="n">NET_NAME_ENUM</span><span class="err">，</span><span class="n">dummy_Setup</span><span class="p">)</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>在alloc_netdevAPI中，我们需要提供四个参数。第一个是私有数据的大小 第二个是网络接口名，第三个是名称分配类型 ，影响 <code>%d</code> 的替换逻辑和 name的最终赋值。第四个是一个函数。所以它是一个函数指针，由我代码中的dummy_setup函数来填充</p>
-<p>第一个参数是私有数据每个设备都提供了一种机制用来与网络协议栈共享一些私有数据。某些情况下需要这么做，但这是可选的，你也可以不用。若使用，需要在网络设备结构体本身里面，给它分配一些内存空间。所以这就是为什么只是传递了大小在allocnetdev里传入我的私有数据结构的大小。这样，每当我的网络设备被创建，这块额外内存也会被创建。然后函数处理程序是dummy_setupe</p>
-<p>当初始化完成也就是与内核的信息共享完成后这个函数就会被调用  然后网络协议栈会调用这个函数来开始与驱动程序通信</p>
-<p>这通常是网络协议栈调用的第一个函数</p>
-<p>Driver needs to register its device(s) to kernel using *<strong>register_ netdevice</strong>().Here driver needs to pass the net_device instance which was earlier created by *<strong>alloc_netdev()</strong>.
-As soon as <em><strong>register_ netdevO</strong></em>, the driver may be called by network stack to operate on the device. Hence, driver should not register the device until everything has been completely initialized.</p>
-<div class="highlight"><div class="chroma">
+</div><p>在alloc_netdev API中，我们需要提供四个参数。第一个是私有数据的大小 ;第二个是网络接口名;第三个是名称分配类型 ;影响 <code>%d</code> 的替换逻辑和name的最终赋值;第四个是一个函数,所以它是一个函数指针，由我代码中的dummy_setup函数来填充。</p>
+<p>第一个参数是私有数据每个设备都提供了一种机制用来与网络协议栈共享一些私有数据。某些情况下需要这么做，但这是可选的，你也可以不用。若使用，需要在网络设备结构体本身里面，给它分配一些内存空间。所以这就是为什么只是传递了大小在alloc_netdev里传入我的私有数据结构的大小。这样，每当我的网络设备被创建，这块额外内存也会被创建。驱动程序可以在这块内存里保存当前这个接口特有的硬件信息，比如：该端口的物理基地址（Base Address）、该端口对应的中断号（IRQ）、该端口的 MAC 地址、该端口的 DMA 描述符队列等 ；当网络栈调用驱动程序的函数时，会把当前的 net_device 指针传进来。驱动程序通过 netdev_priv(dev) 获取私有数据，就能知道当前正在操作的是哪一个具体的物理端口，从而执行正确的底层硬件操作。然后函数处理程序是dummy_setup，当初始化完成，也就是与内核的信息共享完成后这个函数就会被调用，然后网络协议栈会调用这个函数来开始与驱动程序通信。这通常是网络协议栈调用的第一个函数。</p>
+<h3 id="register_netdevice">register_netdevice
+</h3><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
 </span><span class="lnt">2
@@ -604,14 +697,9 @@ As soon as <em><strong>register_ netdevO</strong></em>, the driver may be called
 </span></span><span class="line"><span class="cl"><span class="n">err</span> <span class="o">=</span> <span class="nf">register_netdevice</span><span class="p">(</span><span class="n">dev_dunmy</span><span class="p">)</span>   
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>所以，一旦我们用alloc_netdev创建了设备，就需要通知网络协议栈，或者我们常说这个设备需要把这个特定的网络设备注册到网络协议栈里。通过调用另一个APl，register_netdev。这里我特意放了一个设备，就在这个位置</p>
-<p>因为要告诉你，网络设备可能拥有多个网络接口  如果你对路由器比较熟悉的话     你可能会看到两个端口。一个是WAN口，它是用来连接互联网的。另一个是给LAN的，你的LAN设备可以连上去。 但底层设备驱动可能相同多数情況下，在我们现在的路由器设备里实际上只运行了一个驱动程序的实例   所以驱动程序可能有多个网络接口  同样，如果你用Wi-Fi，那么现在至少有两个接口：一个用于2.4GHz，另一个是5GHZ。但底层的设备驱动程序实际上只运行了一个，只有一个。一个Wi-Fi设备实例在运行，负责处理两个接口。</p>
-<p>所以一个网络驱动程序可以有多个网络接口。但反过来不成立  一个网络接口是不能同时对应多个网络设备的。</p>
-<p>所以注册机制是这样的：我们调用一个从alloc_netdev获取的虚拟接口，  从alloc  nedev获取信息并将该信息与注册的网络设备结构体共享。</p>
-<p>在此之前，我们需要先设置好一组操作函数指针，这样网络协议栈就会调用这些函数。在特定场景，比如打开、
-关闭或向网络接口发送数据包。针对这些操作网络设备中的某些函数会被调用到对应的函数处理器func handler中。 所以这一组处理函数实际上就是在这里Initializes的dummy_link_ops  开发网络设备驱动程序的时候，有一点你必须特别注意：一旦你调用了这个register_netdev    网络协议栈就会开始与驱动程序通信。所以务必确保在调用register_netdev之前，硬件相关的初始化已经完成，否则你就会遇到问题。</p>
-<p>Usually up to registration, full device initialization is not done, mainly initialization with respect to network stack is not done.
-The below code is a fairly routine initialization of the net_device structure:it is mostly a matter of storing pointers to our various driver functions.</p>
+</div><p>驱动程序需要使用 register_netdevice() 函数将其设备注册到内核中。为此，驱动程序需要传入之前通过 alloc_netdev() 创建的 net_device 实例。一旦调用了 register_netdevice()，网络协议栈就可能随时调用该驱动程序来操作此设备。因此，在所有初始化工作彻底完成之前，驱动程序不应注册该设备。所以，一旦我们用alloc_netdev创建了设备，就需要通知网络协议栈，或者我们常说这个设备需要把这个特定的网络设备注册到网络协议栈里。通过调用另一个API：register_netdev。这里我特意放了一个设备，就在这个位置，因为要告诉你，网络设备可能拥有多个网络接口 ，如果你对路由器比较熟悉的话 ，你可能会看到两个端口。一个是WAN口，它是用来连接互联网的。另一个是给LAN的，你的LAN设备可以连上去。 但底层设备驱动可能相同，多数情況下，在我们现在的路由器设备里实际上只运行了一个驱动程序的实例， 但驱动程序可能有多个网络接口，即驱动程序会多次alloc_netdev。同样，如果你用Wi-Fi，那么现在至少有两个接口：一个用于2.4GHz，另一个是5GHZ。但底层的设备驱动程序实际上只运行了一个，只有一个。一个Wi-Fi设备实例在运行，负责处理两个接口。</p>
+<p>所以，一旦我们用alloc_netdev创建了设备，就需要通知网络协议栈，或者我们常说这个设备需要把这个特定的网络设备注册到网络协议栈里。通过调用另一个API，register_netdev。这里我特意放了一个设备，就在这个位置，因为要告诉你，网络设备可能拥有多个网络接口  如果你对路由器比较熟悉的话，你可能会看到两个端口。一个是WAN口，它是用来连接互联网的。另一个是给LAN的，你的LAN设备可以连上去。 但底层设备驱动可能相同多数情況下，在我们现在的路由器设备里实际上只运行了一个驱动程序的实例，所以驱动程序可能有多个网络接口 。同样，如果你用Wi-Fi，那么现在至少有两个接口：一个用于2.4GHz，另一个是5GHZ。但底层的设备驱动程序实际上只运行了一个，只有一个。一个Wi-Fi设备实例在运行，负责处理两个接口。所以一个网络驱动程序可以有多个网络接口。但反过来不成立，一个网络接口是不能同时对应多个网络设备的。所以注册机制是这样的：我们调用一个从alloc_netdev获取的虚拟接口， 从alloc_netdev获取信息并将该信息与注册的网络设备结构体共享。在此之前，我们需要先设置好一组操作函数指针，这样网络协议栈就会调用这些函数。在特定场景，比如打开、关闭或向网络接口发送数据包。针对这些操作网络设备中的某些函数会被调用到对应的function handler中。 所以这一组处理函数实际上就是在这里Initializes的dummy_link_ops 。开发网络设备驱动程序的时候，有一点你必须特别注意：一旦你调用了这个register_netdev ，网络协议栈就会开始与驱动程序通信。所以务必确保在调用register_netdev之前，硬件相关的初始化已经完成，否则你就会遇到问题。</p>
+<p>通常在设备注册之前，并不会完成完整的设备初始化，特别是针对网络协议栈的初始化尚未进行。下面的代码展示了 net_device 结构体一个非常常规的初始化过程：它主要就是将指针赋值给我们驱动程序中的各个操作函数。</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt"> 1
@@ -658,7 +746,7 @@ The below code is a fairly routine initialization of the net_device structure:it
 </span></span><span class="line"><span class="cl"><span class="n">dev</span><span class="o">-&gt;</span><span class="n">max_mtu</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>register_netdev时，内核或网络栈会调用你的虚拟设置或你提供的任何函数 这里有一个叫法，然后你需要去填充网络设备操作处理函数。分配一个MAC地址以及其他相关设置然后你的驱动程序就完全准备好了 可以开始发送和接收数据包，并与网络协议栈通信了。</p>
+</div><p>register_netdev时，内核或网络栈会调用你的虚拟设置或你提供的任何函数 这里有一个叫法：去填充网络设备操作处理函数。分配一个MAC地址以及其他相关设置然后你的驱动程序就完全准备好了，可以开始发送和接收数据包，并与网络协议栈通信了。</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">  1
@@ -1007,32 +1095,11 @@ The below code is a fairly routine initialization of the net_device structure:it
 </span></span><span class="line"><span class="cl"><span class="c1">//dummy-eth.c
 </span></span></span></code></pre></td></tr></table>
 </div>
-</div><p>.ndo_start_xmit 这个函数在网络协议栈发送数据包时被调用。那么网络协议栈是怎么做的呢?它实际上会先检查IP层然后查一下路由表”再决定下一步怎么走。网络接回也就是我们用来发送数据包的那个东西，然后比如说接口是deth0  然后它会检查网络设备链表，也就是netdevicelinklist。找到哪个网络设备实例，它的接口名称是deth0     然后调用对应的ndo_start_xmit函数  也就是说这个dummy_xmit会被执行  所以如果你在开发网络接口驱动程序，不管是不管是无线还是Wi-Fi、无线还是以太网、物理还是虚拟，这些信息它必须向网络协议栈进行注册才行。否则网络协议栈无法给你发数据包也无法和你的网络设备驱动程序通信
-<code>err =register_netdevice(devdummy)</code>如果这一步能够正确地完成，那么我们实际上就是在向网络协议栈注册我的设备，也就是在注册设备本身
-<code>dev_dummy-&gt;rtnl_link_ops = &amp;dummy_link_ops;</code>这是一个链路相关操作,do the job: up   down up</p>
-<p>注册dummy_setup时，我们分配所有硬件相关的东西之后，我们调用register_netdev。那注册netdev之后，路由表就会更新吗 ?注册之后，因为这个时候这个设备目前还没有注册到系统里面。网络协议栈或net_device结构体这个人的信息完全不知道，因为只有个IP地址而且register_netdev也不会填充路由表。安装驱动程序时，当时没有IP地址。对，没错。所以除非你手动分配一个IP地址否则路由表里的条自是不会被填充进去的。所以那个路由表并不在注册的网络协议栈里，对吧？路由表在IP层的网络协议栈里，对吧?      在这个register_netdeviceAPl里，你没分配任何IP地址你只是往设备链里添加了一个网络设备实例，明自吗？
-就是说，通过ifconfig你能看到这个网络接口，但这个接回目前还没有分配IP地址 也就是说，路由表里不会有对应的表项</p>
-<p>当你用ifconfig分配地址时 用ifconfig或者其他机制给网络接口分配IP地址后，只有到那个时候，路由表里才会添加一条记录因为路由表主要就是用来处理IP地址的它建立IP地址、掩码和接口的映射 把IP地址和掩码对应到接口上。除非接口有IP地址，否则不会有记录。而这实际上跟设备驱动程序本身没有关系。</p>
-<p>驱动程序会接收任何数据包然后它就会直接把这些数据传给网络层然后它会检查，我的源IP地址是什么。目的IP地址，以及所有相关信息根据路由表、防火墙设置等情况决定丢弃或正确处理数据包  但网络设备，它绝不会根据P地址来丢弃任何数据包。这只是一个generic的说法。为什么?因为在性能优化中，有些情况会这样做。在某些情况下，它比中断机制更有效</p>
-<p>我们需要将从以太网接收到的数据包发送出去。并将数据包传递给Wi-Fi好的，通常的行为是数据包会被以太网驱动程序接收。它会将数据包发送到网络协议栈。网络协议栈会根据路由表来决定怎么走然后将其发送回Wi-Fi传输函数.Wi-Fi驱动程序将发送数据包但这个不是必要的这需要一些时间，因为网络协议栈的IP层会进行完整性检查。检查这个数据包是否正确看看有些地方对不对，还有那些乱七八糟的。所以它会检查IP头部，某些情况下我们可能会知道这个数据包是正确的。我们不需要可能快速发送10或20个数据包在Ethernet和WiFi 之间对IP地址每个数据包做完整性检查，是个好选择。  所以我们可以，在这种情况下在驱动程序本身中检查IP字段  在驱动程序本身里面。所以这算是一种hacking   这并没有违反网络协议栈的架构设计理念。 但有时候，为了提升性能，你可能确实需要这么做</p>
-<p>也就是说，从Ethermet驱动拿到数据包后，检查源P等信息。这里有一个条目，因为这是合法的。这个条目是给老朋友的。所以我们可以信任他。因此不用把数据包发到网络协议栈，直接调用W-Fi驱动。它们之间有一些修补逻辑，而且还在不断更新。他们可以调用这个，但通常不会在驱动里这么做，明自吧。</p>
-<p>对于ifconfig，会调用一个ioctl传入特定的唯一编号和网络接口名称。那么这些信息就会通过网络套接字。发送到网络协议栈那里去。网络协议栈现在会获得这些信息，用户应用程序正尝试将IP地址设置为192.168.88.23 到veth0 然后它会立即相应地更新net_device结构体司时还会在路由表中添加一条条目</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    /* Call HW xmit function */
-</span></span><span class="line"><span class="cl">    if (lt_hw_tx(skb))
-</span></span><span class="line"><span class="cl">        dev_kfree_skb(skb);
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>DMA 内部DMA控製器，外部DMA控製器</p>
-<p>InternalDMA指的是以太网控製器有专用的DMA引擎 这个只服务于特定的外设，比如以太网、Wi-Fi或者其他类似的设备</p>
-<p>externalDMA控制器像共享库，大家都能用。当然如果你有一个内部DMA控制器，那么性能可能会更好</p>
-<div class="highlight"><div class="chroma">
+</div><p>.ndo_start_xmit 这个函数在网络协议栈发送数据包时被调用。那么网络协议栈是怎么做的呢?它实际上会先检查IP层然后查一下路由表”再决定下一步怎么走。网络接回也就是我们用来发送数据包的那个东西，然后比如说接口是deth0 ,然后它会检查网络设备链表，也就是netdevicelinklist。找到哪个网络设备实例，它的接口名称是deth0 ,然后调用对应的ndo_start_xmit函数,也就是说这个dummy_xmit会被执行, 所以如果你在开发网络接口驱动程序，不管是不管是无线还是Wi-Fi、无线还是以太网、物理还是虚拟，这些信息它必须向网络协议栈进行注册才行,否则网络协议栈无法给你发数据包也无法和你的网络设备驱动程序通信。</p>
+<p><code>err =register_netdevice(devdummy)</code>如果这一步能够正确地完成，那么我们实际上就是在向网络协议栈注册我的设备，也就是在注册设备本身；<code>dev_dummy-&gt;rtnl_link_ops = &amp;dummy_link_ops;</code>这是一个链路相关操作,do the job: up down up 。注册dummy_setup时，我们分配所有硬件相关的东西之后，我们调用register_netdev。那注册netdev之后，路由表就会更新吗 ?注册之后，因为这个时候这个设备目前还没有注册到系统里面。网络协议栈或net_device结构体这个人的信息完全不知道，因为只有个IP地址而且register_netdev也不会填充路由表。安装驱动程序时，当时没有IP地址。对，没错。所以除非你手动分配一个IP地址否则路由表里的条自是不会被填充进去的。所以那个路由表并不在注册的网络协议栈里，对吧？路由表在IP层的网络协议栈里，对吧? 在这个register_netdevice API里，你没分配任何IP地址你只是往设备链里添加了一个网络设备实例。就是说，通过ifconfig你能看到这个网络接口，但这个接回目前还没有分配IP地址 也就是说，路由表里不会有对应的表项。当你用ifconfig分配地址时 用ifconfig或者其他机制给网络接口分配IP地址后，只有到那个时候，路由表里才会添加一条记录因为路由表主要就是用来处理IP地址的它建立IP地址、掩码和接口的映射 把IP地址和掩码对应到接口上。除非接口有IP地址，否则不会有记录。而这实际上跟设备驱动程序本身没有关系。驱动程序会接收任何数据包然后它就会直接把这些数据传给网络层然后它会检查，我的源IP地址是什么。目的IP地址，以及所有相关信息根据路由表、防火墙设置等情况决定丢弃或正确处理数据包 ，但网络设备，它绝不会根据IP地址来丢弃任何数据包。这只是一个generic的说法。为什么?因为在性能优化中，有些情况会这样做。在某些情况下，它比中断机制更有效。我们需要将从以太网接收到的数据包发送出去。并将数据包传递给Wi-Fi好的，通常的行为是数据包会被以太网驱动程序接收。它会将数据包发送到网络协议栈。网络协议栈会根据路由表来决定怎么走然后将其发送回Wi-Fi传输函数.Wi-Fi驱动程序将发送数据包但这个不是必要的这需要一些时间，因为网络协议栈的IP层会进行完整性检查。检查这个数据包是否正确看看有些地方对不对，还有那些乱七八糟的。所以它会检查IP头部，某些情况下我们可能会知道这个数据包是正确的。我们不需要可能快速发送10或20个数据包在Ethernet和WiFi 之间对IP地址每个数据包做完整性检查，是个好选择。 所以我们可以，在这种情况下在驱动程序本身中检查IP字段 ，在驱动程序本身里面。所以这算是一种hacking ，这并没有违反网络协议栈的架构设计理念。 但有时候，为了提升性能，你可能确实需要这么做。也就是说，从Ethernet驱动拿到数据包后，检查源IP等信息。这里有一个条目，因为这是合法的,这个条目是给老朋友的。所以我们可以信任他。因此不用把数据包发到网络协议栈，直接调用W-Fi驱动。它们之间有一些修补逻辑，而且还在不断更新。他们可以调用这个，但通常不会在驱动里这么做。对于ifconfig，会调用一个ioctl传入特定的唯一编号和网络接口名称。那么这些信息就会通过网络套接字。发送到网络协议栈那里去。网络协议栈现在会获得这些信息，用户应用程序正尝试将IP地址设置为192.168.88.23 到veth0 然后它会立即相应地更新net_device结构体司时还会在路由表中添加一条条目。</p>
+<p>DMA 分内部DMA控製器，外部DMA控製器；InternalDMA指的是以太网控製器有专用的DMA引擎，这个只服务于特定的外设，比如以太网、Wi-Fi或者其他类似的设备，externalDMA控制器像共享库，大家都能用。当然如果你有一个内部DMA控制器，那么性能可能会更好。</p>
+<h3 id="软件模拟硬件层">软件模拟硬件层
+</h3><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt"> 1
 </span><span class="lnt"> 2
@@ -1165,17 +1232,24 @@ The below code is a fairly routine initialization of the net_device structure:it
 </span></span></span></code></pre></td></tr></table>
 </div>
 </div><hr>
-<p>Linux设备驱动程序》 <a class="link" href="https://github.com/stelectronic/doc/blob/master/Linux%e8%ae%be%e5%a4%87%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%28%e4%b8%ad%e6%96%87%e7%89%88%e7%ac%ac%e4%b8%89%e7%89%88%e5%ae%8c%e7%be%8e%e7%bc%96%e8%be%91%e5%b8%a6%e4%ba%8c%e7%ba%a7%e4%b9%a6%e7%ad%be%29.pdf"  target="_blank" rel="noopener"
-    >doc/Linux设备驱动程序(中文版第三版完美编辑带二级书签).pdf at master · stelectronic/doc</a></p>
+<blockquote>
+<p>本文主要翻译自 B站收录的视频课程 <a class="link" href="https://www.bilibili.com/video/BV11hEu6mEFc?vd_source=aa99c0364991f21f5854b10c2fe8aa63"  target="_blank" rel="noopener"
+    >手把手拆解Linux网络内核：驱动、Netlink、Netfilter与协议栈全流程</a> ;是国外Linux Karnataka Education网站上的Linux课程</p></blockquote>
+<blockquote>
+<p>经典教程《Linux设备驱动程序》 <a class="link" href="https://github.com/stelectronic/doc/blob/master/Linux%e8%ae%be%e5%a4%87%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%28%e4%b8%ad%e6%96%87%e7%89%88%e7%ac%ac%e4%b8%89%e7%89%88%e5%ae%8c%e7%be%8e%e7%bc%96%e8%be%91%e5%b8%a6%e4%ba%8c%e7%ba%a7%e4%b9%a6%e7%ad%be%29.pdf"  target="_blank" rel="noopener"
+    >doc/Linux设备驱动程序(中文版第三版完美编辑带二级书签).pdf</a></p></blockquote>
+<blockquote>
 <p><a class="link" href="https://github.com/huqianshan/linux-drivers-study"  target="_blank" rel="noopener"
-    >huqianshan/linux-drivers-study: 关于Linux设备驱动程序开发与设计的学习仓库</a></p>
+    >huqianshan/linux-drivers-study: 关于Linux设备驱动程序开发与设计的学习仓库</a></p></blockquote>
+<blockquote>
 <p><a class="link" href="https://www.linuxkernelfoundation.com/"  target="_blank" rel="noopener"
-    >Master Linux Kernel &amp; Linux Device Driver - Linux Kernel Foundation</a></p>
-<p>Linux Karnataka Education网站
-<a class="link" href="https://www.cnblogs.com/xiaojiang1025/p/6486267.html"  target="_blank" rel="noopener"
-    >https://www.cnblogs.com/xiaojiang1025/p/6486267.html</a>
-<a class="link" href="https://github.com/faquir-1990/itBooks/blob/master/Linux%20Kernel%20Networking%20-%20Implementation%20and%20Theory.pdf"  target="_blank" rel="noopener"
-    >https://github.com/faquir-1990/itBooks/blob/master/Linux%20Kernel%20Networking%20-%20Implementation%20and%20Theory.pdf</a></p>
+    >Master Linux Kernel &amp; Linux Device Driver - Linux Kernel Foundation</a></p></blockquote>
+<blockquote>
+<p><a class="link" href="https://www.cnblogs.com/xiaojiang1025/p/6486267.html"  target="_blank" rel="noopener"
+    >Linux网络设备驱动 _驱动模型</a></p></blockquote>
+<blockquote>
+<p><a class="link" href="https://github.com/faquir-1990/itBooks/blob/master/inux%20Kernel%20Networking%20-%20Implementation%20and%20Theory.pdf"  target="_blank" rel="noopener"
+    >Linux Kernel Networking - Implementation and Theory.pdf</a></p></blockquote>
 
 </section>
 
