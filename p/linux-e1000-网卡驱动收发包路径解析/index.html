@@ -1,0 +1,2387 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 基于 Linux 2.6.10 内核源码 (drivers/net/e1000/ 与 net/core/)\n【 kernel.org 源码下载 】\n【 elixir.bootlin.com 线上Linux源码阅读 】\n驱动概述与核心数据结构 E1000 是 Intel PRO/1000 千兆网卡的 Linux 驱动。收发包机制的本质是 描述符环 (descriptor ring) + DMA + 中断/NAPI: 网卡与驱动通过一段共享的 DMA 内存(描述符环)交换&quot;数据缓冲区物理地址与状态&quot;,再用 head/tail 寄存器互相通知进度。\n三个基础结构 (e1000.h) 软件缓冲信息 e1000_buffer —— 每个描述符配一个,记录关联的 SKB 与 DMA 地址:\n">
+<title>Linux E1000 网卡驱动收发包路径解析</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/linux-e1000-%E7%BD%91%E5%8D%A1%E9%A9%B1%E5%8A%A8%E6%94%B6%E5%8F%91%E5%8C%85%E8%B7%AF%E5%BE%84%E8%A7%A3%E6%9E%90/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Linux E1000 网卡驱动收发包路径解析">
+<meta property='og:description' content=" 基于 Linux 2.6.10 内核源码 (drivers/net/e1000/ 与 net/core/)\n【 kernel.org 源码下载 】\n【 elixir.bootlin.com 线上Linux源码阅读 】\n驱动概述与核心数据结构 E1000 是 Intel PRO/1000 千兆网卡的 Linux 驱动。收发包机制的本质是 描述符环 (descriptor ring) + DMA + 中断/NAPI: 网卡与驱动通过一段共享的 DMA 内存(描述符环)交换&quot;数据缓冲区物理地址与状态&quot;,再用 head/tail 寄存器互相通知进度。\n三个基础结构 (e1000.h) 软件缓冲信息 e1000_buffer —— 每个描述符配一个,记录关联的 SKB 与 DMA 地址:\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/linux-e1000-%E7%BD%91%E5%8D%A1%E9%A9%B1%E5%8A%A8%E6%94%B6%E5%8F%91%E5%8C%85%E8%B7%AF%E5%BE%84%E8%A7%A3%E6%9E%90/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-10T20:11:37&#43;08:00'/><meta property='article:modified_time' content='2026-07-10T21:35:38&#43;08:00'/>
+<meta name="twitter:title" content="Linux E1000 网卡驱动收发包路径解析">
+<meta name="twitter:description" content=" 基于 Linux 2.6.10 内核源码 (drivers/net/e1000/ 与 net/core/)\n【 kernel.org 源码下载 】\n【 elixir.bootlin.com 线上Linux源码阅读 】\n驱动概述与核心数据结构 E1000 是 Intel PRO/1000 千兆网卡的 Linux 驱动。收发包机制的本质是 描述符环 (descriptor ring) + DMA + 中断/NAPI: 网卡与驱动通过一段共享的 DMA 内存(描述符环)交换&quot;数据缓冲区物理地址与状态&quot;,再用 head/tail 寄存器互相通知进度。\n三个基础结构 (e1000.h) 软件缓冲信息 e1000_buffer —— 每个描述符配一个,记录关联的 SKB 与 DMA 地址:\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://www.douyin.com/'
+                        target="_blank"
+                        title="douyin"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-tiktok"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 7.917v4.034a9.948 9.948 0 0 1 -5 -1.951v4.5a6.5 6.5 0 1 1 -8 -6.326v4.326a2.5 2.5 0 1 0 4 2v-11.5h4.083a6.005 6.005 0 0 0 4.917 4.917z" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#驱动概述与核心数据结构">驱动概述与核心数据结构</a>
+      <ol>
+        <li><a href="#三个基础结构-e1000h">三个基础结构 (e1000.h)</a></li>
+        <li><a href="#硬件描述符与关键状态位">硬件描述符与关键状态位</a></li>
+      </ol>
+    </li>
+    <li><a href="#收发包总体架构">收发包总体架构</a></li>
+    <li><a href="#发送路径-tx-调用链逐函数解析">发送路径 TX 调用链逐函数解析</a>
+      <ol>
+        <li><a href="#tx-调用链">TX 调用链</a></li>
+        <li><a href="#协议栈交接-dev_queue_xmit">协议栈交接: dev_queue_xmit</a></li>
+        <li><a href="#发包入口-e1000_xmit_frame">发包入口: e1000_xmit_frame</a></li>
+        <li><a href="#tso-卸载-e1000_tso">TSO 卸载: e1000_tso</a></li>
+        <li><a href="#硬件校验和-e1000_tx_csum">硬件校验和: e1000_tx_csum</a></li>
+        <li><a href="#dma-映射-e1000_tx_map">DMA 映射: e1000_tx_map</a></li>
+        <li><a href="#填环并通知硬件-e1000_tx_queue">填环并通知硬件: e1000_tx_queue</a></li>
+      </ol>
+    </li>
+    <li><a href="#发送完成回收-tx-irq-解析">发送完成回收 TX-IRQ 解析</a>
+      <ol>
+        <li><a href="#e1000_clean_tx_irq">e1000_clean_tx_irq</a></li>
+      </ol>
+    </li>
+    <li><a href="#接收路径-rx-调用链逐函数解析">接收路径 RX 调用链逐函数解析</a>
+      <ol>
+        <li><a href="#rx-调用链">RX 调用链</a></li>
+        <li><a href="#中断入口-e1000_intr">中断入口: e1000_intr</a></li>
+        <li><a href="#napi-轮询-e1000_clean">NAPI 轮询: e1000_clean</a></li>
+        <li><a href="#收包核心-e1000_clean_rx_irq">收包核心: e1000_clean_rx_irq</a></li>
+        <li><a href="#收端校验和-e1000_rx_checksum">收端校验和: e1000_rx_checksum</a></li>
+        <li><a href="#补充缓冲区-e1000_alloc_rx_buffers">补充缓冲区: e1000_alloc_rx_buffers</a></li>
+      </ol>
+    </li>
+    <li><a href="#驱动到协议栈-收包进栈逐函数解析">驱动到协议栈: 收包进栈逐函数解析</a>
+      <ol>
+        <li><a href="#链路层收尾-eth_type_trans">链路层收尾: eth_type_trans</a></li>
+        <li><a href="#非napi-入队-netif_rx">非NAPI 入队: netif_rx</a></li>
+        <li><a href="#挂入轮询-__netif_rx_schedule">挂入轮询: __netif_rx_schedule</a></li>
+        <li><a href="#软中断总入口-net_rx_action">软中断总入口: net_rx_action</a></li>
+        <li><a href="#backlog-出队-process_backlog">backlog 出队: process_backlog</a></li>
+        <li><a href="#协议分发-netif_receive_skb">协议分发: netif_receive_skb</a></li>
+        <li><a href="#进入网络层-ip_rcv">进入网络层: ip_rcv</a></li>
+      </ol>
+    </li>
+    <li><a href="#中断机制与-napi-软硬中断切换深度解析">中断机制与 NAPI 软硬中断切换深度解析</a>
+      <ol>
+        <li><a href="#先厘清两个中断和两个上下文">先厘清两个&quot;中断&quot;和两个&quot;上下文&quot;</a></li>
+        <li><a href="#net_rx_action-在哪注册">net_rx_action 在哪注册</a></li>
+        <li><a href="#驱动回调-dev-poll-的注册时机">驱动回调 dev-&gt;poll 的注册时机</a></li>
+        <li><a href="#napi-模式-完整软硬中断切换时间线">NAPI 模式: 完整软硬中断切换时间线</a></li>
+        <li><a href="#硬中断到底在哪个点退出">硬中断到底在哪个点退出</a></li>
+        <li><a href="#非napi-模式对比">非NAPI 模式对比</a></li>
+        <li><a href="#为什么开网卡中断在-netif_rx_complete-之后-而非硬中断-exit-后">为什么开网卡中断在 netif_rx_complete 之后, 而非硬中断 exit 后</a></li>
+        <li><a href="#2610-napi-与现代内核-54x-的差异">2.6.10 NAPI 与现代内核 (5.4.x) 的差异</a></li>
+      </ol>
+    </li>
+    <li><a href="#完整收发包全景图与函数索引">完整收发包全景图与函数索引</a>
+      <ol>
+        <li><a href="#收包全景硬件--应用">收包全景(硬件 → 应用)</a></li>
+        <li><a href="#发包全景应用--硬件">发包全景(应用 → 硬件)</a></li>
+        <li><a href="#关键函数索引">关键函数索引</a></li>
+        <li><a href="#收发对称性总结">收发对称性总结</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/linux/" >
+                Linux
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/linux-e1000-%E7%BD%91%E5%8D%A1%E9%A9%B1%E5%8A%A8%E6%94%B6%E5%8F%91%E5%8C%85%E8%B7%AF%E5%BE%84%E8%A7%A3%E6%9E%90/">Linux E1000 网卡驱动收发包路径解析</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-07-10 20:11</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-07-10 21:35</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 16 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    3239 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <blockquote>
+<p>基于 Linux 2.6.10 内核源码 (<code>drivers/net/e1000/</code> 与 <code>net/core/</code>)<br>
+【 <a class="link" href="https://www.kernel.org/pub/linux/kernel/v2.6/linux-2.6.10.tar.gz"  target="_blank" rel="noopener"
+    >kernel.org 源码下载</a> 】<br>
+【 <a class="link" href="https://elixir.bootlin.com/linux/v2.6.10/source/drivers"  target="_blank" rel="noopener"
+    >elixir.bootlin.com 线上Linux源码阅读</a> 】</p></blockquote>
+<hr>
+<!-- ## 目录
+
+1. [驱动概述与核心数据结构](#驱动概述与核心数据结构)
+2. [收发包总体架构](#收发包总体架构)
+3. [发送路径 TX 调用链逐函数解析](#发送路径-tx-调用链逐函数解析)
+4. [发送完成回收 TX-IRQ 解析](#发送完成回收-tx-irq-解析)
+5. [接收路径 RX 调用链逐函数解析](#接收路径-rx-调用链逐函数解析)
+6. [驱动到协议栈: 收包进栈逐函数解析](#驱动到协议栈-收包进栈逐函数解析)
+7. [中断机制与 NAPI 软硬中断切换深度解析](#中断机制与-napi-软硬中断切换深度解析)
+8. [完整收发包全景图与函数索引](#完整收发包全景图与函数索引) 
+
+---
+-->
+<h2 id="驱动概述与核心数据结构">驱动概述与核心数据结构
+</h2><p>E1000 是 Intel PRO/1000 千兆网卡的 Linux 驱动。收发包机制的本质是 <strong>描述符环 (descriptor ring) + DMA + 中断/NAPI:</strong> 网卡与驱动通过一段共享的 DMA 内存(描述符环)交换&quot;数据缓冲区物理地址与状态&quot;,再用 head/tail 寄存器互相通知进度。</p>
+<h3 id="三个基础结构-e1000h">三个基础结构 (e1000.h)
+</h3><p><strong>软件缓冲信息 <code>e1000_buffer</code></strong> —— 每个描述符配一个,记录关联的 SKB 与 DMA 地址:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">e1000_buffer</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">;</span>        <span class="c1">// 关联的 socket buffer
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">uint64_t</span> <span class="n">dma</span><span class="p">;</span>               <span class="c1">// DMA 物理地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">time_stamp</span><span class="p">;</span>   <span class="c1">// 时间戳, 用于 TX 超时检测
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">uint16_t</span> <span class="n">length</span><span class="p">;</span>            <span class="c1">// 缓冲区长度
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">uint16_t</span> <span class="n">next_to_watch</span><span class="p">;</span>     <span class="c1">// TX: 本包最后一个描述符(EOP)的索引
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>描述符环 <code>e1000_desc_ring</code></strong> —— TX/RX 共用,靠两个游标形成环形队列:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">e1000_desc_ring</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="o">*</span><span class="n">desc</span><span class="p">;</span>                 <span class="c1">// 描述符环虚拟地址(DMA一致性内存)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">dma_addr_t</span> <span class="n">dma</span><span class="p">;</span>             <span class="c1">// 描述符环物理地址(交给硬件)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">count</span><span class="p">;</span>         <span class="c1">// 描述符数量(默认256)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">next_to_use</span><span class="p">;</span>   <span class="c1">// 生产者游标: 软件下一个要用的位置
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">next_to_clean</span><span class="p">;</span> <span class="c1">// 消费者游标: 软件下一个要清理的位置
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="n">e1000_buffer</span> <span class="o">*</span><span class="n">buffer_info</span><span class="p">;</span>   <span class="c1">// 每描述符的软件信息数组
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: <code>next_to_use</code> / <code>next_to_clean</code> 是软件侧两个游标,对应硬件的 tail / head:</p>
+<ul>
+<li><strong>TX</strong>: 软件在 <code>next_to_use</code> 填描述符并写 <code>TDT</code>(tail); 硬件从 <code>TDH</code>(head) 读取发送; 软件在 <code>next_to_clean</code> 回收。</li>
+<li><strong>RX</strong>: 软件在 <code>next_to_use</code> 挂空缓冲区并写 <code>RDT</code>(tail); 硬件从 <code>RDH</code>(head) 取缓冲区写入收到的数据; 软件从 <code>next_to_clean</code> 取出上送。</li>
+</ul>
+<p>宏 <code>E1000_DESC_UNUSED(R)</code> 用 <code>next_to_clean</code> 与 <code>next_to_use</code> 之差计算环内空闲描述符数,发送前用它判断&quot;环里还放不放得下&quot;。</p>
+<h3 id="硬件描述符与关键状态位">硬件描述符与关键状态位
+</h3><ul>
+<li><strong>RX 描述符</strong>: <code>buffer_addr</code> / <code>length</code> / <code>status</code>(含 DD、EOP、VP) / <code>errors</code> / <code>special</code>(VLAN)。</li>
+<li><strong>TX 描述符</strong>: <code>buffer_addr</code> / <code>lower.data</code>(长度+命令) / <code>upper.data</code>(状态)。</li>
+<li><strong>上下文描述符</strong> (<code>e1000_context_desc</code>): 不承载数据,只向硬件传递 TSO / 校验和卸载参数。</li>
+</ul>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>位</th>
+          <th>含义</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>E1000_RXD_STAT_DD</code></td>
+          <td>RX: 硬件已完成 DMA 写入(软件据此判断有无新包)</td>
+      </tr>
+      <tr>
+          <td><code>E1000_RXD_STAT_EOP</code></td>
+          <td>RX: 包尾描述符</td>
+      </tr>
+      <tr>
+          <td><code>E1000_TXD_STAT_DD</code></td>
+          <td>TX: 硬件已完成发送(软件据此回收)</td>
+      </tr>
+      <tr>
+          <td><code>E1000_TXD_CMD_EOP</code></td>
+          <td>TX: 包尾</td>
+      </tr>
+      <tr>
+          <td><code>E1000_TXD_CMD_RS</code></td>
+          <td>TX: 要求硬件发完后回写 DD 位</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<h2 id="收发包总体架构">收发包总体架构
+</h2><pre class="mermaid">
+  graph TD
+    subgraph 用户态
+        APP[&#34;应用进程 send()/recv()&#34;]
+    end
+    subgraph 协议栈
+        SOCK[&#34;socket 层&#34;]
+        TCP[&#34;TCP/UDP&#34;]
+        IP[&#34;IP 层 ip_rcv/ip_output&#34;]
+        DEV[&#34;设备无关层 dev.c&lt;br/&gt;dev_queue_xmit / netif_rx / netif_receive_skb&#34;]
+    end
+    subgraph 驱动 e1000_main.c
+        XMIT[&#34;e1000_xmit_frame (发)&#34;]
+        CLEAN[&#34;e1000_clean_rx_irq (收)&#34;]
+        INTR[&#34;e1000_intr / e1000_clean&#34;]
+    end
+    subgraph 硬件
+        RING[&#34;TX/RX 描述符环 + DMA&#34;]
+        NIC[&#34;e1000 网卡&#34;]
+    end
+
+    APP&lt;--&gt;SOCK&lt;--&gt;TCP&lt;--&gt;IP&lt;--&gt;DEV
+    DEV--&gt;|hard_start_xmit|XMIT--&gt;RING
+    NIC--&gt;|IRQ|INTR--&gt;CLEAN--&gt;|netif_rx/netif_receive_skb|DEV
+    RING&lt;--&gt;NIC
+</pre>
+<blockquote>
+<p>两条主线:</p>
+<ul>
+<li><strong>发送</strong> <code>dev_queue_xmit → e1000_xmit_frame → e1000_tso/csum → e1000_tx_map → e1000_tx_queue → 硬件</code></li>
+<li><strong>接收</strong> <code>硬件IRQ → e1000_intr → e1000_clean → e1000_clean_rx_irq → netif_receive_skb → ip_rcv</code></li>
+</ul></blockquote>
+<hr>
+<h2 id="发送路径-tx-调用链逐函数解析">发送路径 TX 调用链逐函数解析
+</h2><h3 id="tx-调用链">TX 调用链
+</h3><pre class="mermaid">
+  sequenceDiagram
+    participant Stack as dev_queue_xmit(协议栈)
+    participant XMIT as e1000_xmit_frame
+    participant TSO as e1000_tso
+    participant CSUM as e1000_tx_csum
+    participant MAP as e1000_tx_map
+    participant QUEUE as e1000_tx_queue
+    participant HW as 硬件
+
+    Stack-&gt;&gt;XMIT: hard_start_xmit(skb, dev)
+    XMIT-&gt;&gt;XMIT: 计算描述符数 count / 抢 tx_lock / 查空闲
+    alt TSO
+        XMIT-&gt;&gt;TSO: e1000_tso()
+    else 硬件校验和
+        XMIT-&gt;&gt;CSUM: e1000_tx_csum()
+    end
+    XMIT-&gt;&gt;MAP: e1000_tx_map() DMA映射
+    XMIT-&gt;&gt;QUEUE: e1000_tx_queue(count, tx_flags)
+    QUEUE-&gt;&gt;HW: 填数据描述符 + wmb() + 写TDT
+    XMIT--&gt;&gt;Stack: NETDEV_TX_OK
+</pre>
+<h3 id="协议栈交接-dev_queue_xmit">协议栈交接: dev_queue_xmit
+</h3><p><code>net/core/dev.c</code> —— 协议栈交给驱动前的最后一站。IP 层 <code>ip_finish_output</code> 之后进入。核心逻辑摘录:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// dev_queue_xmit()
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 1) 驱动不支持分散聚集(SG)则先把分片线性化
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="nf">skb_shinfo</span><span class="p">(</span><span class="n">skb</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">nr_frags</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">features</span> <span class="o">&amp;</span> <span class="n">NETIF_F_SG</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">__skb_linearize</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="n">GFP_ATOMIC</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 2) 需校验和但驱动无硬件卸载, 这里软件补算
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="n">skb</span><span class="o">-&gt;</span><span class="n">ip_summed</span> <span class="o">==</span> <span class="n">CHECKSUM_HW</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">features</span> <span class="o">&amp;</span> <span class="n">NETIF_F_HW_CSUM</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">skb_checksum_help</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 3) 取排队规则(流量整形), 入队后驱动发送
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">q</span> <span class="o">=</span> <span class="nf">rcu_dereference</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">qdisc</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">q</span><span class="o">-&gt;</span><span class="n">enqueue</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">q</span><span class="o">-&gt;</span><span class="nf">enqueue</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="n">q</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">qdisc_run</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>          <span class="c1">// 出队 → 最终调 dev-&gt;hard_start_xmit
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: 三项预处理都由驱动 <code>dev-&gt;features</code> 决定</p>
+<ul>
+<li>声明 <code>NETIF_F_SG</code> 可免拷贝</li>
+<li>声明 <code>NETIF_F_HW_CSUM/IP_CSUM</code> 可把校验和留给硬件。</li>
+<li><code>qdisc_run → qdisc_restart</code> 最终调用 <code>dev-&gt;hard_start_xmit</code>,即 <code>e1000_xmit_frame</code>。</li>
+</ul>
+<h3 id="发包入口-e1000_xmit_frame">发包入口: e1000_xmit_frame
+</h3><p><code>e1000_main.c:1752</code> —— probe 阶段注册为 <code>netdev-&gt;hard_start_xmit</code>。主流程摘录:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// (1) 估算本包需要多少个描述符: 上下文描述符 + 线性区 + 各分片
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">((</span><span class="n">mss</span><span class="p">)</span> <span class="o">||</span> <span class="p">(</span><span class="n">skb</span><span class="o">-&gt;</span><span class="n">ip_summed</span> <span class="o">==</span> <span class="n">CHECKSUM_HW</span><span class="p">))</span> <span class="n">count</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">count</span> <span class="o">+=</span> <span class="nf">TXD_USE_COUNT</span><span class="p">(</span><span class="n">len</span><span class="p">,</span> <span class="n">max_txd_pwr</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="n">f</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">f</span> <span class="o">&lt;</span> <span class="n">nr_frags</span><span class="p">;</span> <span class="n">f</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">count</span> <span class="o">+=</span> <span class="nf">TXD_USE_COUNT</span><span class="p">(</span><span class="n">frags</span><span class="p">[</span><span class="n">f</span><span class="p">].</span><span class="n">size</span><span class="p">,</span> <span class="n">max_txd_pwr</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// (2) 非阻塞抢锁, 抢不到让上层重排(不阻塞)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nf">spin_trylock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">adapter</span><span class="o">-&gt;</span><span class="n">tx_lock</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">NETDEV_TX_LOCKED</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// (3) 空闲描述符不足: 停队列并让上层稍后重试(背压)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="nf">E1000_DESC_UNUSED</span><span class="p">(</span><span class="o">&amp;</span><span class="n">adapter</span><span class="o">-&gt;</span><span class="n">tx_ring</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">count</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">netif_stop_queue</span><span class="p">(</span><span class="n">netdev</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">NETDEV_TX_BUSY</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// (4) 卸载: TSO 优先, 否则尝试硬件校验和
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="nf">e1000_tso</span><span class="p">(</span><span class="n">adapter</span><span class="p">,</span> <span class="n">skb</span><span class="p">))</span>       <span class="n">tx_flags</span> <span class="o">|=</span> <span class="n">E1000_TX_FLAGS_TSO</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span> <span class="nf">if</span> <span class="p">(</span><span class="nf">e1000_tx_csum</span><span class="p">(</span><span class="n">adapter</span><span class="p">,</span> <span class="n">skb</span><span class="p">))</span> <span class="n">tx_flags</span> <span class="o">|=</span> <span class="n">E1000_TX_FLAGS_CSUM</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// (5) DMA映射 + 填描述符 + 写TDT (一行串起两个函数)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">e1000_tx_queue</span><span class="p">(</span><span class="n">adapter</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">e1000_tx_map</span><span class="p">(</span><span class="n">adapter</span><span class="p">,</span> <span class="n">skb</span><span class="p">,</span> <span class="n">first</span><span class="p">,</span> <span class="n">max_per_txd</span><span class="p">,</span> <span class="n">nr_frags</span><span class="p">,</span> <span class="n">mss</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">tx_flags</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">return</span> <span class="n">NETDEV_TX_OK</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>:</p>
+<ul>
+<li><strong>描述符预算</strong>: 一个包可能拆成多个描述符(线性区每 4KB 一个 + 每个分片 + 可能的上下文描述符),必须先算总数保证环放得下(<code>count + 2</code> 的 gap 防止 tail 追上 head)。</li>
+<li><strong><code>spin_trylock</code> + <code>NETDEV_TX_LOCKED</code></strong>: 发送可能并发,抢不到锁直接让协议栈重排,不阻塞。</li>
+<li><strong><code>netif_stop_queue</code></strong>: 环快满时主动停队列,向 Qdisc 施加<strong>背压</strong>,待回收后再 <code>netif_wake_queue</code>。</li>
+</ul>
+<h3 id="tso-卸载-e1000_tso">TSO 卸载: e1000_tso
+</h3><p><code>e1000_main.c:1488</code> —— TCP Segmentation Offload: 协议栈把一大段 TCP 数据整体下发,由网卡硬件切成多个 MSS 段。它只填一个<strong>上下文描述符</strong>,不搬数据:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="nf">skb_shinfo</span><span class="p">(</span><span class="n">skb</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">tso_size</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 清零 IP 总长/校验和, 硬件会为每个切出的段重填
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">nh</span><span class="p">.</span><span class="n">iph</span><span class="o">-&gt;</span><span class="n">tot_len</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">nh</span><span class="p">.</span><span class="n">iph</span><span class="o">-&gt;</span><span class="n">check</span>   <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 预置 TCP 伪头部校验和, 硬件只需累加数据部分
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">h</span><span class="p">.</span><span class="n">th</span><span class="o">-&gt;</span><span class="n">check</span> <span class="o">=</span> <span class="o">~</span><span class="nf">csum_tcpudp_magic</span><span class="p">(</span><span class="n">saddr</span><span class="p">,</span> <span class="n">daddr</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">IPPROTO_TCP</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 把 MSS、头长、各层校验和的起止偏移填进上下文描述符
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">context_desc</span><span class="o">-&gt;</span><span class="n">tcp_seg_setup</span><span class="p">.</span><span class="n">fields</span><span class="p">.</span><span class="n">mss</span>     <span class="o">=</span> <span class="nf">cpu_to_le16</span><span class="p">(</span><span class="n">mss</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">context_desc</span><span class="o">-&gt;</span><span class="n">tcp_seg_setup</span><span class="p">.</span><span class="n">fields</span><span class="p">.</span><span class="n">hdr_len</span> <span class="o">=</span> <span class="n">hdr_len</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">context_desc</span><span class="o">-&gt;</span><span class="n">cmd_and_length</span> <span class="o">=</span> <span class="nf">cpu_to_le32</span><span class="p">(</span><span class="n">cmd_length</span> <span class="o">|</span> <span class="n">E1000_TXD_CMD_TSE</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">TRUE</span><span class="p">;</span>      <span class="c1">// 消耗一个描述符位置
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">return</span> <span class="n">FALSE</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: 硬件按上下文描述符里的 MSS 和头部信息,自动复制头部、逐段切分并计算校验和。软件预置伪头部校验和是为让硬件只需对数据部分做累加。</p>
+<h3 id="硬件校验和-e1000_tx_csum">硬件校验和: e1000_tx_csum
+</h3><p><code>e1000_main.c:1542</code> —— 非 TSO 但请求了 <code>CHECKSUM_HW</code> 时,同样用一个上下文描述符只传校验和参数:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">skb</span><span class="o">-&gt;</span><span class="n">ip_summed</span> <span class="o">==</span> <span class="n">CHECKSUM_HW</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">css</span> <span class="o">=</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">h</span><span class="p">.</span><span class="n">raw</span> <span class="o">-</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>                    <span class="c1">// 传输层头相对 data 的偏移
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">context_desc</span><span class="o">-&gt;</span><span class="n">upper_setup</span><span class="p">.</span><span class="n">tcp_fields</span><span class="p">.</span><span class="n">tucss</span> <span class="o">=</span> <span class="n">css</span><span class="p">;</span>             <span class="c1">// 校验起点
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">context_desc</span><span class="o">-&gt;</span><span class="n">upper_setup</span><span class="p">.</span><span class="n">tcp_fields</span><span class="p">.</span><span class="n">tucso</span> <span class="o">=</span> <span class="n">css</span> <span class="o">+</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">csum</span><span class="p">;</span> <span class="c1">// 校验和写入位置
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">context_desc</span><span class="o">-&gt;</span><span class="n">cmd_and_length</span> <span class="o">=</span> <span class="nf">cpu_to_le32</span><span class="p">(</span><span class="n">E1000_TXD_CMD_DEXT</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">TRUE</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">return</span> <span class="n">FALSE</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: <code>skb-&gt;csum</code> 是协议栈算好的&quot;校验和应写入偏移&quot;,驱动把它转成硬件理解的 <code>tucso</code>。硬件据此边发送边计算并回填校验和。</p>
+<h3 id="dma-映射-e1000_tx_map">DMA 映射: e1000_tx_map
+</h3><p><code>e1000_main.c:1573</code> —— 把 SKB 线性区和每个分片映射成 DMA 地址,记入 <code>buffer_info</code>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// 线性数据区: 每个描述符最多映射 4096 字节
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">while</span> <span class="p">(</span><span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">size</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">len</span><span class="p">,</span> <span class="n">max_per_txd</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">length</span> <span class="o">=</span> <span class="n">size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">dma</span> <span class="o">=</span> <span class="nf">pci_map_single</span><span class="p">(</span><span class="n">pdev</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">+</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">PCI_DMA_TODEVICE</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">len</span> <span class="o">-=</span> <span class="n">size</span><span class="p">;</span> <span class="n">offset</span> <span class="o">+=</span> <span class="n">size</span><span class="p">;</span> <span class="n">count</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 分片(通常在高端内存的 page 里)用 pci_map_page
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">for</span> <span class="p">(</span><span class="n">f</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">f</span> <span class="o">&lt;</span> <span class="n">nr_frags</span><span class="p">;</span> <span class="n">f</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span> <span class="p">...</span> <span class="nf">pci_map_page</span><span class="p">(...);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 只在最后一个描述符保存 skb; 在 first 处记录 EOP 索引
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">buffer_info</span><span class="p">[</span><span class="n">last</span><span class="p">].</span><span class="n">skb</span> <span class="o">=</span> <span class="n">skb</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">buffer_info</span><span class="p">[</span><span class="n">first</span><span class="p">].</span><span class="n">next_to_watch</span> <span class="o">=</span> <span class="n">last</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">return</span> <span class="n">count</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>:</p>
+<ul>
+<li>线性区用 <code>pci_map_single</code>,分片用 <code>pci_map_page</code>。</li>
+<li><strong>只有最后一个描述符保存 <code>skb</code></strong>,因为整包只需释放一次。</li>
+<li><strong><code>next_to_watch</code></strong>: 在 <code>first</code> 记下 EOP 描述符索引,回收时只查这个 EOP 的 DD 位即可判断整包是否发完。</li>
+</ul>
+<h3 id="填环并通知硬件-e1000_tx_queue">填环并通知硬件: e1000_tx_queue
+</h3><p><code>e1000_main.c:1664</code> —— 把 DMA 地址写进硬件描述符,最后写 <code>TDT</code> 发车:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="n">i</span> <span class="o">=</span> <span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">next_to_use</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">while</span> <span class="p">(</span><span class="n">count</span><span class="o">--</span><span class="p">)</span> <span class="p">{</span>                                    <span class="c1">// 逐个填数据描述符
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">tx_desc</span> <span class="o">=</span> <span class="nf">E1000_TX_DESC</span><span class="p">(</span><span class="o">*</span><span class="n">tx_ring</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">tx_desc</span><span class="o">-&gt;</span><span class="n">buffer_addr</span> <span class="o">=</span> <span class="nf">cpu_to_le64</span><span class="p">(</span><span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">dma</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">tx_desc</span><span class="o">-&gt;</span><span class="n">lower</span><span class="p">.</span><span class="n">data</span>  <span class="o">=</span> <span class="nf">cpu_to_le32</span><span class="p">(</span><span class="n">txd_lower</span> <span class="o">|</span> <span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">length</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">++</span><span class="n">i</span> <span class="o">==</span> <span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">count</span><span class="p">)</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">tx_desc</span><span class="o">-&gt;</span><span class="n">lower</span><span class="p">.</span><span class="n">data</span> <span class="o">|=</span> <span class="nf">cpu_to_le32</span><span class="p">(</span><span class="n">adapter</span><span class="o">-&gt;</span><span class="n">txd_cmd</span><span class="p">);</span><span class="c1">// 最后描述符加 EOP|RS
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="nf">wmb</span><span class="p">();</span>                                               <span class="c1">// 内存屏障: 描述符先于TDT可见
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">next_to_use</span> <span class="o">=</span> <span class="n">i</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nf">E1000_WRITE_REG</span><span class="p">(</span><span class="o">&amp;</span><span class="n">adapter</span><span class="o">-&gt;</span><span class="n">hw</span><span class="p">,</span> <span class="n">TDT</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>               <span class="c1">// ★写Tail, 硬件开始取描述符发送★
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>:</p>
+<ul>
+<li><strong><code>EOP|RS</code> 只加在最后一个描述符</strong>: <code>EOP</code> 标记包尾,<code>RS</code> 要求硬件发完回写 DD 供软件回收。</li>
+<li><strong><code>wmb()</code></strong>: 弱序内存架构(如 IA-64)上保证描述符内容先于 <code>TDT</code> 对硬件可见,防止硬件读到半成品。</li>
+<li><strong>写 <code>TDT</code> 是唯一的&quot;发车&quot;动作</strong>: 硬件发现 <code>TDH != TDT</code> 后自动 DMA 读取数据发送。</li>
+</ul>
+<hr>
+<h2 id="发送完成回收-tx-irq-解析">发送完成回收 TX-IRQ 解析
+</h2><h3 id="e1000_clean_tx_irq">e1000_clean_tx_irq
+</h3><p><code>e1000_main.c:2188</code> —— 发送完成后(中断或 NAPI 轮询里)回收描述符、解除映射、释放 SKB:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="n">i</span>   <span class="o">=</span> <span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">next_to_clean</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">eop</span> <span class="o">=</span> <span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">buffer_info</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">next_to_watch</span><span class="p">;</span>         <span class="c1">// 本包 EOP 描述符
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">eop_desc</span> <span class="o">=</span> <span class="nf">E1000_TX_DESC</span><span class="p">(</span><span class="o">*</span><span class="n">tx_ring</span><span class="p">,</span> <span class="n">eop</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">while</span> <span class="p">(</span><span class="n">eop_desc</span><span class="o">-&gt;</span><span class="n">upper</span><span class="p">.</span><span class="n">data</span> <span class="o">&amp;</span> <span class="nf">cpu_to_le32</span><span class="p">(</span><span class="n">E1000_TXD_STAT_DD</span><span class="p">))</span> <span class="p">{</span>  <span class="c1">// ★EOP的DD=整包发完★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">for</span> <span class="p">(</span><span class="n">cleaned</span> <span class="o">=</span> <span class="n">FALSE</span><span class="p">;</span> <span class="o">!</span><span class="n">cleaned</span><span class="p">;</span> <span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">pci_unmap_page</span><span class="p">(</span><span class="n">pdev</span><span class="p">,</span> <span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">dma</span><span class="p">,</span> <span class="p">...);</span> <span class="c1">// 解除DMA映射
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">skb</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="nf">dev_kfree_skb_any</span><span class="p">(</span><span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">skb</span><span class="p">);</span>     <span class="c1">// 释放SKB(仅最后描述符有)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="n">cleaned</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">eop</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">++</span><span class="n">i</span> <span class="o">==</span> <span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">count</span><span class="p">)</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">eop</span> <span class="o">=</span> <span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">buffer_info</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">next_to_watch</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">eop_desc</span> <span class="o">=</span> <span class="nf">E1000_TX_DESC</span><span class="p">(</span><span class="o">*</span><span class="n">tx_ring</span><span class="p">,</span> <span class="n">eop</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">tx_ring</span><span class="o">-&gt;</span><span class="n">next_to_clean</span> <span class="o">=</span> <span class="n">i</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 之前因环满停过队列, 现在有空位了 → 唤醒发送
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="n">cleaned</span> <span class="o">&amp;&amp;</span> <span class="nf">netif_queue_stopped</span><span class="p">(</span><span class="n">netdev</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="nf">netif_carrier_ok</span><span class="p">(</span><span class="n">netdev</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">netif_wake_queue</span><span class="p">(</span><span class="n">netdev</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: 通过 <code>next_to_watch</code> 找到 EOP 描述符,只检查它的 DD 位就知整包是否发完(不必逐个查)。回收后若之前 <code>netif_stop_queue</code> 过,现在 <code>netif_wake_queue</code> 通知 Qdisc 恢复发送 —— 与 3.3 的背压构成闭环。</p>
+<hr>
+<h2 id="接收路径-rx-调用链逐函数解析">接收路径 RX 调用链逐函数解析
+</h2><h3 id="rx-调用链">RX 调用链
+</h3><pre class="mermaid">
+  sequenceDiagram
+    participant HW as 硬件
+    participant IRQ as e1000_intr
+    participant POLL as e1000_clean(NAPI)
+    participant CRX as e1000_clean_rx_irq
+    participant CSUM as e1000_rx_checksum
+    participant ALLOC as e1000_alloc_rx_buffers
+    participant Stack as netif_receive_skb
+
+    HW-&gt;&gt;HW: DMA写缓冲区, 置DD, 更新RDH
+    HW-&gt;&gt;IRQ: 硬件中断
+    IRQ-&gt;&gt;IRQ: 读ICR / 屏蔽中断IMC
+    IRQ-&gt;&gt;POLL: __netif_rx_schedule(触发软中断)
+    POLL-&gt;&gt;CRX: e1000_clean_rx_irq(work_done, budget)
+    loop 遍历RX环
+        CRX-&gt;&gt;CRX: 查DD/EOP, unmap, skb_put
+        CRX-&gt;&gt;CSUM: e1000_rx_checksum()
+        CRX-&gt;&gt;Stack: netif_receive_skb(skb)
+    end
+    CRX-&gt;&gt;ALLOC: e1000_alloc_rx_buffers(补缓冲, 写RDT)
+    POLL-&gt;&gt;IRQ: netif_rx_complete + e1000_irq_enable
+</pre>
+<h3 id="中断入口-e1000_intr">中断入口: e1000_intr
+</h3><p><code>e1000_main.c:2111</code> —— 硬件中断处理函数,在 <code>e1000_open</code> 中经 <code>request_irq</code> 注册:<br>
+模块加载 -&gt; e1000_init_module → pci_module_init -&gt; driver_register -&gt; drv-&gt;driver.probe() -&gt;register_netdev() ;ifconfig e1000 up -&gt; netdev-&gt;open -&gt; e1000_open -&gt; e1000_up → request_irq</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// e1000_intr()
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">uint32_t</span> <span class="n">icr</span> <span class="o">=</span> <span class="nf">E1000_READ_REG</span><span class="p">(</span><span class="n">hw</span><span class="p">,</span> <span class="n">ICR</span><span class="p">);</span>   <span class="c1">// 读ICR同时清中断标志
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">icr</span><span class="p">)</span> <span class="k">return</span> <span class="n">IRQ_NONE</span><span class="p">;</span>                 <span class="c1">// 不是本设备的中断
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">icr</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">E1000_ICR_RXSEQ</span> <span class="o">|</span> <span class="n">E1000_ICR_LSC</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">mod_timer</span><span class="p">(</span><span class="o">&amp;</span><span class="n">adapter</span><span class="o">-&gt;</span><span class="n">watchdog_timer</span><span class="p">,</span> <span class="n">jiffies</span><span class="p">);</span>  <span class="c1">// 链路变化 → 唤醒看门狗
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="cp">#ifdef CONFIG_E1000_NAPI
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="k">if</span> <span class="p">(</span><span class="nf">netif_rx_schedule_prep</span><span class="p">(</span><span class="n">netdev</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">E1000_WRITE_REG</span><span class="p">(</span><span class="n">hw</span><span class="p">,</span> <span class="n">IMC</span><span class="p">,</span> <span class="o">~</span><span class="mi">0</span><span class="p">);</span>          <span class="c1">// ★屏蔽所有中断★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">__netif_rx_schedule</span><span class="p">(</span><span class="n">netdev</span><span class="p">);</span>           <span class="c1">// ★挂入NAPI轮询, 触发软中断★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#else
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>    <span class="c1">// 非NAPI: 直接在中断里循环清理收发
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">e1000_clean_rx_irq</span><span class="p">(</span><span class="n">adapter</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">e1000_clean_tx_irq</span><span class="p">(</span><span class="n">adapter</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: NAPI 模式下中断处理极短 —— <strong>屏蔽中断 + 挂入轮询链表</strong>,把耗时的收包搬到软中断批量做。这是高流量下&quot;中断风暴&quot;的解药: 关中断后用轮询批量收包,收完再开中断。</p>
+<h3 id="napi-轮询-e1000_clean">NAPI 轮询: e1000_clean
+</h3><p><code>e1000_main.c:2157</code> —— e1000_clean是在e1000_probe()时注册为 <code>netdev-&gt;poll</code>,在软中断 <code>net_rx_action</code> 里被调用:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">//e1000_clean
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="n">work_to_do</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="o">*</span><span class="n">budget</span><span class="p">,</span> <span class="n">netdev</span><span class="o">-&gt;</span><span class="n">quota</span><span class="p">);</span>    <span class="c1">// 本轮预算(quota默认64)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">tx_cleaned</span> <span class="o">=</span> <span class="nf">e1000_clean_tx_irq</span><span class="p">(</span><span class="n">adapter</span><span class="p">);</span>         <span class="c1">// 先回收TX
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">e1000_clean_rx_irq</span><span class="p">(</span><span class="n">adapter</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">work_done</span><span class="p">,</span> <span class="n">work_to_do</span><span class="p">);</span> <span class="c1">// 再收RX(受预算限)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="o">*</span><span class="n">budget</span>      <span class="o">-=</span> <span class="n">work_done</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">netdev</span><span class="o">-&gt;</span><span class="n">quota</span> <span class="o">-=</span> <span class="n">work_done</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">tx_cleaned</span> <span class="o">||</span> <span class="p">(</span><span class="n">work_done</span> <span class="o">&lt;</span> <span class="n">work_to_do</span><span class="p">))</span> <span class="p">{</span>    <span class="c1">// 活干完了
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">netif_rx_complete</span><span class="p">(</span><span class="n">netdev</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">e1000_irq_enable</span><span class="p">(</span><span class="n">adapter</span><span class="p">);</span>                    <span class="c1">// ★退出轮询, 重新开中断★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">return</span> <span class="p">(</span><span class="n">work_done</span> <span class="o">&gt;=</span> <span class="n">work_to_do</span><span class="p">);</span>                 <span class="c1">// 返回1: 还有活, 下轮继续
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: <code>work_to_do</code> 是<strong>预算</strong>,防止一个网卡在软中断里无限收包饿死其他设备。收够预算返回非零,<code>net_rx_action</code> 会把它排到队尾下次再来; 收完则 <code>netif_rx_complete</code> 退出并开中断。</p>
+<h3 id="收包核心-e1000_clean_rx_irq">收包核心: e1000_clean_rx_irq
+</h3><p><code>e1000_main.c:2251</code> —— 遍历 RX 环,把硬件收到的数据包装成 SKB 上送协议栈:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">while</span> <span class="p">(</span><span class="n">rx_desc</span><span class="o">-&gt;</span><span class="n">status</span> <span class="o">&amp;</span> <span class="n">E1000_RXD_STAT_DD</span><span class="p">)</span> <span class="p">{</span>     <span class="c1">// (1) DD位: 硬件已DMA完成
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">work_done</span> <span class="o">&gt;=</span> <span class="n">work_to_do</span><span class="p">)</span> <span class="k">break</span><span class="p">;</span>          <span class="c1">// (2) NAPI预算耗尽
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">(</span><span class="o">*</span><span class="n">work_done</span><span class="p">)</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">pci_unmap_single</span><span class="p">(</span><span class="n">pdev</span><span class="p">,</span> <span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">dma</span><span class="p">,</span> <span class="p">...);</span> <span class="c1">// (3) 解除映射, CPU可读
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">skb</span> <span class="o">=</span> <span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">skb</span><span class="p">;</span>                        <span class="c1">// (4) 取预分配的SKB
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">rx_desc</span><span class="o">-&gt;</span><span class="n">status</span> <span class="o">&amp;</span> <span class="n">E1000_RXD_STAT_EOP</span><span class="p">))</span> <span class="p">{</span> <span class="c1">// (5) 跨描述符包: 本驱动丢弃
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">dev_kfree_skb_irq</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span> <span class="k">goto</span> <span class="n">next_desc</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">skb_put</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="n">ETHERNET_FCS_SIZE</span><span class="p">);</span>      <span class="c1">// (6) 设长度, 去掉4字节FCS
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">e1000_rx_checksum</span><span class="p">(</span><span class="n">adapter</span><span class="p">,</span> <span class="n">rx_desc</span><span class="p">,</span> <span class="n">skb</span><span class="p">);</span>      <span class="c1">// (7) 处理硬件校验和结果
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">protocol</span> <span class="o">=</span> <span class="nf">eth_type_trans</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="n">netdev</span><span class="p">);</span>   <span class="c1">// (8) 剥以太网头, 定协议
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="cp">#ifdef CONFIG_E1000_NAPI
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>    <span class="nf">netif_receive_skb</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>                        <span class="c1">// (9a) NAPI: 直接进协议栈
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#else
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>    <span class="nf">netif_rx</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>                                 <span class="c1">// (9b) 非NAPI: 入backlog队列
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#endif
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="nl">next_desc</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">rx_desc</span><span class="o">-&gt;</span><span class="n">status</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>                           <span class="c1">// (10) 清DD, 描述符可复用
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">++</span><span class="n">i</span> <span class="o">==</span> <span class="n">rx_ring</span><span class="o">-&gt;</span><span class="n">count</span><span class="p">)</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="nf">e1000_alloc_rx_buffers</span><span class="p">(</span><span class="n">adapter</span><span class="p">);</span>                   <span class="c1">// (11) 补充新缓冲区, 写RDT
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>:</p>
+<ul>
+<li>第(1)步 <strong>DD 位</strong>是软硬件同步的关键: 硬件写完数据后置 DD,软件靠它判断&quot;这个描述符有没有新包&quot;。</li>
+<li>第(8)步 <strong><code>eth_type_trans</code></strong> 是驱动的收尾: 剥以太网头、定 <code>skb-&gt;protocol</code>,此后 SKB 就是与网卡无关的&quot;网络层包&quot;。</li>
+<li>第(9)步 <strong><code>netif_receive_skb</code>/<code>netif_rx</code></strong> 是驱动与协议栈的正式交接(见第 6 章)。</li>
+<li>第(11)步收完立即补缓冲区,保证 RX 环始终有空缓冲区给硬件写,否则丢包。</li>
+</ul>
+<h3 id="收端校验和-e1000_rx_checksum">收端校验和: e1000_rx_checksum
+</h3><p><code>e1000_main.c:2597</code>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// 硬件未算或标记忽略 → 交给协议栈软件校验
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="n">rx_desc</span><span class="o">-&gt;</span><span class="n">status</span> <span class="o">&amp;</span> <span class="n">E1000_RXD_STAT_IXSM</span> <span class="o">||</span>
+</span></span><span class="line"><span class="cl">    <span class="o">!</span><span class="p">(</span><span class="n">rx_desc</span><span class="o">-&gt;</span><span class="n">status</span> <span class="o">&amp;</span> <span class="n">E1000_RXD_STAT_TCPCS</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">ip_summed</span> <span class="o">=</span> <span class="n">CHECKSUM_NONE</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">rx_desc</span><span class="o">-&gt;</span><span class="n">errors</span> <span class="o">&amp;</span> <span class="n">E1000_RXD_ERR_TCPE</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">ip_summed</span> <span class="o">=</span> <span class="n">CHECKSUM_NONE</span><span class="p">;</span>            <span class="c1">// 校验错, 让栈复核
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">ip_summed</span> <span class="o">=</span> <span class="n">CHECKSUM_UNNECESSARY</span><span class="p">;</span>     <span class="c1">// ★硬件已验证, 栈可跳过★
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: 若硬件已正确校验,设 <code>CHECKSUM_UNNECESSARY</code>,TCP/UDP 层就跳过软件校验和 —— 这是收端校验和卸载省 CPU 的关键。</p>
+<h3 id="补充缓冲区-e1000_alloc_rx_buffers">补充缓冲区: e1000_alloc_rx_buffers
+</h3><p><code>e1000_main.c:2364</code> —— open 时首次填满,之后每次收包后补上被消费的缓冲区:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">skb</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">skb</span> <span class="o">=</span> <span class="nf">dev_alloc_skb</span><span class="p">(</span><span class="n">adapter</span><span class="o">-&gt;</span><span class="n">rx_buffer_len</span> <span class="o">+</span> <span class="n">NET_IP_ALIGN</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">skb</span><span class="p">)</span> <span class="k">break</span><span class="p">;</span>                           <span class="c1">// 内存不足, 下轮再试
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">skb_reserve</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="n">NET_IP_ALIGN</span><span class="p">);</span>            <span class="c1">// 预留2字节 → IP头16字节对齐
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">skb</span> <span class="o">=</span> <span class="n">skb</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">dma</span> <span class="o">=</span> <span class="nf">pci_map_single</span><span class="p">(</span><span class="n">pdev</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="p">...,</span> <span class="n">PCI_DMA_FROMDEVICE</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">rx_desc</span><span class="o">-&gt;</span><span class="n">buffer_addr</span> <span class="o">=</span> <span class="nf">cpu_to_le64</span><span class="p">(</span><span class="n">buffer_info</span><span class="o">-&gt;</span><span class="n">dma</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">((</span><span class="n">i</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">E1000_RX_BUFFER_WRITE</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">wmb</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">E1000_WRITE_REG</span><span class="p">(</span><span class="o">&amp;</span><span class="n">adapter</span><span class="o">-&gt;</span><span class="n">hw</span><span class="p">,</span> <span class="n">RDT</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span> <span class="c1">// ★每16个批量写一次RDT★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">++</span><span class="n">i</span> <span class="o">==</span> <span class="n">rx_ring</span><span class="o">-&gt;</span><span class="n">count</span><span class="p">)</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>:</p>
+<ul>
+<li><strong><code>skb_reserve(NET_IP_ALIGN=2)</code></strong>: 以太网头 14 字节,预留 2 字节后 IP 头正好 16 字节对齐,加速 IP 处理。</li>
+<li><strong>每 16 个才写一次 <code>RDT</code></strong>: MMIO 写代价高,批量更新 tail 减少开销。写 <code>RDT</code> 等于告诉硬件&quot;这些缓冲区可以用了&quot;。</li>
+</ul>
+<hr>
+<h2 id="驱动到协议栈-收包进栈逐函数解析">驱动到协议栈: 收包进栈逐函数解析
+</h2><p><code>e1000_clean_rx_irq</code> 调用 <code>netif_receive_skb</code>(NAPI) 或 <code>netif_rx</code>(非NAPI) 后,包正式进入协议栈。两条路径最终都汇聚到 <code>netif_receive_skb</code>。</p>
+<pre class="mermaid">
+  flowchart TD
+    A[&#34;e1000_clean_rx_irq&#34;] --&gt; A1[&#34;eth_type_trans&lt;br/&gt;定 skb-&gt;protocol&#34;]
+    A1 --&gt; B{&#34;CONFIG_E1000_NAPI?&#34;}
+    B --&gt;|NAPI| C[&#34;netif_receive_skb&#34;]
+    B --&gt;|非NAPI| D[&#34;netif_rx&lt;br/&gt;入per-CPU backlog队列&#34;]
+    D --&gt; E[&#34;__netif_rx_schedule&lt;br/&gt;触发NET_RX_SOFTIRQ&#34;]
+    E --&gt; F[&#34;net_rx_action(软中断)&#34;]
+    F --&gt; G[&#34;process_backlog&#34;]
+    G --&gt; C
+    F -.NAPI设备.-&gt; H[&#34;e1000_clean&#34;] --&gt; C
+    C --&gt; I[&#34;按protocol查 ptype_base[]&#34;]
+    I --&gt; J[&#34;ip_rcv&#34;]
+    J --&gt; K[&#34;ip_local_deliver → tcp_v4_rcv/udp_rcv&#34;]
+    K --&gt; L[&#34;sock接收队列 → 唤醒recv()&#34;]
+</pre>
+<h3 id="链路层收尾-eth_type_trans">链路层收尾: eth_type_trans
+</h3><p><code>net/ethernet/eth.c:159</code> —— 剥离以太网头并识别上层协议:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="n">skb</span><span class="o">-&gt;</span><span class="n">mac</span><span class="p">.</span><span class="n">raw</span> <span class="o">=</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>         <span class="c1">// 记录MAC头位置
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">skb_pull</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="n">ETH_HLEN</span><span class="p">);</span>          <span class="c1">// ★data前移14字节, 跳过以太网头★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">eth</span> <span class="o">=</span> <span class="nf">eth_hdr</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">eth</span><span class="o">-&gt;</span><span class="n">h_dest</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span>             <span class="c1">// 目的MAC最低位=1 → 组播/广播
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">pkt_type</span> <span class="o">=</span> <span class="n">PACKET_MULTICAST</span><span class="p">;</span> <span class="c1">// (广播另判)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">else</span> <span class="nf">if</span> <span class="p">(</span><span class="nf">memcmp</span><span class="p">(</span><span class="n">eth</span><span class="o">-&gt;</span><span class="n">h_dest</span><span class="p">,</span> <span class="n">dev</span><span class="o">-&gt;</span><span class="n">dev_addr</span><span class="p">,</span> <span class="n">ETH_ALEN</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">skb</span><span class="o">-&gt;</span><span class="n">pkt_type</span> <span class="o">=</span> <span class="n">PACKET_OTHERHOST</span><span class="p">;</span> <span class="c1">// 目的MAC非本机
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="nf">ntohs</span><span class="p">(</span><span class="n">eth</span><span class="o">-&gt;</span><span class="n">h_proto</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1536</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">eth</span><span class="o">-&gt;</span><span class="n">h_proto</span><span class="p">;</span>          <span class="c1">// ★返回以太类型, 如 ETH_P_IP★
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>__<strong>解析</strong>: <code>skb_pull(ETH_HLEN)</code> 后 <code>skb-&gt;data</code> 指向 IP 头; 返回值(如 <code>ETH_P_IP</code>)赋给 <code>skb-&gt;protocol</code> 供分发。<code>pkt_type</code> 决定包是本机、广播还是&quot;别人的&quot;(混杂模式会收到)。</p>
+<h3 id="非napi-入队-netif_rx">非NAPI 入队: netif_rx
+</h3><p><code>net/core/dev.c:1423</code>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="n">queue</span> <span class="o">=</span> <span class="o">&amp;</span><span class="nf">__get_cpu_var</span><span class="p">(</span><span class="n">softnet_data</span><span class="p">);</span>         <span class="c1">// per-CPU 收包队列
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="n">queue</span><span class="o">-&gt;</span><span class="n">input_pkt_queue</span><span class="p">.</span><span class="n">qlen</span> <span class="o">&lt;=</span> <span class="n">netdev_max_backlog</span><span class="p">)</span> <span class="p">{</span> <span class="c1">// 未满(默认300)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">queue</span><span class="o">-&gt;</span><span class="n">input_pkt_queue</span><span class="p">.</span><span class="n">qlen</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">netif_rx_schedule</span><span class="p">(</span><span class="o">&amp;</span><span class="n">queue</span><span class="o">-&gt;</span><span class="n">backlog_dev</span><span class="p">);</span>  <span class="c1">// 首包: 调度backlog伪设备
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">__skb_queue_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="n">queue</span><span class="o">-&gt;</span><span class="n">input_pkt_queue</span><span class="p">,</span> <span class="n">skb</span><span class="p">);</span>  <span class="c1">// ★入队★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">return</span> <span class="n">queue</span><span class="o">-&gt;</span><span class="n">cng_level</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="nf">kfree_skb</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>                                <span class="c1">// 队列满 → 丢包
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">return</span> <span class="n">NET_RX_DROP</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: 老式驱动在硬中断里只把 SKB 塞进 <strong>per-CPU 的 <code>input_pkt_queue</code></strong>,再调度虚拟的 <code>backlog_dev</code> 参与 NAPI 轮询,从而复用统一收包框架。队列满(300)即丢,是抗风暴第一道闸。</p>
+<h3 id="挂入轮询-__netif_rx_schedule">挂入轮询: __netif_rx_schedule
+</h3><p><code>include/linux/netdevice.h:811</code> —— NAPI 真实设备(e1000)与 backlog 伪设备共用:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="nf">list_add_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">poll_list</span><span class="p">,</span> <span class="o">&amp;</span><span class="nf">__get_cpu_var</span><span class="p">(</span><span class="n">softnet_data</span><span class="p">).</span><span class="n">poll_list</span><span class="p">);</span> <span class="c1">// 挂轮询链表
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">quota</span> <span class="o">=</span> <span class="n">dev</span><span class="o">-&gt;</span><span class="n">weight</span><span class="p">;</span>                     <span class="c1">// 重置配额(e1000 weight=64)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">__raise_softirq_irqoff</span><span class="p">(</span><span class="n">NET_RX_SOFTIRQ</span><span class="p">);</span>       <span class="c1">// ★触发接收软中断★
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: <code>e1000_intr</code> 用它把 e1000 的 netdev 挂进 <code>poll_list</code>; <code>netif_rx</code> 挂的是 backlog_dev。二者机制统一。</p>
+<h3 id="软中断总入口-net_rx_action">软中断总入口: net_rx_action
+</h3><p><code>net/core/dev.c:1764</code> —— <code>NET_RX_SOFTIRQ</code> 的处理函数:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">int</span> <span class="n">budget</span> <span class="o">=</span> <span class="n">netdev_max_backlog</span><span class="p">;</span>              <span class="c1">// 全局预算
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="nf">list_empty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">queue</span><span class="o">-&gt;</span><span class="n">poll_list</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">budget</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">jiffies</span> <span class="o">-</span> <span class="n">start_time</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1">// 预算耗尽或占用超1tick
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">goto</span> <span class="n">softnet_break</span><span class="p">;</span>                   <span class="c1">// 让出CPU, 下次软中断继续
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">dev</span> <span class="o">=</span> <span class="nf">list_entry</span><span class="p">(</span><span class="n">queue</span><span class="o">-&gt;</span><span class="n">poll_list</span><span class="p">.</span><span class="n">next</span><span class="p">,</span> <span class="p">...);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">quota</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">dev</span><span class="o">-&gt;</span><span class="nf">poll</span><span class="p">(</span><span class="n">dev</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">budget</span><span class="p">))</span>  <span class="c1">// ★调用设备poll★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">list_move_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">poll_list</span><span class="p">,</span> <span class="p">...);</span> <span class="c1">// 没干完, 重排队尾
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">else</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">dev_put</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>                         <span class="c1">// 干完, 移出链表
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: <code>dev-&gt;poll</code> 是多态调用 —— e1000 是 <code>e1000_clean</code>,backlog 是 <code>process_backlog</code>。全局 <code>budget</code> 加&quot;占用不超过 1 tick&quot;双重限制,保证软中断不霸占 CPU。</p>
+<h3 id="backlog-出队-process_backlog">backlog 出队: process_backlog
+</h3><p><code>net/core/dev.c:1716</code>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(;;)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">skb</span> <span class="o">=</span> <span class="nf">__skb_dequeue</span><span class="p">(</span><span class="o">&amp;</span><span class="n">queue</span><span class="o">-&gt;</span><span class="n">input_pkt_queue</span><span class="p">);</span>  <span class="c1">// 出队
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">skb</span><span class="p">)</span> <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">netif_receive_skb</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>                        <span class="c1">// ★与NAPI路径汇聚于此★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">++</span><span class="n">work</span> <span class="o">&gt;=</span> <span class="n">quota</span><span class="p">)</span> <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: 无论 NAPI(<code>e1000_clean → netif_receive_skb</code>) 还是非NAPI(<code>process_backlog → netif_receive_skb</code>),<strong>都在 <code>netif_receive_skb</code> 汇合</strong>。这是 Linux 收包模型的核心统一点。</p>
+<h3 id="协议分发-netif_receive_skb">协议分发: netif_receive_skb
+</h3><p><code>net/core/dev.c:1625</code> —— 链路层与网络层的分水岭,按 <code>skb-&gt;protocol</code> 投递给注册的协议处理器:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="n">skb</span><span class="o">-&gt;</span><span class="n">nh</span><span class="p">.</span><span class="n">raw</span> <span class="o">=</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>                       <span class="c1">// 网络层指针指向IP头
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 先给&#34;所有协议&#34;监听者(如 tcpdump/AF_PACKET) 一份
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">list_for_each_entry_rcu</span><span class="p">(</span><span class="n">ptype</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ptype_all</span><span class="p">,</span> <span class="n">list</span><span class="p">)</span> <span class="p">{</span> <span class="p">...</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 再按协议类型精确匹配, 哈希桶 ptype_base[type &amp; 15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">type</span> <span class="o">=</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">protocol</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nf">list_for_each_entry_rcu</span><span class="p">(</span><span class="n">ptype</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ptype_base</span><span class="p">[</span><span class="nf">ntohs</span><span class="p">(</span><span class="n">type</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">15</span><span class="p">],</span> <span class="n">list</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">ptype</span><span class="o">-&gt;</span><span class="n">type</span> <span class="o">==</span> <span class="n">type</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">pt_prev</span> <span class="o">=</span> <span class="n">ptype</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">pt_prev</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">pt_prev</span><span class="o">-&gt;</span><span class="nf">func</span><span class="p">(</span><span class="n">skb</span><span class="p">,</span> <span class="n">skb</span><span class="o">-&gt;</span><span class="n">dev</span><span class="p">,</span> <span class="n">pt_prev</span><span class="p">);</span>     <span class="c1">// ★IP包 → ip_rcv★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">kfree_skb</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>                            <span class="c1">// 无人认领
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>IP 协议在初始化时注册处理器:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">static</span> <span class="k">struct</span> <span class="n">packet_type</span> <span class="n">ip_packet_type</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="nf">__constant_htons</span><span class="p">(</span><span class="n">ETH_P_IP</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">ip_rcv</span><span class="p">,</span>                            <span class="c1">// IP包入口
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// ip_init(): dev_add_pack(&amp;ip_packet_type);
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解析</strong>: <code>ptype_base[16]</code> 是协议哈希表。<code>skb-&gt;protocol == ETH_P_IP</code> 时 <code>pt_prev-&gt;func</code> 即 <code>ip_rcv</code>。<code>ptype_all</code> 让抓包工具拿到所有包副本。</p>
+<h3 id="进入网络层-ip_rcv">进入网络层: ip_rcv
+</h3><p><code>net/ipv4/ip_input.c:360</code> —— IP 层入口:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">skb</span><span class="o">-&gt;</span><span class="n">pkt_type</span> <span class="o">==</span> <span class="n">PACKET_OTHERHOST</span><span class="p">)</span> <span class="k">goto</span> <span class="n">drop</span><span class="p">;</span>  <span class="c1">// 混杂模式收到的别人包
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="n">iph</span><span class="o">-&gt;</span><span class="n">ihl</span> <span class="o">&lt;</span> <span class="mi">5</span> <span class="o">||</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">version</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">)</span> <span class="k">goto</span> <span class="n">inhdr_error</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="nf">ip_fast_csum</span><span class="p">((</span><span class="n">u8</span><span class="o">*</span><span class="p">)</span><span class="n">iph</span><span class="p">,</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">ihl</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="k">goto</span> <span class="n">inhdr_error</span><span class="p">;</span>  <span class="c1">// ★校验IP头★
+</span></span></span><span class="line"><span class="cl"><span class="c1">// 过 netfilter PRE_ROUTING 钩子 → ip_rcv_finish
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">return</span> <span class="nf">NF_HOOK</span><span class="p">(</span><span class="n">PF_INET</span><span class="p">,</span> <span class="n">NF_IP_PRE_ROUTING</span><span class="p">,</span> <span class="n">skb</span><span class="p">,</span> <span class="n">dev</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">ip_rcv_finish</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>之后:</p>
+<pre class="mermaid">
+  flowchart LR
+    A[ip_rcv] --&gt; B[NF_IP_PRE_ROUTING钩子]
+    B --&gt; C[ip_rcv_finish&lt;br/&gt;ip_route_input 路由查找]
+    C --&gt; D{本机?}
+    D --&gt;|是| E[ip_local_deliver&lt;br/&gt;→ tcp_v4_rcv / udp_rcv]
+    D --&gt;|转发| F[ip_forward]
+    E --&gt; G[sock接收队列&lt;br/&gt;唤醒 recv()]
+</pre>
+<p><strong>解析</strong>: <code>ip_rcv</code> 校验头部后经 <code>PRE_ROUTING</code> 钩子进入 <code>ip_rcv_finish</code>,由 <code>ip_route_input</code> 判断本机接收还是转发。本机则 <code>ip_local_deliver</code> 按 <code>iph-&gt;protocol</code> 交给 <code>tcp_v4_rcv</code>/<code>udp_rcv</code>,数据最终进 socket 队列,唤醒阻塞在 <code>recv()</code> 的进程。至此完成&quot;从网线到应用&quot;的全程。</p>
+<hr>
+<h2 id="中断机制与-napi-软硬中断切换深度解析">中断机制与 NAPI 软硬中断切换深度解析
+</h2><p>前几章讲清了&quot;包怎么走&quot;,本章专门拆解<strong>中断层面的软硬切换</strong>——这是 NAPI 最容易混淆、也最能体现设计精妙的地方。</p>
+<h3 id="先厘清两个中断和两个上下文">先厘清两个&quot;中断&quot;和两个&quot;上下文&quot;
+</h3><p><strong>两种&quot;关中断&quot;完全不同</strong>:</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th></th>
+          <th>网卡层面(硬件寄存器)</th>
+          <th>CPU 层面</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>操作</td>
+          <td>写 e1000 的 <code>IMC</code>/<code>IMS</code> 寄存器</td>
+          <td><code>local_irq_disable/save</code></td>
+      </tr>
+      <tr>
+          <td>作用</td>
+          <td>让网卡<strong>不再往 CPU 发中断信号</strong></td>
+          <td>让<strong>当前 CPU 不响应任何</strong>中断</td>
+      </tr>
+      <tr>
+          <td>粒度</td>
+          <td>只影响这块网卡</td>
+          <td>影响整个 CPU</td>
+      </tr>
+      <tr>
+          <td>NAPI 主要用</td>
+          <td>★这个★</td>
+          <td>只在改 <code>poll_list</code> 等极短临界区</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>E1000 的两个寄存器:</p>
+<ul>
+<li><strong><code>IMC</code></strong>(Interrupt Mask <strong>Clear</strong>): 写入的位被<strong>清除</strong>出掩码 → <strong>屏蔽</strong>中断; 写 <code>~0</code> = 屏蔽全部。</li>
+<li><strong><code>IMS</code></strong>(Interrupt Mask <strong>Set</strong>): 写入的位被<strong>加入</strong>掩码 → <strong>使能</strong>中断。</li>
+</ul>
+<p><strong>两种&quot;上下文&quot;</strong>:</p>
+<ul>
+<li><strong>硬中断上下文 (hardirq)</strong>: 网卡拉中断线, CPU 立即跳进 <code>e1000_intr</code>。必须极快、不能睡眠, 期间该 CPU 上其他中断被抑制。</li>
+<li><strong>软中断上下文 (softirq)</strong>: 硬中断退出时 (<code>irq_exit</code>) 触发, <code>net_rx_action</code> 在此运行。<strong>开着中断</strong>跑, 可被硬中断打断, 适合耗时的批量收包。</li>
+</ul>
+<blockquote>
+<p>NAPI 精髓: <strong>硬中断只做&quot;记账 + 关网卡中断 + 踢软中断&quot;三件事, 把真正的收包挪到软中断。</strong></p></blockquote>
+<h3 id="net_rx_action-在哪注册">net_rx_action 在哪注册
+</h3><p>在 <code>net/core/dev.c:3139</code> 的 <code>net_dev_init()</code>(启动早期由 <code>subsys_initcall</code> 调用一次)里注册:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="nf">open_softirq</span><span class="p">(</span><span class="n">NET_TX_SOFTIRQ</span><span class="p">,</span> <span class="n">net_tx_action</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="nf">open_softirq</span><span class="p">(</span><span class="n">NET_RX_SOFTIRQ</span><span class="p">,</span> <span class="n">net_rx_action</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>   <span class="c1">// ★注册收包软中断★
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>open_softirq</code> 只是把处理函数填进全局软中断向量表 <code>softirq_vec[NET_RX_SOFTIRQ].action</code>。之后 <code>__raise_softirq_irqoff(NET_RX_SOFTIRQ)</code> 点亮 pending 位, <code>do_softirq()</code> 按下标查表调用 <code>net_rx_action</code>。同一 <code>net_dev_init</code> 里还初始化了每 CPU 的 <code>softnet_data</code>(队列 + <code>poll_list</code>)与 <strong><code>backlog_dev</code> 伪设备</strong>(<code>poll = process_backlog</code>)。</p>
+<h3 id="驱动回调-dev-poll-的注册时机">驱动回调 dev-&gt;poll 的注册时机
+</h3><p><code>net_rx_action</code> 里 <code>dev-&gt;poll(dev, &amp;budget)</code> 调用的 <code>e1000_clean</code>, 是在 <strong><code>e1000_probe()</code>(网卡被 PCI 子系统发现、驱动初始化设备时)一次性静态注册</strong>的, 而非运行时反复赋值。位置在 <code>e1000_main.c:449</code>, <code>alloc_etherdev</code> 之后、<code>register_netdev</code> 之前:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// e1000_probe
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="n">netdev</span><span class="o">-&gt;</span><span class="n">open</span>            <span class="o">=</span> <span class="o">&amp;</span><span class="n">e1000_open</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">netdev</span><span class="o">-&gt;</span><span class="n">hard_start_xmit</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">e1000_xmit_frame</span><span class="p">;</span>   <span class="c1">// 发包入口同处注册
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#ifdef CONFIG_E1000_NAPI
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="n">netdev</span><span class="o">-&gt;</span><span class="n">poll</span>   <span class="o">=</span> <span class="o">&amp;</span><span class="n">e1000_clean</span><span class="p">;</span>                 <span class="c1">// ★NAPI poll 回调在此注册★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">netdev</span><span class="o">-&gt;</span><span class="n">weight</span> <span class="o">=</span> <span class="mi">64</span><span class="p">;</span>                           <span class="c1">// ★配额权重, 决定单轮预算★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#endif
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>触发链: <code>insmod → e1000_init_module → pci_module_init(&amp;e1000_driver) → (PCI匹配) → e1000_probe → netdev-&gt;poll = &amp;e1000_clean → register_netdev</code>。</p>
+<p><strong>三个时间点要分清</strong>:</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>阶段</th>
+          <th>函数</th>
+          <th>做什么</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>驱动加载/设备发现</td>
+          <td><code>e1000_probe</code></td>
+          <td>把 <code>e1000_clean</code> 填入 <code>netdev-&gt;poll</code>、<code>weight=64</code></td>
+      </tr>
+      <tr>
+          <td>网卡 up(<code>ifconfig up</code>)</td>
+          <td><code>e1000_open</code></td>
+          <td><code>request_irq</code> 注册 <code>e1000_intr</code>、分配 ring、<code>netif_start_queue</code></td>
+      </tr>
+      <tr>
+          <td>每次收包(运行时)</td>
+          <td><code>net_rx_action</code></td>
+          <td>通过 <code>dev-&gt;poll(dev,&amp;budget)</code> <strong>调用</strong>已注册的 <code>e1000_clean</code></td>
+      </tr>
+  </tbody>
+</table></div>
+<blockquote>
+<p><code>weight = 64</code> 与 <code>poll</code> 同处注册, 它就是 <code>e1000_clean</code> 里 <code>work_to_do</code> 的上限来源(<code>__netif_rx_schedule</code> 里 <code>dev-&gt;quota = dev-&gt;weight</code> 重置)。因此&quot;每轮最多收 64 个包&quot;这个策略也是在 probe 阶段随 <code>poll</code> 一起定死的。</p></blockquote>
+<h3 id="napi-模式-完整软硬中断切换时间线">NAPI 模式: 完整软硬中断切换时间线
+</h3><pre class="mermaid">
+  sequenceDiagram
+    participant NIC as e1000网卡
+    participant HARD as e1000_intr&lt;br/&gt;(硬中断上下文)
+    participant IE as do_IRQ/irq_exit
+    participant SOFT as net_rx_action&lt;br/&gt;(软中断上下文)
+    participant CLEAN as e1000_clean
+
+    NIC-&gt;&gt;HARD: 拉中断线(有包了)
+    Note over HARD: 极短! 只做3件事
+    HARD-&gt;&gt;NIC: 写IMC=~0 关网卡中断
+    HARD-&gt;&gt;HARD: __netif_rx_schedule&lt;br/&gt;挂poll_list + 点亮软中断标志
+    HARD--&gt;&gt;IE: return IRQ_HANDLED
+    Note over IE: irq_exit()减preempt_count&lt;br/&gt;硬中断上下文结束
+    IE-&gt;&gt;SOFT: 检查pending, 执行NET_RX_SOFTIRQ
+    loop budget未耗尽
+        SOFT-&gt;&gt;CLEAN: dev-&gt;poll(dev,&amp;budget)
+        CLEAN-&gt;&gt;CLEAN: e1000_clean_rx_irq 批量收包建skb进栈
+        alt 环已空(work_done&lt;budget)
+            CLEAN-&gt;&gt;NIC: 写IMS 开网卡中断
+            CLEAN--&gt;&gt;SOFT: netif_rx_complete, 返回0
+        else 还有包
+            CLEAN--&gt;&gt;SOFT: 返回非0, 重排队尾
+        end
+    end
+</pre>
+<p><strong>步骤 1 — 硬中断入口</strong>(<code>e1000_main.c:2111</code>, 硬中断上下文):</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">uint32_t</span> <span class="n">icr</span> <span class="o">=</span> <span class="nf">E1000_READ_REG</span><span class="p">(</span><span class="n">hw</span><span class="p">,</span> <span class="n">ICR</span><span class="p">);</span>   <span class="c1">// 读中断原因(读动作即清标志)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">icr</span><span class="p">)</span> <span class="k">return</span> <span class="n">IRQ_NONE</span><span class="p">;</span>                 <span class="c1">// icr=0: 共享IRQ, 不是本卡, 让给别人
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>步骤 2 — 关网卡中断 + 挂软中断</strong>(仍在硬中断上下文):</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="nf">netif_rx_schedule_prep</span><span class="p">(</span><span class="n">netdev</span><span class="p">))</span> <span class="p">{</span>      <span class="c1">// test-and-set RX_SCHED位, 防重复调度
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">atomic_inc</span><span class="p">(</span><span class="o">&amp;</span><span class="n">adapter</span><span class="o">-&gt;</span><span class="n">irq_sem</span><span class="p">);</span>         <span class="c1">// 与 irq_enable 配对计数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">E1000_WRITE_REG</span><span class="p">(</span><span class="n">hw</span><span class="p">,</span> <span class="n">IMC</span><span class="p">,</span> <span class="o">~</span><span class="mi">0</span><span class="p">);</span>          <span class="c1">// ★关网卡中断: 要开始轮询, 别再打扰★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">__netif_rx_schedule</span><span class="p">(</span><span class="n">netdev</span><span class="p">);</span>           <span class="c1">// 挂 poll_list + __raise_softirq(NET_RX)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">return</span> <span class="n">IRQ_HANDLED</span><span class="p">;</span>                        <span class="c1">// 极短, 收包一个都没做!
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>__netif_rx_schedule</code> 里 <code>__raise_softirq_irqoff</code> <strong>只点亮 pending 位, 不立即执行软中断</strong>——真正执行要等硬中断退出。</p>
+<p><strong>步骤 4 — 软中断批量收包</strong>(<code>dev.c:1764</code>, 软中断上下文): <code>net_rx_action</code> 用 <code>budget</code>(全局300)与&quot;占用不超过1个tick&quot;双限制遍历 <code>poll_list</code>, 调 <code>dev-&gt;poll</code>(即 <code>e1000_clean</code>)。<strong>budget/weight 的意义</strong>: 软中断虽开中断, 但会推迟普通进程调度, 必须限量防止一个疯狂来包的网卡饿死其他设备与进程。</p>
+<p><strong>步骤 5 — 收完才开网卡中断</strong>(<code>e1000_main.c:2157</code>):</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">work_done</span> <span class="o">&lt;</span> <span class="n">work_to_do</span><span class="p">)</span> <span class="p">{</span>          <span class="c1">// 收到比预算少 = 环已空 = 收干净了
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">netif_rx_complete</span><span class="p">(</span><span class="n">netdev</span><span class="p">);</span>         <span class="c1">// 先退出轮询, 清 RX_SCHED 位
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">e1000_irq_enable</span><span class="p">(</span><span class="n">adapter</span><span class="p">);</span>         <span class="c1">// ★再开网卡中断(写IMS)★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>irq_sem</code> 计数配对: 步骤2 <code>atomic_inc</code> 关, 这里 <code>atomic_dec_and_test</code> 减到 0 才真正 <code>IMS</code> 开中断, 避免与看门狗等其他关中断者竞态。</p>
+<h3 id="硬中断到底在哪个点退出">硬中断到底在哪个点退出
+</h3><p><code>e1000_intr</code> 的 <code>return IRQ_HANDLED</code> <strong>不是</strong>退出点——它只是从处理函数返回, 仍在硬中断上下文。真正退出在 <code>do_IRQ</code> 随后调用的 <code>irq_exit()</code>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// arch/i386/kernel/irq.c:48
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">fastcall</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="nf">do_IRQ</span><span class="p">(</span><span class="k">struct</span> <span class="n">pt_regs</span> <span class="o">*</span><span class="n">regs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">irq_enter</span><span class="p">();</span>              <span class="c1">// 进入硬中断: preempt_count += HARDIRQ_OFFSET
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">__do_IRQ</span><span class="p">(</span><span class="n">irq</span><span class="p">,</span> <span class="n">regs</span><span class="p">);</span>      <span class="c1">// 内部 → handle_IRQ_event → e1000_intr
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">irq_exit</span><span class="p">();</span>               <span class="c1">// ★退出硬中断上下文就在这里★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// kernel/irq/handle.c:78
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">void</span> <span class="nf">irq_exit</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">preempt_count</span><span class="p">()</span> <span class="o">-=</span> <span class="n">IRQ_EXIT_OFFSET</span><span class="p">;</span>         <span class="c1">// ★这一行: 清HARDIRQ计数, 硬中断正式结束★
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nf">in_interrupt</span><span class="p">()</span> <span class="o">&amp;&amp;</span> <span class="nf">local_softirq_pending</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">do_softirq</span><span class="p">();</span>                           <span class="c1">// 已离开中断上下文, 就地跑软中断
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">preempt_enable_no_resched</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>精确答案</strong>: 退出点是 <code>irq_exit()</code> 里的 <code>preempt_count() -= IRQ_EXIT_OFFSET;</code>。<code>irq_enter</code> 时 <code>+= HARDIRQ_OFFSET</code> 标记&quot;在硬中断中&quot;, 这一行减回去后 <code>in_interrupt()</code> 对硬中断转假, 硬中断上下文才真正结束。紧接着的 <code>if</code> 检查到步骤2点亮的 <code>NET_RX_SOFTIRQ</code>, <strong>在同一次 <code>irq_exit</code> 里、退出之后立刻</strong>执行 <code>do_softirq() → net_rx_action</code>(通常复用同一内核栈)。</p>
+<h3 id="非napi-模式对比">非NAPI 模式对比
+</h3><p>非NAPI 下 <code>e1000_intr</code> 走另一分支——<strong>在硬中断里直接循环收包</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">E1000_MAX_INTR</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nf">e1000_clean_rx_irq</span><span class="p">(</span><span class="n">adapter</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">!</span><span class="nf">e1000_clean_tx_irq</span><span class="p">(</span><span class="n">adapter</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="k">break</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>关键澄清</strong>: 这里 <code>e1000_clean_rx_irq</code> 在<strong>硬中断上下文</strong>里建好 skb 后调 <code>netif_rx</code>, 而 <code>netif_rx</code> <strong>只是把 skb 塞进 per-CPU backlog 队列并点亮 <code>NET_RX_SOFTIRQ</code></strong>, 它<strong>不会</strong>在硬中断里把包推给 <code>ip_rcv</code>。真正进栈(<code>process_backlog → netif_receive_skb → ip_rcv</code>)同样推迟到软中断。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th></th>
+          <th>非NAPI</th>
+          <th>NAPI</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>硬中断里做什么</td>
+          <td>循环 <code>e1000_clean_rx_irq</code> 建 skb + <code>netif_rx</code> 入 backlog</td>
+          <td>只 <code>IMC</code> 关中断 + <code>__netif_rx_schedule</code></td>
+      </tr>
+      <tr>
+          <td>建 skb 在哪个上下文</td>
+          <td><strong>硬中断</strong>(重!)</td>
+          <td><strong>软中断</strong>(<code>e1000_clean</code> 里)</td>
+      </tr>
+      <tr>
+          <td>硬中断退出点</td>
+          <td><code>do_IRQ → irq_exit()</code> 减 <code>preempt_count</code></td>
+          <td><strong>完全相同</strong></td>
+      </tr>
+      <tr>
+          <td>退出后软中断做什么</td>
+          <td><code>process_backlog</code> 出队 → 进栈</td>
+          <td><code>e1000_clean</code> 收包建 skb → 进栈</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>两模式硬中断退出点完全一样</strong>; 区别只在: 非NAPI 把&quot;建 skb&quot;这件较重的活留在硬中断, NAPI 连建 skb 都推迟到软中断, 硬中断只剩极短三步——这正是 NAPI 更抗高负载的原因。</p>
+<h3 id="为什么开网卡中断在-netif_rx_complete-之后-而非硬中断-exit-后">为什么开网卡中断在 netif_rx_complete 之后, 而非硬中断 exit 后
+</h3><p>核心: <strong>硬中断 exit 时, 包还一个没收、环还满着、轮询还没结束。</strong> 若那时开中断:</p>
+<ol>
+<li><strong>时间线错位</strong>: 硬中断里只关中断挂队列, RX 环里的包原封不动。此时开中断, 环里未处理的包(DD 位仍在)会让网卡<strong>立即再次触发硬中断</strong>, 而软中断可能还没跑。</li>
+<li><strong>退化成中断风暴</strong>: 每来几个包就一次硬中断, 轮询批处理收益归零, 高负载下 CPU 全耗在中断进出开销上, NAPI 白做。</li>
+<li><strong>语义正确</strong>: 只有 <code>work_done &lt; work_to_do</code>(环已空)时开中断才合理——轮询已无意义, 恢复中断静默等下一批。反之还有包就继续轮询, <strong>轮询模式下不需要中断</strong>。</li>
+<li><strong>防竞态</strong>: 必须<strong>先 <code>netif_rx_complete</code>(清 <code>RX_SCHED</code> 位)再 <code>e1000_irq_enable</code></strong>。若顺序反了, 新包硬中断里 <code>netif_rx_schedule_prep</code> 会因标志还在而调度失败, 导致漏收。</li>
+</ol>
+<p><code>irq_exit</code> 是内核通用路径, 根本不知道&quot;这块网卡 RX 环收干净没、<code>RX_SCHED</code> 该不该清&quot;——这些只有<strong>驱动 + NAPI 状态机</strong>掌握, 所以开中断只能由 <code>e1000_clean</code> 在轮询收尾时自己决定。<strong>这就是 NAPI&quot;有包轮询、无包中断&quot;自适应的落地点。</strong></p>
+<h3 id="2610-napi-与现代内核-54x-的差异">2.6.10 NAPI 与现代内核 (5.4.x) 的差异
+</h3><p><strong>理念相同</strong>(中断缓解: 关中断→轮询→budget限量→收完开中断), <strong>实现差别很大</strong>:</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>2.6.10</th>
+          <th>5.4.x</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>轮询单元</td>
+          <td><strong><code>net_device</code> 本身</strong>, NAPI 状态直接是其成员(<code>dev-&gt;poll/quota/weight</code>)</td>
+          <td>独立的 <strong><code>struct napi_struct</code></strong>(2.6.24 引入), 与 net_device 解耦</td>
+      </tr>
+      <tr>
+          <td>多队列</td>
+          <td>一网卡只能一个 NAPI 上下文</td>
+          <td>每 RX 队列一个 <code>napi_struct</code>, 多核并行收包</td>
+      </tr>
+      <tr>
+          <td>API</td>
+          <td><code>netif_rx_schedule</code>/<code>netif_rx_complete</code>/<code>dev-&gt;poll(dev,&amp;budget)</code></td>
+          <td><code>napi_schedule</code>/<code>napi_complete_done</code>/<code>napi-&gt;poll(napi,budget)</code></td>
+      </tr>
+      <tr>
+          <td>backlog</td>
+          <td>per-CPU 伪 <code>net_device</code>(<code>backlog_dev</code>)</td>
+          <td><code>softnet_data.backlog</code> 是 <code>napi_struct</code>, 配合 RPS 可跨 CPU</td>
+      </tr>
+      <tr>
+          <td>时间限制</td>
+          <td><code>jiffies - start_time &gt; 1</code>(1个tick)</td>
+          <td><code>netdev_budget</code>(300) + <code>netdev_budget_usecs</code>(2000µs)</td>
+      </tr>
+      <tr>
+          <td>新增机制</td>
+          <td>无</td>
+          <td>GRO、RPS/RFS、busy-poll、XDP 等一整套</td>
+      </tr>
+  </tbody>
+</table></div>
+<blockquote>
+<p>注: 线程化 NAPI (threaded NAPI) 是 <strong>5.12</strong> 才引入的, 5.4.x 还没有。2.6.10 是&quot;net_device 内嵌式&quot;第一代实现; 现代是&quot;napi_struct 对象化&quot;成熟形态, 并围绕它长出高性能收包生态。核心思路一致, 能力不可同日而语。</p></blockquote>
+<hr>
+<h2 id="完整收发包全景图与函数索引">完整收发包全景图与函数索引
+</h2><h3 id="收包全景硬件--应用">收包全景(硬件 → 应用)
+</h3><pre class="mermaid">
+  sequenceDiagram
+    participant HW as e1000硬件
+    participant IRQ as e1000_intr
+    participant SIRQ as net_rx_action
+    participant POLL as e1000_clean/process_backlog
+    participant CRX as e1000_clean_rx_irq
+    participant NRS as netif_receive_skb
+    participant IP as ip_rcv→tcp/udp
+    participant APP as 用户recv()
+
+    HW-&gt;&gt;HW: DMA写缓冲区, 置DD, 更新RDH
+    HW-&gt;&gt;IRQ: 硬件中断
+    IRQ-&gt;&gt;SIRQ: 屏蔽中断 + __netif_rx_schedule
+    SIRQ-&gt;&gt;POLL: dev-&gt;poll(dev,&amp;budget)
+    POLL-&gt;&gt;CRX: e1000_clean_rx_irq
+    CRX-&gt;&gt;CRX: DD/EOP检查, unmap, skb_put, eth_type_trans
+    CRX-&gt;&gt;NRS: netif_receive_skb
+    NRS-&gt;&gt;IP: ptype_base查表 → ip_rcv
+    IP-&gt;&gt;APP: 入sock队列, 唤醒recv()
+    POLL-&gt;&gt;IRQ: netif_rx_complete + e1000_irq_enable
+</pre>
+<h3 id="发包全景应用--硬件">发包全景(应用 → 硬件)
+</h3><pre class="mermaid">
+  sequenceDiagram
+    participant APP as 用户send()
+    participant TCP as tcp/udp+IP层
+    participant DQX as dev_queue_xmit
+    participant Q as Qdisc
+    participant XMIT as e1000_xmit_frame
+    participant HW as e1000硬件
+    participant CTX as e1000_clean_tx_irq
+
+    APP-&gt;&gt;TCP: 数据下行, 构造skb+TCP/IP头
+    TCP-&gt;&gt;DQX: ip_finish_output → dev_queue_xmit
+    DQX-&gt;&gt;Q: q-&gt;enqueue + qdisc_run
+    Q-&gt;&gt;XMIT: hard_start_xmit
+    XMIT-&gt;&gt;XMIT: tso/csum → tx_map → tx_queue
+    XMIT-&gt;&gt;HW: 写TDT发车
+    HW-&gt;&gt;HW: DMA读数据, 发送, 置DD
+    HW-&gt;&gt;CTX: 发送完成中断
+    CTX-&gt;&gt;CTX: 查DD, unmap, kfree_skb
+    CTX-&gt;&gt;Q: netif_wake_queue(若曾停队列)
+</pre>
+<h3 id="关键函数索引">关键函数索引
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>函数</th>
+          <th>文件:行</th>
+          <th>角色</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>dev_queue_xmit</code></td>
+          <td>net/core/dev.c:1218</td>
+          <td>协议栈发包入口</td>
+      </tr>
+      <tr>
+          <td><code>e1000_xmit_frame</code></td>
+          <td>e1000_main.c:1752</td>
+          <td><strong>驱动发包入口</strong> (hard_start_xmit)</td>
+      </tr>
+      <tr>
+          <td><code>e1000_tso</code></td>
+          <td>e1000_main.c:1488</td>
+          <td>TSO 上下文描述符</td>
+      </tr>
+      <tr>
+          <td><code>e1000_tx_csum</code></td>
+          <td>e1000_main.c:1542</td>
+          <td>硬件校验和上下文描述符</td>
+      </tr>
+      <tr>
+          <td><code>e1000_tx_map</code></td>
+          <td>e1000_main.c:1573</td>
+          <td>SKB → DMA 映射</td>
+      </tr>
+      <tr>
+          <td><code>e1000_tx_queue</code></td>
+          <td>e1000_main.c:1664</td>
+          <td>填描述符 + 写 TDT</td>
+      </tr>
+      <tr>
+          <td><code>e1000_clean_tx_irq</code></td>
+          <td>e1000_main.c:2188</td>
+          <td>发送完成回收</td>
+      </tr>
+      <tr>
+          <td><code>e1000_intr</code></td>
+          <td>e1000_main.c:2111</td>
+          <td><strong>中断入口</strong></td>
+      </tr>
+      <tr>
+          <td><code>e1000_clean</code></td>
+          <td>e1000_main.c:2157</td>
+          <td>NAPI poll 回调</td>
+      </tr>
+      <tr>
+          <td><code>e1000_clean_rx_irq</code></td>
+          <td>e1000_main.c:2251</td>
+          <td><strong>收包核心</strong></td>
+      </tr>
+      <tr>
+          <td><code>e1000_rx_checksum</code></td>
+          <td>e1000_main.c:2597</td>
+          <td>收端校验和</td>
+      </tr>
+      <tr>
+          <td><code>e1000_alloc_rx_buffers</code></td>
+          <td>e1000_main.c:2364</td>
+          <td>补 RX 缓冲区 + 写 RDT</td>
+      </tr>
+      <tr>
+          <td><code>eth_type_trans</code></td>
+          <td>net/ethernet/eth.c:159</td>
+          <td>剥以太网头, 定协议</td>
+      </tr>
+      <tr>
+          <td><code>netif_rx</code></td>
+          <td>net/core/dev.c:1423</td>
+          <td>非NAPI 入 backlog 队列</td>
+      </tr>
+      <tr>
+          <td><code>__netif_rx_schedule</code></td>
+          <td>netdevice.h:811</td>
+          <td>挂 poll_list, 触发软中断</td>
+      </tr>
+      <tr>
+          <td><code>net_rx_action</code></td>
+          <td>net/core/dev.c:1764</td>
+          <td>NET_RX_SOFTIRQ 处理</td>
+      </tr>
+      <tr>
+          <td><code>process_backlog</code></td>
+          <td>net/core/dev.c:1716</td>
+          <td>backlog 出队</td>
+      </tr>
+      <tr>
+          <td><code>netif_receive_skb</code></td>
+          <td>net/core/dev.c:1625</td>
+          <td><strong>协议分发</strong></td>
+      </tr>
+      <tr>
+          <td><code>ip_rcv</code></td>
+          <td>net/ipv4/ip_input.c:360</td>
+          <td>IP 层入口</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="收发对称性总结">收发对称性总结
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>接收 RX</th>
+          <th>发送 TX</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>协议栈交接</td>
+          <td><code>netif_receive_skb</code>/<code>netif_rx</code></td>
+          <td><code>dev-&gt;hard_start_xmit</code> (<code>e1000_xmit_frame</code>)</td>
+      </tr>
+      <tr>
+          <td>驱动核心</td>
+          <td><code>e1000_clean_rx_irq</code></td>
+          <td><code>e1000_xmit_frame</code>+<code>e1000_tx_queue</code></td>
+      </tr>
+      <tr>
+          <td>硬件通知</td>
+          <td>软件写 <code>RDT</code> 补缓冲区</td>
+          <td>软件写 <code>TDT</code> 发数据</td>
+      </tr>
+      <tr>
+          <td>硬件指针</td>
+          <td><code>RDH</code>(硬件写处)</td>
+          <td><code>TDH</code>(硬件读处)</td>
+      </tr>
+      <tr>
+          <td>完成标志</td>
+          <td><code>status.DD</code>(硬件置位)</td>
+          <td><code>upper.DD</code>(硬件置位)</td>
+      </tr>
+      <tr>
+          <td>中断后处理</td>
+          <td><code>e1000_clean_rx_irq</code> 上送</td>
+          <td><code>e1000_clean_tx_irq</code> 回收</td>
+      </tr>
+      <tr>
+          <td>背压</td>
+          <td>backlog throttle / NAPI 预算</td>
+          <td><code>netif_stop_queue</code>/<code>netif_wake_queue</code>+Qdisc</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<blockquote>
+<p><strong>总结</strong>: E1000 收发包的本质是围绕 <strong>描述符环 + DMA + DD 位</strong>的软硬件协作。
+<strong>发送</strong>: <code>e1000_xmit_frame</code> 算描述符 → <code>tso/csum</code> 填卸载参数 → <code>tx_map</code> 做 DMA 映射 → <code>tx_queue</code> 写 TDT 发车 → <code>clean_tx_irq</code> 靠 DD 位回收。
+<strong>接收</strong>: 硬件置 DD 触发中断 → <code>e1000_intr</code> 关中断调度 NAPI → <code>e1000_clean_rx_irq</code> 靠 DD 位取包、<code>eth_type_trans</code> 定协议 → <code>netif_receive_skb</code> 查 <code>ptype_base</code> → <code>ip_rcv</code> 进网络层 → socket 唤醒应用。
+两条路径通过 <code>netif_stop/wake_queue</code> 与 backlog/NAPI 预算实现流量背压,通过硬件卸载(TSO/校验和)大幅降低 CPU 负担。</p></blockquote>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/linux-proc-%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux proc 文件系统</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">网络设备驱动内部原理</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E5%AE%89%E8%A3%85wsl2-%E5%88%B0d%E7%9B%98/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">安装WSL2 到D盘</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E7%A1%AC%E4%B8%AD%E6%96%AD%E4%B8%8E%E8%BD%AF%E4%B8%AD%E6%96%AD/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">硬中断与软中断</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-%E6%94%B6%E5%8C%85%E6%B5%81%E7%A8%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux 收包流程</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        let rightSideBar = document.querySelector(".right-sidebar");
+        if (!rightSideBar) {
+            return;
+        }
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop
+        rightSideBar.appendChild(btn)
+        
+        window.onscroll = function() {
+            
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        };
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true ,look: 'handDrawn'});
+    </script>
