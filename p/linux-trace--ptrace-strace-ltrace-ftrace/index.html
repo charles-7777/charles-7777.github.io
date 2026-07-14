@@ -1,0 +1,3119 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" flowchart TD A[Linux 追踪与性能工具全景] --&gt; B[基础机制 / 经典工具] A --&gt; C[内核追踪框架] A --&gt; D[现代可编程平台] B --&gt; B1[ptrace&lt;br&gt;进程调试与追踪的系统调用] B1 --&gt; B2[strace&lt;br&gt;追踪系统调用] B1 --&gt; B3[ltrace&lt;br&gt;追踪动态库函数调用] C --&gt; C1[ftrace&lt;br&gt;内核内置追踪器] C --&gt; C2[perf&lt;br&gt;性能事件与硬件计数器] D --&gt; D1[eBPF&lt;br&gt;内核沙箱程序] D1 --&gt; D2[kprobe / kretprobe&lt;br&gt;动态追踪内核函数] D1 --&gt; D3[uprobe / uretprobe&lt;br&gt;动态追踪用户态函数] D1 --&gt; D4[tracepoint&lt;br&gt;内核预置静态追踪点] ptrace - process trace 核心原理 https://www.man7.org/linux/man-pages/man2/ptrace.2.html\n1 2 3 4 #include &lt;sys/ptrace.h&gt; long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data); ptrace()\u00a0系统调用(system call)提供了一种机制，使得一个进程（tracer）可以观察和控制另一个进程（tracee）的执行，并检查和更改被追踪者的内存和寄存器。它主要用于实现断点调试和系统调用跟踪。它是一切用户态调试工具的基石——gdb、strace、ltrace 底层都依赖它。\ntracee首先需要被附加到tracer上。附加及其后续命令都是按线程进行的：在一个多线程进程中，每个线程都可以被单独附加到一个（可能是不同的）追踪器上，或者保持未附加状态从而不被调试。因此，“被追踪者”始终指代“（一个）线程”，而绝不是“一个（可能是多线程的）进程” , ptrace 命令始终通过以下形式的调用来发送给特定的被追踪者：ptrace(PTRACE_foo, pid, ...)其中 pid 是对应 Linux 线程的线程 ID\n">
+<title>linux trace -- ptrace strace ltrace ftrace</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="linux trace -- ptrace strace ltrace ftrace">
+<meta property='og:description' content=" flowchart TD A[Linux 追踪与性能工具全景] --&gt; B[基础机制 / 经典工具] A --&gt; C[内核追踪框架] A --&gt; D[现代可编程平台] B --&gt; B1[ptrace&lt;br&gt;进程调试与追踪的系统调用] B1 --&gt; B2[strace&lt;br&gt;追踪系统调用] B1 --&gt; B3[ltrace&lt;br&gt;追踪动态库函数调用] C --&gt; C1[ftrace&lt;br&gt;内核内置追踪器] C --&gt; C2[perf&lt;br&gt;性能事件与硬件计数器] D --&gt; D1[eBPF&lt;br&gt;内核沙箱程序] D1 --&gt; D2[kprobe / kretprobe&lt;br&gt;动态追踪内核函数] D1 --&gt; D3[uprobe / uretprobe&lt;br&gt;动态追踪用户态函数] D1 --&gt; D4[tracepoint&lt;br&gt;内核预置静态追踪点] ptrace - process trace 核心原理 https://www.man7.org/linux/man-pages/man2/ptrace.2.html\n1 2 3 4 #include &lt;sys/ptrace.h&gt; long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data); ptrace()\u00a0系统调用(system call)提供了一种机制，使得一个进程（tracer）可以观察和控制另一个进程（tracee）的执行，并检查和更改被追踪者的内存和寄存器。它主要用于实现断点调试和系统调用跟踪。它是一切用户态调试工具的基石——gdb、strace、ltrace 底层都依赖它。\ntracee首先需要被附加到tracer上。附加及其后续命令都是按线程进行的：在一个多线程进程中，每个线程都可以被单独附加到一个（可能是不同的）追踪器上，或者保持未附加状态从而不被调试。因此，“被追踪者”始终指代“（一个）线程”，而绝不是“一个（可能是多线程的）进程” , ptrace 命令始终通过以下形式的调用来发送给特定的被追踪者：ptrace(PTRACE_foo, pid, ...)其中 pid 是对应 Linux 线程的线程 ID\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-15T00:05:18&#43;08:00'/><meta property='article:modified_time' content='2026-07-15T00:12:59&#43;08:00'/>
+<meta name="twitter:title" content="linux trace -- ptrace strace ltrace ftrace">
+<meta name="twitter:description" content=" flowchart TD A[Linux 追踪与性能工具全景] --&gt; B[基础机制 / 经典工具] A --&gt; C[内核追踪框架] A --&gt; D[现代可编程平台] B --&gt; B1[ptrace&lt;br&gt;进程调试与追踪的系统调用] B1 --&gt; B2[strace&lt;br&gt;追踪系统调用] B1 --&gt; B3[ltrace&lt;br&gt;追踪动态库函数调用] C --&gt; C1[ftrace&lt;br&gt;内核内置追踪器] C --&gt; C2[perf&lt;br&gt;性能事件与硬件计数器] D --&gt; D1[eBPF&lt;br&gt;内核沙箱程序] D1 --&gt; D2[kprobe / kretprobe&lt;br&gt;动态追踪内核函数] D1 --&gt; D3[uprobe / uretprobe&lt;br&gt;动态追踪用户态函数] D1 --&gt; D4[tracepoint&lt;br&gt;内核预置静态追踪点] ptrace - process trace 核心原理 https://www.man7.org/linux/man-pages/man2/ptrace.2.html\n1 2 3 4 #include &lt;sys/ptrace.h&gt; long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data); ptrace()\u00a0系统调用(system call)提供了一种机制，使得一个进程（tracer）可以观察和控制另一个进程（tracee）的执行，并检查和更改被追踪者的内存和寄存器。它主要用于实现断点调试和系统调用跟踪。它是一切用户态调试工具的基石——gdb、strace、ltrace 底层都依赖它。\ntracee首先需要被附加到tracer上。附加及其后续命令都是按线程进行的：在一个多线程进程中，每个线程都可以被单独附加到一个（可能是不同的）追踪器上，或者保持未附加状态从而不被调试。因此，“被追踪者”始终指代“（一个）线程”，而绝不是“一个（可能是多线程的）进程” , ptrace 命令始终通过以下形式的调用来发送给特定的被追踪者：ptrace(PTRACE_foo, pid, ...)其中 pid 是对应 Linux 线程的线程 ID\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://www.douyin.com/'
+                        target="_blank"
+                        title="douyin"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-tiktok"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 7.917v4.034a9.948 9.948 0 0 1 -5 -1.951v4.5a6.5 6.5 0 1 1 -8 -6.326v4.326a2.5 2.5 0 1 0 4 2v-11.5h4.083a6.005 6.005 0 0 0 4.917 4.917z" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#ptrace---process-trace">ptrace - process trace</a>
+      <ol>
+        <li><a href="#核心原理">核心原理</a></li>
+        <li><a href="#关键请求request">关键请求（request）</a></li>
+        <li><a href="#demo">demo</a></li>
+        <li><a href="#ptrace-的局限">ptrace 的局限</a>
+          <ol>
+            <li><a href="#ptrace-源码">ptrace 源码</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#strace---trace-system-calls-and-signals">strace - trace system calls and signals</a>
+      <ol>
+        <li><a href="#strace-工作流程">strace 工作流程</a></li>
+        <li><a href="#strace-option">strace option</a></li>
+        <li><a href="#实战案例诊断-no-such-file-问题">实战案例：诊断 &ldquo;No such file&rdquo; 问题</a></li>
+        <li><a href="#实战案例分析性能瓶颈">实战案例：分析性能瓶颈</a></li>
+        <li><a href="#strace-的代价">strace 的代价</a></li>
+      </ol>
+    </li>
+    <li><a href="#ltrace---a-library-call-tracer">ltrace - A library call tracer</a>
+      <ol>
+        <li><a href="#工作原理">工作原理</a></li>
+        <li><a href="#ltrace-的追踪范围">ltrace 的追踪范围</a></li>
+        <li><a href="#常用命令与实战">常用命令与实战</a>
+          <ol>
+            <li><a href="#基本使用">基本使用</a></li>
+            <li><a href="#混合追踪库函数--系统调用">混合追踪——库函数 + 系统调用</a></li>
+            <li><a href="#按库或函数名过滤">按库或函数名过滤</a></li>
+            <li><a href="#实战案例诊断内存泄漏">实战案例：诊断内存泄漏</a></li>
+            <li><a href="#实战案例排查在哪次库调用中崩溃">实战案例：排查在哪次库调用中崩溃</a></li>
+          </ol>
+        </li>
+        <li><a href="#ltrace-的局限">ltrace 的局限</a></li>
+      </ol>
+    </li>
+    <li><a href="#ftrace---function-trace">ftrace - function trace</a>
+      <ol>
+        <li><a href="#工作原理-1">工作原理</a></li>
+        <li><a href="#ftrace-的源码">ftrace 的源码</a></li>
+        <li><a href="#常用命令与实战-1">常用命令与实战</a></li>
+        <li>
+          <ol>
+            <li><a href="#基础使用追踪内核函数调用">基础使用：追踪内核函数调用</a></li>
+            <li><a href="#function_graph--可视化调用链"><code>function_graph</code> —— 可视化调用链</a></li>
+            <li><a href="#按函数名过滤">按函数名过滤</a></li>
+            <li><a href="#tracepoint-事件追踪">tracepoint 事件追踪</a></li>
+            <li><a href="#实战案例排查内核函数频繁调用导致的性能问题">实战案例：排查内核函数频繁调用导致的性能问题</a></li>
+            <li><a href="#实战案例追踪内核模块初始化">实战案例：追踪内核模块初始化</a></li>
+          </ol>
+        </li>
+        <li><a href="#ftrace-的优势与局限">ftrace 的优势与局限</a></li>
+      </ol>
+    </li>
+    <li><a href="#综合调试案例">综合调试案例</a>
+      <ol>
+        <li><a href="#一个-http-服务器响应慢">一个 HTTP 服务器响应慢</a></li>
+        <li><a href="#用-strace-排查命令找不到">用 strace 排查&quot;命令找不到&rdquo;</a></li>
+        <li><a href="#用-ltrace-定位-crash-前的最后一次库调用">用 ltrace 定位 crash 前的最后一次库调用</a></li>
+        <li><a href="#用-ftrace-排查内核调度延迟">用 ftrace 排查内核调度延迟</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/linux/" >
+                Linux
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/linux-trace--ptrace-strace-ltrace-ftrace/">linux trace -- ptrace strace ltrace ftrace</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-07-15 00:05</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-07-15 00:12</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 21 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    4358 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <pre class="mermaid">
+  flowchart TD
+    A[Linux 追踪与性能工具全景] --&gt; B[基础机制 / 经典工具]
+    A --&gt; C[内核追踪框架]
+    A --&gt; D[现代可编程平台]
+
+    B --&gt; B1[ptrace&lt;br&gt;进程调试与追踪的系统调用]
+    B1 --&gt; B2[strace&lt;br&gt;追踪系统调用]
+    B1 --&gt; B3[ltrace&lt;br&gt;追踪动态库函数调用]
+
+    C --&gt; C1[ftrace&lt;br&gt;内核内置追踪器]
+    C --&gt; C2[perf&lt;br&gt;性能事件与硬件计数器]
+
+    D --&gt; D1[eBPF&lt;br&gt;内核沙箱程序]
+    D1 --&gt; D2[kprobe / kretprobe&lt;br&gt;动态追踪内核函数]
+    D1 --&gt; D3[uprobe / uretprobe&lt;br&gt;动态追踪用户态函数]
+    D1 --&gt; D4[tracepoint&lt;br&gt;内核预置静态追踪点]
+</pre>
+<h2 id="ptrace---process-trace">ptrace - process trace
+</h2><h3 id="核心原理">核心原理
+</h3><p><a class="link" href="https://www.man7.org/linux/man-pages/man2/ptrace.2.html"  target="_blank" rel="noopener"
+    >https://www.man7.org/linux/man-pages/man2/ptrace.2.html</a></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;sys/ptrace.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">long</span> <span class="nf">ptrace</span><span class="p">(</span><span class="k">enum</span> <span class="n">__ptrace_request</span> <span class="n">request</span><span class="p">,</span> <span class="kt">pid_t</span> <span class="n">pid</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="kt">void</span> <span class="o">*</span><span class="n">addr</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>ptrace()</strong> 系统调用(system call)提供了一种机制，使得一个进程（tracer）可以观察和控制另一个进程（tracee）的执行，并检查和更改被追踪者的内存和寄存器。它主要用于实现断点调试和系统调用跟踪。它是一切用户态调试工具的<strong>基石</strong>——gdb、strace、ltrace 底层都依赖它。</p>
+<p>tracee首先需要被附加到tracer上。附加及其后续命令都是按<strong>线程</strong>进行的：在一个多线程进程中，每个线程都可以被单独附加到一个（可能是不同的）追踪器上，或者保持未附加状态从而不被调试。因此，“被追踪者”始终指代“<strong>（一个）线程</strong>”，而绝不是“一个（可能是多线程的）进程” , ptrace 命令始终通过以下形式的调用来发送给特定的被追踪者：<code>ptrace(PTRACE_foo, pid, ...)</code>其中 pid 是对应 Linux 线程的<strong>线程 ID</strong></p>
+<p>一个进程可以通过调用 <strong>fork()</strong> 并让生成的子进程执行 <strong>PTRACE_TRACEME</strong>，随后（通常）再执行 <strong>execve()</strong> 来启动跟踪。或者，一个进程可以使用 <strong>PTRACE_ATTACH</strong>或 PTRACE_SEIZE 开始跟踪另一个进程。</p>
+<p>在被跟踪期间，即使信号被忽略，被追踪者也会在每次收到信号时<strong>停止</strong>。（SIGKILL 是例外，它会照常生效。）追踪器将在其下一次调用 <strong>waitpid()</strong>（或相关的“wait”系列系统调用）时收到通知；该调用将返回一个状态值，其中包含指示被追踪者停止原因的信息。当被追踪者停止时，追踪器可以使用各种 ptrace 请求来检查和修改被追踪者。然后，追踪器使被追踪者继续执行，并可以选择忽略已传递的信号。</p>
+<pre class="mermaid">
+  sequenceDiagram
+    participant Tracer as Tracer (父进程)
+    participant Kernel as Linux Kernel
+    participant Tracee as Tracee (子进程)
+
+    Tracer-&gt;&gt;Kernel: ptrace(PTRACE_TRACEME)
+    Tracer-&gt;&gt;Kernel: fork()
+    Kernel--&gt;&gt;Tracer: child pid
+    Note over Tracee: 子进程开始执行
+    Tracee-&gt;&gt;Kernel: execve(&#34;target&#34;)
+    Kernel--&gt;&gt;Tracer: SIGTRAP — 子进程暂停
+    Tracer-&gt;&gt;Kernel: ptrace(PTRACE_GETREGS, pid, ...)
+    Kernel--&gt;&gt;Tracer: 寄存器内容
+    Tracer-&gt;&gt;Kernel: ptrace(PTRACE_PEEKDATA, pid, addr, ...)
+    Kernel--&gt;&gt;Tracer: 内存内容
+    Tracer-&gt;&gt;Kernel: ptrace(PTRACE_SYSCALL, pid, ...)
+    Note over Tracee: 恢复执行，进入系统调用
+    Kernel--&gt;&gt;Tracer: 系统调用入口/出口 暂停
+    Tracer-&gt;&gt;Kernel: ptrace(PTRACE_CONT, pid, ...)
+    Note over Tracee: 继续执行
+</pre>
+<h3 id="关键请求request">关键请求（request）
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>请求常量</th>
+          <th>作用</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>PTRACE_TRACEME</code></td>
+          <td>子进程标记自己为&quot;可被追踪&quot;</td>
+      </tr>
+      <tr>
+          <td><code>PTRACE_ATTACH</code></td>
+          <td>附加到已运行的进程</td>
+      </tr>
+      <tr>
+          <td><code>PTRACE_DETACH</code></td>
+          <td>解除附加</td>
+      </tr>
+      <tr>
+          <td><code>PTRACE_CONT</code></td>
+          <td>继续执行 tracee</td>
+      </tr>
+      <tr>
+          <td><code>PTRACE_SYSCALL</code></td>
+          <td>在系统调用入口/出口暂停</td>
+      </tr>
+      <tr>
+          <td><code>PTRACE_SINGLESTEP</code></td>
+          <td>单步执行一条指令</td>
+      </tr>
+      <tr>
+          <td><code>PTRACE_GETREGS</code>/<code>SETREGS</code></td>
+          <td>读写寄存器</td>
+      </tr>
+      <tr>
+          <td><code>PTRACE_PEEKDATA</code>/<code>POKEDATA</code></td>
+          <td>读写内存</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="demo">demo
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// minimal_ptrace_tracer.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;sys/ptrace.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;sys/wait.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;sys/user.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&#34;Usage: %s &lt;program&gt; [args...]</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">pid_t</span> <span class="n">pid</span> <span class="o">=</span> <span class="nf">fork</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">pid</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// --- 子进程 (tracee) ---
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">ptrace</span><span class="p">(</span><span class="n">PTRACE_TRACEME</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">execvp</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>      <span class="c1">// 执行目标程序
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">perror</span><span class="p">(</span><span class="s">&#34;execvp&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// --- 父进程 (tracer) ---
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int</span> <span class="n">status</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">waitpid</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">status</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>           <span class="c1">// 等待 exec 后的 SIGTRAP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="nf">ptrace</span><span class="p">(</span><span class="n">PTRACE_SETOPTIONS</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="n">PTRACE_O_TRACESYSGOOD</span><span class="p">);</span>      <span class="c1">// 让 syscall 暂停可识别
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">user_regs_struct</span> <span class="n">regs</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">call_count</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 进入系统调用
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">ptrace</span><span class="p">(</span><span class="n">PTRACE_SYSCALL</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">waitpid</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">status</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="nf">WIFEXITED</span><span class="p">(</span><span class="n">status</span><span class="p">))</span> <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// 读取寄存器，获取系统调用号
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">ptrace</span><span class="p">(</span><span class="n">PTRACE_GETREGS</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">regs</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#ifdef __x86_64__
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>        <span class="kt">long</span> <span class="n">syscall_nr</span> <span class="o">=</span> <span class="n">regs</span><span class="p">.</span><span class="n">orig_rax</span><span class="p">;</span> <span class="c1">// x86_64 下系统调用号在 orig_rax
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#else
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>        <span class="kt">long</span> <span class="n">syscall_nr</span> <span class="o">=</span> <span class="n">regs</span><span class="p">.</span><span class="n">orig_eax</span><span class="p">;</span> <span class="c1">// x86 下在 orig_eax
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#endif
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>        <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;[syscall #%d] nr = %ld</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="o">++</span><span class="n">call_count</span><span class="p">,</span> <span class="n">syscall_nr</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// 退出系统调用
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">ptrace</span><span class="p">(</span><span class="n">PTRACE_SYSCALL</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">waitpid</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">status</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="nf">WIFEXITED</span><span class="p">(</span><span class="n">status</span><span class="p">))</span> <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// 读取返回值
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">ptrace</span><span class="p">(</span><span class="n">PTRACE_GETREGS</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">regs</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#ifdef __x86_64__
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>        <span class="kt">long</span> <span class="n">ret</span> <span class="o">=</span> <span class="n">regs</span><span class="p">.</span><span class="n">rax</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#else
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>        <span class="kt">long</span> <span class="n">ret</span> <span class="o">=</span> <span class="n">regs</span><span class="p">.</span><span class="n">eax</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>        <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;[syscall #%d] return = %ld</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">call_count</span><span class="p">,</span> <span class="n">ret</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;--- total syscalls: %d ---</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">call_count</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>编译运行：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">gcc -o minimal_ptrace_tracer minimal_ptrace_tracer.c
+</span></span><span class="line"><span class="cl">./minimal_ptrace_tracer /bin/ls /tmp
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出片段：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">[syscall #1] nr = 0        #  read
+</span></span><span class="line"><span class="cl">[syscall #1] return = 0
+</span></span><span class="line"><span class="cl">[syscall #2] nr = 1        #  write
+</span></span><span class="line"><span class="cl">[syscall #2] return = 24
+</span></span><span class="line"><span class="cl">[syscall #3] nr = 2        #  open
+</span></span><span class="line"><span class="cl">[syscall #3] return = 3
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">​--- total syscalls: 127 ---
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>ubuntu 上 系统调用号可以通过 <code>/usr/include/x86_64-linux-gnu/asm/unistd_64.h</code> 或 <code>man syscalls</code> 查阅。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// cat /usr/include/x86_64-linux-gnu/asm/unistd_64.h
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#ifndef _ASM_UNISTD_64_H
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define _ASM_UNISTD_64_H
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="cp">#define __NR_read 0
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define __NR_write 1
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define __NR_open 2
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define __NR_close 3
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define __NR_stat 4
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define __NR_fstat 5
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define __NR_lstat 6
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="ptrace-的局限">ptrace 的局限
+</h3><ul>
+<li><strong>每次系统调用产生 4 次上下文切换</strong>（tracee → kernel → tracer → kernel → tracee），<strong>性能开销极大</strong></li>
+<li>每次暂停都会触发 <code>waitpid()</code>，大量系统调用时退化严重</li>
+<li>不支持同时追踪多个线程的独立系统调用（需 <code>PTRACE_O_TRACECLONE</code> 等选项配合）</li>
+<li><strong>ptrace 不是为生产环境设计的</strong>——它是调试基础设施，不是性能工具</li>
+</ul>
+<blockquote>
+<p>这就是为什么后来出现了 <strong>bpftrace</strong>、<strong>perf</strong>、<strong>eBPF</strong> 等更现代的工具——它们在内核中直接处理事件，无需反复陷入 tracer 进程。</p></blockquote>
+<h4 id="ptrace-源码">ptrace 源码
+</h4><p><a class="link" href="https://elixir.bootlin.com/glibc/glibc-2.31/source/sysdeps/unix/sysv/linux/ptrace.c"  target="_blank" rel="noopener"
+    >elixir.bootlin.com/glibc&mdash;&ndash;ptrace.c</a></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// glibc/sysdeps/unix/sysv/linux/ptrace.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">long</span> <span class="kt">int</span>
+</span></span><span class="line"><span class="cl"><span class="nf">ptrace</span> <span class="p">(</span><span class="k">enum</span> <span class="n">__ptrace_request</span> <span class="n">request</span><span class="p">,</span> <span class="p">...)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">long</span> <span class="kt">int</span> <span class="n">res</span><span class="p">,</span> <span class="n">ret</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">va_list</span> <span class="n">ap</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">pid_t</span> <span class="n">pid</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">void</span> <span class="o">*</span><span class="n">addr</span><span class="p">,</span> <span class="o">*</span><span class="n">data</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="nf">va_start</span> <span class="p">(</span><span class="n">ap</span><span class="p">,</span> <span class="n">request</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="n">pid</span> <span class="o">=</span> <span class="nf">va_arg</span> <span class="p">(</span><span class="n">ap</span><span class="p">,</span> <span class="kt">pid_t</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="n">addr</span> <span class="o">=</span> <span class="nf">va_arg</span> <span class="p">(</span><span class="n">ap</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="n">data</span> <span class="o">=</span> <span class="nf">va_arg</span> <span class="p">(</span><span class="n">ap</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">va_end</span> <span class="p">(</span><span class="n">ap</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="k">if</span> <span class="p">(</span><span class="n">request</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">request</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">data</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">ret</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="n">res</span> <span class="o">=</span> <span class="nf">INLINE_SYSCALL</span> <span class="p">(</span><span class="n">ptrace</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="n">addr</span><span class="p">,</span> <span class="n">data</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="k">if</span> <span class="p">(</span><span class="n">res</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">request</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">request</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nf">__set_errno</span> <span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">return</span> <span class="n">ret</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="k">return</span> <span class="n">res</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// glibc/sysdeps/unix/sysv/linux/aarch64/sysdep.h
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">INLINE_SYSCALL</span> <span class="p">(</span><span class="n">ptrace</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="n">addr</span><span class="p">,</span> <span class="n">data</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp"># define INLINE_SYSCALL(name, nr, args...)                \
+</span></span></span><span class="line"><span class="cl"><span class="cp">  ({ unsigned long _sys_result = INTERNAL_SYSCALL (name, , nr, args);    \
+</span></span></span><span class="line"><span class="cl"><span class="cp">     if (__builtin_expect (INTERNAL_SYSCALL_ERROR_P (_sys_result, ), 0))\
+</span></span></span><span class="line"><span class="cl"><span class="cp">       {                                \
+</span></span></span><span class="line"><span class="cl"><span class="cp">     __set_errno (INTERNAL_SYSCALL_ERRNO (_sys_result, ));        \
+</span></span></span><span class="line"><span class="cl"><span class="cp">     _sys_result = (unsigned long) -1;                \
+</span></span></span><span class="line"><span class="cl"><span class="cp">       }                                \
+</span></span></span><span class="line"><span class="cl"><span class="cp">     (long) _sys_result; })
+</span></span></span><span class="line"><span class="cl"><span class="cp"># define INTERNAL_SYSCALL(name, err, nr, args...)        \
+</span></span></span><span class="line"><span class="cl"><span class="cp">    INTERNAL_SYSCALL_RAW(SYS_ify(name), err, nr, args)
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="cp">#define SYS_ify(syscall_name)    (__NR_##syscall_name)
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="cp"># define INTERNAL_SYSCALL_RAW(name, err, nr, args...)        \
+</span></span></span><span class="line"><span class="cl"><span class="cp">  ({ long _sys_result;                        \
+</span></span></span><span class="line"><span class="cl"><span class="cp">     {                                \
+</span></span></span><span class="line"><span class="cl"><span class="cp">       LOAD_ARGS_##nr (args)                    \
+</span></span></span><span class="line"><span class="cl"><span class="cp">       register long _x8 asm (&#34;x8&#34;) = (name);            \
+</span></span></span><span class="line"><span class="cl"><span class="cp">       asm volatile (&#34;svc    0    </span><span class="c1">// syscall &#34; # name     \
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>             <span class="o">:</span> <span class="s">&#34;=r&#34;</span> <span class="p">(</span><span class="n">_x0</span><span class="p">)</span> <span class="o">:</span> <span class="s">&#34;r&#34;</span><span class="p">(</span><span class="n">_x8</span><span class="p">)</span> <span class="n">ASM_ARGS_</span><span class="err">##</span><span class="nl">nr</span> <span class="p">:</span> <span class="s">&#34;memory&#34;</span><span class="p">);</span>    \
+</span></span><span class="line"><span class="cl">       <span class="n">_sys_result</span> <span class="o">=</span> <span class="n">_x0</span><span class="p">;</span>                    \
+</span></span><span class="line"><span class="cl">     <span class="p">}</span>                                \
+</span></span><span class="line"><span class="cl">     <span class="n">_sys_result</span><span class="p">;</span> <span class="p">})</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// arch/arm64/kernel/sys.c     
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">const</span> <span class="kt">syscall_fn_t</span> <span class="n">sys_call_table</span><span class="p">[</span><span class="n">__NR_syscalls</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="mi">0</span> <span class="p">...</span> <span class="n">__NR_syscalls</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">__arm64_sys_ni_syscall</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;asm/unistd.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// include/uapi/asm-generic/unistd.h
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cm">/* kernel/ptrace.c */</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#define __NR_ptrace 117
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="nf">__SYSCALL</span><span class="p">(</span><span class="n">__NR_ptrace</span><span class="p">,</span> <span class="n">sys_ptrace</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">//对于 ptrace，最终会指向 kernel/ptrace.c 中定义的 sys_ptrace 函数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">SYSCALL_DEFINE4</span><span class="p">(</span><span class="n">ptrace</span><span class="p">,</span> <span class="kt">long</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="kt">long</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">long</span><span class="p">,</span> <span class="n">addr</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">unsigned</span> <span class="kt">long</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><pre class="mermaid">
+  flowchart LR
+    A[&#34;用户程序调用 ptrace()&#34;] --&gt; B[&#34;glibc 封装函数&lt;br&gt;处理可变参数&#34;]
+    B --&gt; C[&#34;执行软中断 / 专用指令&lt;br&gt;（如 int $0x80 / syscall）&#34;]
+    C --&gt; D[&#34;CPU 切换至内核态&lt;br&gt;根据系统调用号查找表&#34;]
+    D --&gt; E[&#34;内核系统调用入口&lt;br&gt;（如 kernel/ptrace.c 中的 sys_ptrace）&#34;]
+    E --&gt; F[&#34;执行具体功能分支&lt;br&gt;（如 PTRACE_ATTACH）&#34;]
+    F --&gt; G[&#34;调用内核内部函数&lt;br&gt;（如 ptrace_attach）&#34;]
+</pre>
+<h2 id="strace---trace-system-calls-and-signals">strace - trace system calls and signals
+</h2><blockquote>
+<p><a class="link" href="https://www.man7.org/linux/man-pages/man1/strace.1.html"  target="_blank" rel="noopener"
+    ><strong>strace</strong> (1) - Linux manual page - man7.org</a></p>
+<p><a class="link" href="https://github.com/strace/strace/blob/master/src/strace.c"  target="_blank" rel="noopener"
+    >https://github.com/strace/strace/blob/master/src/strace.c</a></p></blockquote>
+<p><strong>strace</strong> 是 ptrace 最著名的上层封装。它拦截并记录进程发起的<strong>所有系统调用</strong>（syscall），包括参数、返回值和执行时间。</p>
+<h3 id="strace-工作流程">strace 工作流程
+</h3><pre class="mermaid">
+  graph TD
+    A[ptrace] --&gt; B{选择模式}
+    B --&gt; C[PTRACE_ATTACH attach模式]
+    B --&gt; D[strace启动]
+    C --&gt; E[执行tracer逻辑]
+    E --&gt; F[wait]
+    F --&gt; G[系统调用?]
+    G --&gt; H[ptrace PTRACE_SYSCALL]
+    H --&gt; I[wait]
+    I --&gt; J[等待系统调用结束]
+    J --&gt; K[屏幕输出]
+    D --&gt; L[父进程 fork]
+    L --&gt; M[子进程]
+    L --&gt; N[父进程]
+    M --&gt; O[ptrace PTRACE_TRACEME]
+    O --&gt; P[execv 执行命令]
+    N --&gt; Q[wait]
+    Q --&gt; R[等待system call执行]
+    R --&gt; S[ptrace PTRACE_SYSCALL]
+    S --&gt; T[wait]
+    T --&gt; U[等待system call结束]
+    U --&gt; V[屏幕输出]
+    K --&gt; W[停止trace?]
+    V --&gt; W
+    W --&gt; X[exit?]
+</pre>
+<h3 id="strace-option">strace option
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">strace -h
+</span></span><span class="line"><span class="cl"><span class="c1">## Startup </span>
+</span></span><span class="line"><span class="cl">Attaches to the process with the process ID pid and begin tracing
+</span></span><span class="line"><span class="cl">-p pid
+</span></span><span class="line"><span class="cl">-p <span class="s2">&#34;</span><span class="k">$(</span>pidof PROG<span class="k">)</span><span class="s2">&#34;</span>  <span class="p">;</span> -p <span class="s2">&#34;</span><span class="k">$(</span>pidof PROG<span class="k">)</span><span class="s2">&#34;</span>
+</span></span><span class="line"><span class="cl">-E <span class="nv">var</span><span class="o">=</span>val Runs the <span class="nb">command</span> with the environment variable <span class="nv">var</span><span class="o">=</span>val <span class="nb">set</span> <span class="k">for</span> execution
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">## Tracing</span>
+</span></span><span class="line"><span class="cl">-f Traces child processes as they are created by currently traced processes as a result of the fork<span class="o">()</span>, vfork<span class="o">()</span> and clone<span class="o">()</span> system calls.
+</span></span><span class="line"><span class="cl"><span class="c1">### 追踪子进程（fork/vfork/clone）</span>
+</span></span><span class="line"><span class="cl">strace -f gcc -c main.c
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">## Filtering</span>
+</span></span><span class="line"><span class="cl">-e expr
+</span></span><span class="line"><span class="cl"><span class="c1">### 只追踪特定的系统调用（过滤器）</span>
+</span></span><span class="line"><span class="cl">strace -e <span class="nv">trace</span><span class="o">=</span>open,read,write ls
+</span></span><span class="line"><span class="cl"><span class="c1">### 追踪所有以 open 开头的系统调用</span>
+</span></span><span class="line"><span class="cl">strace -e <span class="nv">trace</span><span class="o">=</span>%file ls
+</span></span><span class="line"><span class="cl"><span class="c1">### 追踪网络相关 syscall</span>
+</span></span><span class="line"><span class="cl">strace -e <span class="nv">trace</span><span class="o">=</span>%network curl https://example.com
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">## Output format</span>
+</span></span><span class="line"><span class="cl">-o filename
+</span></span><span class="line"><span class="cl"><span class="c1">### 将输出保存到文件</span>
+</span></span><span class="line"><span class="cl">strace -o trace.log ls
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">## Statistics</span>
+</span></span><span class="line"><span class="cl">-c Counts time, calls, and errors
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="实战案例诊断-no-such-file-问题">实战案例：诊断 &ldquo;No such file&rdquo; 问题
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 假设程序启动时报错找不到文件</span>
+</span></span><span class="line"><span class="cl">strace -e <span class="nv">trace</span><span class="o">=</span>open,openat,stat,fstat,access ./myapp 2&gt;<span class="p">&amp;</span><span class="m">1</span> <span class="p">|</span> grep -i <span class="s2">&#34;ENOENT&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出示例：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">openat(AT_FDCWD, &#34;/opt/myapp/config.yaml&#34;, O_RDONLY) = -1 ENOENT (No such file or directory)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="实战案例分析性能瓶颈">实战案例：分析性能瓶颈
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">strace -c -p <span class="k">$(</span>pgrep my_server<span class="k">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">% time     seconds  usecs/call     calls    errors syscall
+</span></span><span class="line"><span class="cl">​------ ----------- ----------- --------- --------- ----------------
+</span></span><span class="line"><span class="cl"> 45.32    0.423452        2117       200           poll
+</span></span><span class="line"><span class="cl"> 32.18    0.300123         150       200           read
+</span></span><span class="line"><span class="cl"> 12.45    0.116234          58       200           write
+</span></span><span class="line"><span class="cl"> 10.05    0.093812          93       100           accept4
+</span></span><span class="line"><span class="cl">​------ ----------- ----------- --------- --------- ----------------
+</span></span><span class="line"><span class="cl">100.00    0.933621        700       700        0 total
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果 <code>poll</code> 占用 45% 的时间且调用次数不多但每次耗时很长，通常说明程序在<strong>等待 I/O 事件</strong>——可能是 epoll 超时设置太长。</p>
+<h3 id="strace-的代价">strace 的代价
+</h3><p><code>strace</code> 会使目标进程的运行速度下降 <strong>10~100 倍</strong>。原因：</p>
+<pre class="mermaid">
+  flowchart LR
+    subgraph Normal [正常执行]
+        A1[用户态代码] --&gt;|syscall| B1[内核]
+        B1 --&gt;|返回| A1
+    end
+
+    subgraph Strace [strace 下]
+        A2[用户态代码] --&gt;|syscall| C[内核会暂停]
+        C --&gt; D[发送 SIGTRAP]
+        D --&gt; E[strace 进程被调度]
+        E --&gt; F[读取 tracee 寄存器]
+        F --&gt; G[strace 打印到终端]
+        G --&gt;|PTRACE_SYSCALL| C
+        C --&gt;|syscall 执行| C
+        C --&gt; D2[再次发送 SIGTRAP]
+        D2 --&gt; E2[strace 读取返回值]
+        E2 --&gt;|PTRACE_CONT| A2
+    end
+</pre>
+<p>每个系统调用从<strong>2 次上下文切换</strong>变成 <strong>4 次以上的上下文切换 + 额外的 tracer 解码工作</strong>。生产环境慎用！</p>
+<hr>
+<h2 id="ltrace---a-library-call-tracer">ltrace - A library call tracer
+</h2><blockquote>
+<p><a class="link" href="https://www.man7.org/linux/man-pages/man1/ltrace.1.html"  target="_blank" rel="noopener"
+    ><strong>ltrace (1</strong>) - Linux manual page - man7.org</a>
+<a class="link" href="https://github.com/dkogan/ltrace"  target="_blank" rel="noopener"
+    >https://github.com/dkogan/ltrace</a></p></blockquote>
+<p>ltrace就是library trace，相比于strace，可以追踪用户态的动态库函数。原理也是ptrace。那为什么ltrace可以追踪动态库函数呢？程序调用动态库函数需要走ld-linux.so（linux的动态链接器），ltrace会劫持这个跳转过程，从而记录动态库函数信息。</p>
+<p><strong>ltrace</strong> 拦截并记录进程对<strong>共享库（<code>.so</code>）的函数调用</strong>，例如 <code>malloc</code>、<code>free</code>、<code>printf</code>、<code>pthread_create</code> 等。</p>
+<h3 id="工作原理">工作原理
+</h3><p>ltrace 的核心机制与 strace 不同——它依赖<strong>动态链接器</strong>的符号解析机制，通过<strong>在 PLT（Procedure Linkage Table）条目上设断点</strong>来拦截库函数调用。</p>
+<pre class="mermaid">
+  flowchart TD
+    A[目标程序] --&gt;|调用 printf| B[PLT 条目]
+    B --&gt;|首次调用?| C{已解析?}
+    C --&gt;|否| D[&#34;动态链接器\nld-linux.so&#34;]
+    D --&gt;|解析符号地址| E[GOT 表]
+    E --&gt;|写入实际地址| B
+    C --&gt;|是| F[实际函数]
+
+    subgraph ltrace介入
+        L1[&#34;ltrace 在 PLT/GOT 处\n设 PTRACE_POKEDATA 断点&#34;]
+        L2[&#34;断点触发 → ltrace\n读取参数&#34;]
+        L3[&#34;恢复执行 → 断点再触发\n读取返回值&#34;]
+    end
+
+    B --&gt; L1
+    L1 --&gt; L2
+    L2 --&gt; F
+    F --&gt; L3
+</pre>
+<p>具体步骤：</p>
+<ol>
+<li>
+<p>ltrace 通过 <code>ptrace(PTRACE_TRACEME)</code> 或 <code>PTRACE_ATTACH</code> 附加到目标进程</p>
+</li>
+<li>
+<p>它读取目标进程的 <strong>ELF 动态符号表</strong>（<code>.dynsym</code> 节）和 <strong>PLT 表</strong></p>
+</li>
+<li>
+<p>对每个要追踪的库函数，在对应的 <strong>GOT/PLT 入口处插入断点</strong>（即写入 <code>int3</code> 指令 → <code>0xCC</code>）</p>
+</li>
+<li>
+<p>当目标进程调用该函数时，触发断点 → ltrace 暂停，读取参数</p>
+</li>
+<li>
+<p>ltrace 将断点临时移除，单步执行真正的函数，再重新下断点来捕获返回值</p>
+<h3 id="ltrace-的追踪范围">ltrace 的追踪范围
+</h3></li>
+</ol>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>能追踪</th>
+          <th>不能追踪</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>通过 PLT 调用的共享库函数（<code>printf</code>, <code>malloc</code> 等）</td>
+          <td>内联函数（编译时被展开）</td>
+      </tr>
+      <tr>
+          <td>显式 <code>dlsym()</code> 查找的函数调用</td>
+          <td>静态链接的函数</td>
+      </tr>
+      <tr>
+          <td>C++ 的虚函数（通过 vtable 间接调用）——部分支持</td>
+          <td>不经过 PLT 的内部调用</td>
+      </tr>
+      <tr>
+          <td>系统调用（通过退化为 strace 模式 <code>-S</code>）</td>
+          <td>汇编级别的直接 syscall（syscall/sysenter 指令）</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="常用命令与实战">常用命令与实战
+</h3><h4 id="基本使用">基本使用
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 追踪 ls 的库函数调用</span>
+</span></span><span class="line"><span class="cl">ltrace ls
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 只看 C 标准库调用</span>
+</span></span><span class="line"><span class="cl">ltrace -e <span class="s2">&#34;libc.so*&#34;</span> ls
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 只看 malloc/free</span>
+</span></span><span class="line"><span class="cl">ltrace -e malloc+free ls
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">ls-&gt;strlen(&#34;.&#34;)                                      = 1
+</span></span><span class="line"><span class="cl">ls-&gt;strlen(&#34;..&#34;)                                     = 2
+</span></span><span class="line"><span class="cl">ls-&gt;opendir(&#34;.&#34;)                                     = 0x55a8...
+</span></span><span class="line"><span class="cl">ls-&gt;readdir(0x55a8...)                               = 0x55a8...
+</span></span><span class="line"><span class="cl">ls-&gt;strlen(&#34;file1.txt&#34;)                              = 10
+</span></span><span class="line"><span class="cl">ls-&gt;__errno_location()                               = 0x7f...
+</span></span><span class="line"><span class="cl">ls-&gt;malloc(4096)                                     = 0x55a9...
+</span></span><span class="line"><span class="cl">ls-&gt;readdir(0x55a8...)                               = NULL
+</span></span><span class="line"><span class="cl">ls-&gt;closedir(0x55a8...)                              = 0
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">+++ exited (status 0) +++
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="混合追踪库函数--系统调用">混合追踪——库函数 + 系统调用
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># -S 让 ltrace 同时显示系统调用</span>
+</span></span><span class="line"><span class="cl">ltrace -S ls 2&gt;<span class="p">&amp;</span><span class="m">1</span> <span class="p">|</span> head -20
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出同时包含 <code>SYS_xxx</code>（系统调用）和普通库函数：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="n">libc_start_main</span><span class="p">([</span><span class="mi">0</span><span class="n">x</span><span class="o">...</span><span class="p">])</span>                                                   <span class="o">=</span> <span class="mi">0</span><span class="n">x</span><span class="o">...</span>
+</span></span><span class="line"><span class="cl"><span class="n">SYS_brk</span><span class="p">(</span><span class="n">NULL</span><span class="p">)</span>                                                              <span class="o">=</span> <span class="mh">0x55</span><span class="o">...</span>
+</span></span><span class="line"><span class="cl"><span class="n">SYS_access</span><span class="p">(</span><span class="s2">&#34;/etc/ld.so.preload&#34;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>                                        <span class="o">=</span> <span class="o">-</span><span class="mi">2</span>
+</span></span><span class="line"><span class="cl"><span class="n">SYS_openat</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mh">0x7f</span><span class="o">...</span><span class="p">,</span> <span class="mh">0x20000</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>                                     <span class="o">=</span> <span class="mi">3</span>
+</span></span><span class="line"><span class="cl"><span class="n">SYS_fstat</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mh">0x7ff</span><span class="o">...</span><span class="p">)</span>                                                    <span class="o">=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl"><span class="n">SYS_mmap</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mh">0x220c0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2050</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>                                       <span class="o">=</span> <span class="mh">0x7f</span><span class="o">...</span>
+</span></span><span class="line"><span class="cl"><span class="n">SYS_close</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>                                                               <span class="o">=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl"><span class="o">...</span>
+</span></span><span class="line"><span class="cl"><span class="n">strlen</span><span class="p">(</span><span class="s2">&#34;.&#34;</span><span class="p">)</span>                                                                 <span class="o">=</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl"><span class="n">SYS_getdents64</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mh">0x55a</span><span class="o">...</span><span class="p">,</span> <span class="mi">32768</span><span class="p">)</span>                                          <span class="o">=</span> <span class="mi">112</span>
+</span></span><span class="line"><span class="cl"><span class="o">...</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="按库或函数名过滤">按库或函数名过滤
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 只追踪 libc 中的调用</span>
+</span></span><span class="line"><span class="cl">ltrace -e <span class="s2">&#34;libc.so*&#34;</span> ./myapp
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 只追踪数学库的函数</span>
+</span></span><span class="line"><span class="cl">ltrace -e <span class="s2">&#34;libm.so*&#34;</span> ./compute
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 排除某些函数（不追踪 putchar）</span>
+</span></span><span class="line"><span class="cl">ltrace -e <span class="s2">&#34;!putchar&#34;</span> ./myapp
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 只显示函数名，不显示参数和返回值</span>
+</span></span><span class="line"><span class="cl">ltrace -n <span class="m">2</span> ./myapp
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="实战案例诊断内存泄漏">实战案例：诊断内存泄漏
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 统计 malloc/free/realloc 调用次数和内存分配量</span>
+</span></span><span class="line"><span class="cl">ltrace -e malloc+free+realloc -c ./leaky_app
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">% time     seconds  usecs/call     calls      function
+</span></span><span class="line"><span class="cl">------ ----------- ----------- --------- --------------------
+</span></span><span class="line"><span class="cl"> 60.32    0.523412         132      3965      malloc
+</span></span><span class="line"><span class="cl"> 39.68    0.344123          87      3955      free
+</span></span><span class="line"><span class="cl">------ ----------- ----------- --------- --------------------
+</span></span><span class="line"><span class="cl">100.00    0.867535        7920                total
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果 <code>malloc</code> 比 <code>free</code> 多很多次，基本可以断定有内存泄漏。</p>
+<h4 id="实战案例排查在哪次库调用中崩溃">实战案例：排查在哪次库调用中崩溃
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 追踪并显示调用栈</span>
+</span></span><span class="line"><span class="cl">ltrace -n <span class="m">3</span> -o trace.log ./crashy_app
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># -n 3 显示 3 层调用深度</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># -o 输出到文件</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="ltrace-的局限">ltrace 的局限
+</h3><ul>
+<li><strong>仅适用于动态链接的程序</strong>——静态链接的程序没有 PLT，ltrace 无法工作</li>
+<li>无法追踪<strong>不经过 PLT 的函数调用</strong>（如 <code>static</code> 函数、内联函数、宏）</li>
+<li>对<strong>多线程程序</strong>的支持不如 strace 完善（<code>-f</code> 选项在 ltrace 中较新，仍有边缘情况）</li>
+<li>断点机制本身会引入额外延迟（每次调用多出 2 次 trap）</li>
+<li>较新版本的 glibc 使用 <strong><code>VDSO</code></strong>（虚拟动态共享对象）实现的系统调用（如 <code>gettimeofday</code>）可能跳过了 PLT</li>
+</ul>
+<h2 id="ftrace---function-trace">ftrace - function trace
+</h2><p><strong>function trace</strong>是Linux<strong>内核</strong>提供的trace框架。主要用来追踪linux内核函数的执行流程。ftrace的原理是编译器会在编译内核时给所有函数预埋探针指令，不使用时零开销，需要使用时探针指令走到ftrace的逻辑。所以，从原理上看ftrace也是只能对内核函数做操作和kprobe差不多，但是没有kprobe灵活。</p>
+<p>ftrace 能帮我们分析内核特定的事件，譬如调度，中断等，也能帮我们去追踪动态的内核函数，以及这些函数的调用栈还有栈的使用这些。它也能帮我们去追踪延迟，譬如中断被屏蔽，抢占被禁止的时间，以及唤醒一个进程之后多久开始执行的时间。</p>
+<blockquote>
+<p><a class="link" href="https://www.kernel.org/doc/html/latest/trace/ftrace.html"  target="_blank" rel="noopener"
+    >ftrace - Function Tracer — The Linux Kernel documentation</a></p>
+<p><a class="link" href="https://elixir.bootlin.com/linux/v7.1.3/source/kernel/trace/ftrace.c"  target="_blank" rel="noopener"
+    >ftrace.c - kernel/trace/ftrace.c - Linux source code v7.1.3 - Bootlin Elixir Cross Referencer</a></p></blockquote>
+<h3 id="工作原理-1">工作原理
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// init/main.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">asmlinkage</span> <span class="n">__visible</span> <span class="kt">void</span> <span class="n">__init</span> <span class="n">__no_sanitize_address</span> <span class="nf">start_kernel</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">trap_init</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">mm_init</span><span class="p">();</span>          <span class="c1">// 内存分配器就绪
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">poking_init</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">ftrace_init</span><span class="p">();</span>      <span class="c1">// ← 这里
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="cm">/* trace_printk can be enabled here */</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">early_trace_init</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">sched_init</span><span class="p">();</span>       <span class="c1">// 调度器初始化
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">...</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// kernel/trace/ftrace.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">void</span> <span class="n">__init</span> <span class="nf">ftrace_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">extern</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">__start_mcount_loc</span><span class="p">[];</span>
+</span></span><span class="line"><span class="cl">    <span class="k">extern</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">__stop_mcount_loc</span><span class="p">[];</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">count</span><span class="p">,</span> <span class="n">flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">ret</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">local_irq_save</span><span class="p">(</span><span class="n">flags</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ret</span> <span class="o">=</span> <span class="nf">ftrace_dyn_arch_init</span><span class="p">();</span>      <span class="c1">// 架构相关的动态 ftrace 初始化
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nf">local_irq_restore</span><span class="p">(</span><span class="n">flags</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="k">goto</span> <span class="n">failed</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">count</span> <span class="o">=</span> <span class="n">__stop_mcount_loc</span> <span class="o">-</span> <span class="n">__start_mcount_loc</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                 <span class="c1">// ↑ 链接器生成的段，记录了所有 -pg 编译时插入的 mcount 调用点
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">count</span><span class="p">)</span> <span class="p">{</span> <span class="p">...</span> <span class="k">goto</span> <span class="n">failed</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">last_ftrace_enabled</span> <span class="o">=</span> <span class="n">ftrace_enabled</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>   <span class="c1">// 启用 ftrace
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="n">ret</span> <span class="o">=</span> <span class="nf">ftrace_process_locs</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                              <span class="n">__start_mcount_loc</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                              <span class="n">__stop_mcount_loc</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// ↑ 将每个 mcount 调用点的地址记录到动态 ftrace 的哈希表中，
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="c1">//   并将它们初始化为 nop (空操作)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="nf">set_ftrace_early_filters</span><span class="p">();</span>        <span class="c1">// 应用内核启动参数指定的早期 filter
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nl">failed</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ftrace_disabled</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>               <span class="c1">// 失败则禁用 ftrace
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>ftrace_init()</code> 的本质工作就是：把内核中所有函数的动态跟踪入口从 <code>call</code> 替换为 <code>nop</code>，让内核在默认情况下零开销运行，同时准备好数据结构，使得运行时随时可以通过写 <code>tracefs </code>文件动态激活任意函数的跟踪</p>
+<ul>
+<li>编译器留下的钩子</li>
+</ul>
+<p>当内核用 <code>-pg</code> 或 <code>-mfentry </code>编译时，<strong>每个函数的第一条指令</strong>都会被编译器插入一个调用; 如果不编译 ftrace → 函数入口没有这个 call</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="nl">func</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">call</span> <span class="n">__fentry__</span>       <span class="err">#</span> <span class="err">或者</span> <span class="n">call</span> <span class="n">mcount</span>
+</span></span><span class="line"><span class="cl">    <span class="o">&lt;</span><span class="err">函数实际代码</span><span class="o">&gt;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这个<code>call __fentry__ </code>是所谓的动态跟踪入口——它是一个空壳，用来让 ftrace &ldquo;挂钩子</p>
+<ul>
+<li>初始化为 nop（零开销）</li>
+</ul>
+<p>启动时 ftrace_init() 做的事情就是把这些 call 全部替换成 nop：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="err">初始状态（编译后）</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nl">func</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">call</span> <span class="n">__fentry__</span>      <span class="err">←</span> <span class="mi">5</span><span class="err">字节调用指令</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">ftrace_init</span> <span class="err">后（默认状态）</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nl">func</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">nop</span><span class="p">;</span> <span class="n">nop</span><span class="p">;</span> <span class="n">nop</span><span class="p">;</span> <span class="n">nop</span><span class="p">;</span> <span class="n">nop</span>   <span class="err">←</span> <span class="mi">5</span><span class="err">字节空操作</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这样默认情况下内核运行时没有任何额外开销——每个函数入口就是 5 个 nop</p>
+<ul>
+<li>运行时动态 patch</li>
+</ul>
+<p>当用户启用跟踪时（例如 echo do_sys_open &gt; /sys/kernel/tracing/set_ftrace_filter）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// ftrace 内部用 stop_machine 将指定函数的 nop 替换回 call
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">write_cr3</span><span class="p">(...)</span>  <span class="c1">// 同步所有 CPU
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="nl">func</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">call</span> <span class="n">ftrace_caller</span>    <span class="err">←</span> <span class="err">再次</span> <span class="n">patch</span> <span class="err">成</span> <span class="n">call</span><span class="err">，指向</span> <span class="n">ftrace</span> <span class="err">框架</span>
+</span></span><span class="line"><span class="cl">    <span class="o">&lt;</span><span class="err">函数实际代码</span><span class="o">&gt;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这次 call 指向的是 <code>ftrace_caller</code>，它负责调用注册的回调函数（比如记录函数调用日志、追踪器、kprobe 等）。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># sudo /lib/modules/6.8.0-134-generic/build/scripts/extract-vmlinux /boot/vmlinuz-6.8.0-134-generic &gt; /tmp/vmlinux</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># sudo grep -w schedule /boot/System.map-6.8.0-134-generic </span>
+</span></span><span class="line"><span class="cl">ffffffff8225d4e0 T schedule
+</span></span><span class="line"><span class="cl"><span class="c1"># objdump -d --start-address=0xffffffff8225d4e0 --stop-address=0xffffffff8225d510 /tmp/vmlinux</span>
+</span></span><span class="line"><span class="cl">ffffffff8225d4e0:       e8 2b cc e5 fe          call   0xffffffff810ba110
+</span></span><span class="line"><span class="cl"><span class="c1"># grep -w ffffffff810ba110 /boot/System.map-6.8.0-134-generic</span>
+</span></span><span class="line"><span class="cl">ffffffff810ba110 T __fentry__
+</span></span><span class="line"><span class="cl"><span class="c1"># grep FUNCTION_TRACER /boot/config-6.8.0-134-generic</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># cat /proc/sys/kernel/ftrace_enabled</span>
+</span></span><span class="line"><span class="cl"><span class="m">1</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># sudo ls -d /sys/kernel/tracing/trace</span>
+</span></span><span class="line"><span class="cl">/sys/kernel/tracing/trace
+</span></span><span class="line"><span class="cl"><span class="c1"># sudo ls -d /sys/kernel/debug/tracing</span>
+</span></span><span class="line"><span class="cl">/sys/kernel/debug/tracing
+</span></span><span class="line"><span class="cl"><span class="c1"># mount |grep tracefs</span>
+</span></span><span class="line"><span class="cl">tracefs on /sys/kernel/tracing <span class="nb">type</span> tracefs <span class="o">(</span>rw,nosuid,nodev,noexec,relatime<span class="o">)</span>
+</span></span><span class="line"><span class="cl">tracefs on /sys/kernel/debug/tracing <span class="nb">type</span> tracefs <span class="o">(</span>rw,nosuid,nodev,noexec,relatime<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># trace-cmd show</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><pre class="mermaid">
+  flowchart LR
+    subgraph 编译时
+        A[源码] --&gt;|gcc -pg| B[&#34;每个函数入口插入\ncall __fentry__&#34;]
+        B --&gt; C[编译后的内核镜像]
+    end
+    
+    subgraph 启动时
+        C --&gt; D[&#34;ftrace init: 将\n所有 __fentry__ 替换为 nop&#34;]
+        D --&gt; E[&#34;运行中的内核\n零开销&#34;]
+    end
+    
+    subgraph 追踪时
+        F[echo function &gt; current_tracer]
+        F --&gt; G[&#34;ftrace 将匹配函数的\nnop → call ftrace_caller&#34;]
+        G --&gt; H[&#34;ftrace_caller 收集\nPC + 时间戳&#34;]
+        H --&gt; I[写入 trace ring buffer]
+    end
+    
+    E --&gt; F
+</pre>
+<h3 id="ftrace-的源码">ftrace 的源码
+</h3><p>ftrace 的源码位于内核目录 <code>kernel/trace/</code> 下，核心文件包括：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>文件</th>
+          <th>作用</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>kernel/trace/ftrace.c</code></td>
+          <td>动态插桩的核心——<code>nop</code>↔<code>call __fentry__ </code>的重写</td>
+      </tr>
+      <tr>
+          <td><code>kernel/trace/trace_functions.c</code></td>
+          <td><code>function</code> tracer 的实现</td>
+      </tr>
+      <tr>
+          <td><code>kernel/trace/trace_functions_graph.c</code></td>
+          <td><code>function_graph</code> tracer 的实现</td>
+      </tr>
+      <tr>
+          <td><code>kernel/trace/ring_buffer.c</code></td>
+          <td>无锁环形缓冲区</td>
+      </tr>
+      <tr>
+          <td><code>kernel/trace/trace_events.c</code></td>
+          <td>tracepoint 事件系统</td>
+      </tr>
+      <tr>
+          <td><code>include/linux/ftrace.h</code></td>
+          <td>ftrace API 头文件</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="常用命令与实战-1">常用命令与实战
+</h3><p>ftrace 的接口在 <code>/sys/kernel/tracing/</code> 下。在 4.1 之前，所有 ftrace 追踪控制文件都位于 debugfs 文件系统中，该文件系统通常位于 <code>/sys/kernel/debug/tracing</code>。 为了向后兼容，当挂载 debugfs 文件系统时，tracefs 文件系统将自动挂载<code>/sys/kernel/debug/tracing</code>,位于 tracefs 文件系统中的所有文件也将位于该 debugfs 文件系统目录中.</p>
+<p>关键文件：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>文件</th>
+          <th>作用</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>available_tracers</code></td>
+          <td>列出可用的 tracer</td>
+      </tr>
+      <tr>
+          <td><code>current_tracer</code></td>
+          <td>设置/查看当前 tracer</td>
+      </tr>
+      <tr>
+          <td><code>available_filter_functions</code></td>
+          <td>可追踪的内核函数列表</td>
+      </tr>
+      <tr>
+          <td><code>set_ftrace_filter</code></td>
+          <td>过滤要追踪的函数</td>
+      </tr>
+      <tr>
+          <td><code>set_ftrace_notrace</code></td>
+          <td>排除某些函数</td>
+      </tr>
+      <tr>
+          <td><code>trace</code></td>
+          <td>读取追踪结果</td>
+      </tr>
+      <tr>
+          <td><code>tracing_on</code></td>
+          <td>开关追踪（1/0）</td>
+      </tr>
+      <tr>
+          <td><code>buffer_size_kb</code></td>
+          <td>缓冲区大小</td>
+      </tr>
+      <tr>
+          <td><code>trace_stat/</code></td>
+          <td>函数调用统计</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="">
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">root@ubuntu24:/sys/kernel/debug/tracing# cat trace
+</span></span><span class="line"><span class="cl"><span class="c1"># tracer: nop</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># entries-in-buffer/entries-written: 0/0   #P:2</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                                _-----=&gt; irqs-off/BH-disabled</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                               / _----=&gt; need-resched</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              | / _---=&gt; hardirq/softirq</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              || / _--=&gt; preempt-depth</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              ||| / _-=&gt; migrate-disable</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              |||| /     delay</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#           TASK-PID     CPU#  |||||  TIMESTAMP  FUNCTION</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#              | |         |   |||||     |         |</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="基础使用追踪内核函数调用">基础使用：追踪内核函数调用
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># 进入 ftrace 目录</span>
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> /sys/kernel/tracing
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 查看可用的 tracer</span>
+</span></span><span class="line"><span class="cl">cat available_tracers
+</span></span><span class="line"><span class="cl"><span class="c1"># 输出: function function_graph nop ...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 启用 function tracer</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="k">function</span> &gt; current_tracer
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 开启追踪</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 执行一个操作（触发内核调用）</span>
+</span></span><span class="line"><span class="cl">ls -la /tmp &gt; /dev/null
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 关闭追踪</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 查看追踪结果</span>
+</span></span><span class="line"><span class="cl">cat trace <span class="p">|</span> head -30
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">root@ubuntu24:/sys/kernel/debug/tracing# cat trace <span class="p">|</span> head -30
+</span></span><span class="line"><span class="cl"><span class="c1"># tracer: function</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># entries-in-buffer/entries-written: 102555/16376050   #P:2</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                                _-----=&gt; irqs-off/BH-disabled</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                               / _----=&gt; need-resched</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              | / _---=&gt; hardirq/softirq</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              || / _--=&gt; preempt-depth</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              ||| / _-=&gt; migrate-disable</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              |||| /     delay</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#           TASK-PID     CPU#  |||||  TIMESTAMP  FUNCTION</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#              | |         |   |||||     |         |</span>
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244283: next_uptodate_folio &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244283: set_pte_range &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244283: folio_add_file_rmap_ptes &lt;-set_pte_range
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244283: next_uptodate_folio &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244283: set_pte_range &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244283: folio_add_file_rmap_ptes &lt;-set_pte_range
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244283: next_uptodate_folio &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244284: set_pte_range &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244284: folio_add_file_rmap_ptes &lt;-set_pte_range
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244284: next_uptodate_folio &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244284: set_pte_range &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244284: folio_add_file_rmap_ptes &lt;-set_pte_range
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244284: next_uptodate_folio &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ...1. 609848.244284: _raw_spin_unlock &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ..... 609848.244284: __rcu_read_unlock &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ..... 609848.244284: __rcu_read_unlock &lt;-filemap_map_pages
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ..... 609848.244284: __rcu_read_unlock &lt;-do_read_fault
+</span></span><span class="line"><span class="cl">            tail-455584  <span class="o">[</span>000<span class="o">]</span> ..... 609848.244285: __rcu_read_lock &lt;-handle_mm_fault
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>每行格式：<code>进程名-PID [CPU] 标志 时间戳: 函数名 &lt;- 调用者</code></p>
+<h4 id="function_graph--可视化调用链"><code>function_graph</code> —— 可视化调用链
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">echo</span> function_graph &gt; current_tracer
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">ls /tmp &gt; /dev/null
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">cat trace <span class="p">|</span> head -40
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">root@ubuntu24:/sys/kernel/debug/tracing# cat trace <span class="p">|</span> head -40
+</span></span><span class="line"><span class="cl"><span class="c1"># tracer: function_graph</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># CPU  DURATION                  FUNCTION CALLS</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># |     |   |                     |   |   |   |</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   1.328 us    <span class="p">|</span>  mutex_unlock<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.180 us    <span class="p">|</span>  syscall_exit_to_user_mode_prepare<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.173 us    <span class="p">|</span>  fpregs_assert_state_consistent<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>  x64_sys_call<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>    __x64_sys_dup2<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>      ksys_dup3<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.162 us    <span class="p">|</span>        _raw_spin_lock<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.159 us    <span class="p">|</span>        expand_files<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>        do_dup2<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.167 us    <span class="p">|</span>          _raw_spin_unlock<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>          filp_close<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>            filp_flush<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.158 us    <span class="p">|</span>              dnotify_flush<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.181 us    <span class="p">|</span>              locks_remove_posix<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.786 us    <span class="p">|</span>            <span class="o">}</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>            fput<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>              task_work_add<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.159 us    <span class="p">|</span>                kick_process<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.478 us    <span class="p">|</span>              <span class="o">}</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.789 us    <span class="p">|</span>            <span class="o">}</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   2.024 us    <span class="p">|</span>          <span class="o">}</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   2.649 us    <span class="p">|</span>        <span class="o">}</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   3.569 us    <span class="p">|</span>      <span class="o">}</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   3.871 us    <span class="p">|</span>    <span class="o">}</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   4.179 us    <span class="p">|</span>  <span class="o">}</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.159 us    <span class="p">|</span>  syscall_exit_to_user_mode_prepare<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>  task_work_run<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.173 us    <span class="p">|</span>    _raw_spin_lock_irq<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.165 us    <span class="p">|</span>    _raw_spin_unlock_irq<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>    ____fput<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>      __fput<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.158 us    <span class="p">|</span>        __cond_resched<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.163 us    <span class="p">|</span>        locks_remove_file<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.158 us    <span class="p">|</span>        ima_file_free<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>               <span class="p">|</span>        mutex_lock<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl"> 1<span class="o">)</span>   0.159 us    <span class="p">|</span>          __cond_resched<span class="o">()</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>缩进表示调用深度，<code>DURATION</code> 列是函数执行时间。</p>
+<h4 id="按函数名过滤">按函数名过滤
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 只追踪与 ext4 文件系统相关的函数</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> ext4_* &gt; set_ftrace_filter
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 确认生效</span>
+</span></span><span class="line"><span class="cl">cat set_ftrace_filter
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 启用追踪</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="k">function</span> &gt; current_tracer
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">cp bigfile /tmp/
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">cat trace <span class="p">|</span> head -30
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">root@ubuntu24:/sys/kernel/debug/tracing# cat trace <span class="p">|</span> head -30
+</span></span><span class="line"><span class="cl"><span class="c1"># tracer: function</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># entries-in-buffer/entries-written: 178/178   #P:2</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                                _-----=&gt; irqs-off/BH-disabled</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                               / _----=&gt; need-resched</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              | / _---=&gt; hardirq/softirq</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              || / _--=&gt; preempt-depth</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              ||| / _-=&gt; migrate-disable</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#                              |||| /     delay</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#           TASK-PID     CPU#  |||||  TIMESTAMP  FUNCTION</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#              | |         |   |||||     |         |</span>
+</span></span><span class="line"><span class="cl">            bash-454555  <span class="o">[</span>001<span class="o">]</span> ..... 610139.068645: ext4_file_getattr &lt;-vfs_getattr_nosec
+</span></span><span class="line"><span class="cl">            bash-454555  <span class="o">[</span>001<span class="o">]</span> ..... 610139.068646: ext4_getattr &lt;-ext4_file_getattr
+</span></span><span class="line"><span class="cl">            bash-454555  <span class="o">[</span>001<span class="o">]</span> ..... 610139.068647: ext4_file_getattr &lt;-vfs_getattr_nosec
+</span></span><span class="line"><span class="cl">            bash-454555  <span class="o">[</span>001<span class="o">]</span> ..... 610139.068647: ext4_getattr &lt;-ext4_file_getattr
+</span></span><span class="line"><span class="cl">            bash-454555  <span class="o">[</span>001<span class="o">]</span> ..... 610139.068651: ext4_file_getattr &lt;-vfs_getattr_nosec
+</span></span><span class="line"><span class="cl">            bash-454555  <span class="o">[</span>001<span class="o">]</span> ..... 610139.068651: ext4_getattr &lt;-ext4_file_getattr
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>000<span class="o">]</span> ..... 610139.069206: ext4_file_open &lt;-do_dentry_open
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>000<span class="o">]</span> ..... 610139.069206: ext4_sample_last_mounted &lt;-ext4_file_open
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069914: ext4_file_read_iter &lt;-__kernel_read
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069921: ext4_file_read_iter &lt;-__kernel_read
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069922: ext4_file_read_iter &lt;-__kernel_read
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069929: ext4_file_open &lt;-do_dentry_open
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069930: ext4_sample_last_mounted &lt;-ext4_file_open
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069931: ext4_file_read_iter &lt;-__kernel_read
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069932: ext4_file_read_iter &lt;-__kernel_read
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069934: ext4_xattr_security_get &lt;-__vfs_getxattr
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069934: ext4_xattr_get &lt;-ext4_xattr_security_get
+</span></span><span class="line"><span class="cl">              cp-457239  <span class="o">[</span>001<span class="o">]</span> ..... 610139.069935: ext4_xattr_ibody_get &lt;-ext4_xattr_get
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="tracepoint-事件追踪">tracepoint 事件追踪
+</h4><p>ftrace 也支持预定义的 tracepoint 事件（性能远高于动态函数追踪）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 查看可用的事件</span>
+</span></span><span class="line"><span class="cl">ls /sys/kernel/tracing/events/ <span class="p">|</span> head -20
+</span></span><span class="line"><span class="cl"><span class="c1"># output: block  irq  kmem  net  sched  syscalls  ...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 启用系统调用 tracepoint</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; events/syscalls/sys_enter_openat/enable
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; events/syscalls/sys_exit_openat/enable
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 追踪</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">cat /etc/passwd &gt; /dev/null
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 查看</span>
+</span></span><span class="line"><span class="cl">cat trace <span class="p">|</span> tail -10
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">          bash-454555  <span class="o">[</span>001<span class="o">]</span> ...1. 610338.749840: sys_openat<span class="o">(</span>dfd: ffffff9c, filename: 64ac99b1a560, flags: 241, mode: 1b6<span class="o">)</span>
+</span></span><span class="line"><span class="cl">            bash-454555  <span class="o">[</span>001<span class="o">]</span> ...1. 610338.749857: sys_openat -&gt; 0x3
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="实战案例排查内核函数频繁调用导致的性能问题">实战案例：排查内核函数频繁调用导致的性能问题
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 统计函数调用次数（类似 strace -c 的内核版本）</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> nop &gt; current_tracer
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; /sys/kernel/tracing/events/syscalls/sys_enter_write/enable
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 等待一段时间</span>
+</span></span><span class="line"><span class="cl">sleep <span class="m">5</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 查看计数</span>
+</span></span><span class="line"><span class="cl">cat /sys/kernel/tracing/per_cpu/cpu0/stats
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">root@ubuntu24:/sys/kernel/debug/tracing# cat /sys/kernel/tracing/per_cpu/cpu0/stats
+</span></span><span class="line"><span class="cl">entries: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">overrun: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">commit overrun: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">bytes: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">oldest event ts: 610338.745551
+</span></span><span class="line"><span class="cl">now ts: 610533.149505
+</span></span><span class="line"><span class="cl">dropped events: <span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="nb">read</span> events: <span class="m">0</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>或者使用 <code>trace_stat</code>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. 设置 tracer 为 function</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="k">function</span> &gt; /sys/kernel/tracing/current_tracer
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 2. 开启 function profiler（这一步会重置计数器）</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; /sys/kernel/tracing/function_profile_enabled
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 3. 开始追踪</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; /sys/kernel/tracing/tracing_on
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># --- 运行您的测试负载 ---</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 例如: ./your_benchmark_tool</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 或者简单的压力测试: stress-ng --cpu 4 --timeout 5s</span>
+</span></span><span class="line"><span class="cl">stress-ng --cpu <span class="m">4</span> --timeout 5s
+</span></span><span class="line"><span class="cl"><span class="c1"># 4. 停止追踪</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; /sys/kernel/tracing/tracing_on
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 5. 关闭 profiler</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; /sys/kernel/tracing/function_profile_enabled
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 6. 查看函数调用统计排名</span>
+</span></span><span class="line"><span class="cl">cat /sys/kernel/tracing/trace_stat/functions
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">root@ubuntu24:/sys/kernel/debug/tracing# cat /sys/kernel/tracing/trace_stat/function0
+</span></span><span class="line"><span class="cl">  Function                               Hit    Time            Avg             s^2
+</span></span><span class="line"><span class="cl">  --------                               ---    ----            ---             ---
+</span></span><span class="line"><span class="cl">root@ubuntu24:/sys/kernel/debug/tracing# cat /sys/kernel/tracing/trace_stat/function1
+</span></span><span class="line"><span class="cl">  Function                               Hit    Time            Avg             s^2
+</span></span><span class="line"><span class="cl">  --------                               ---    ----            ---             ---
+</span></span><span class="line"><span class="cl">  ext4_lookup                              <span class="m">4</span>    125.270 us      31.317 us       522.599 us
+</span></span><span class="line"><span class="cl">  ext4_dx_find_entry                       <span class="m">2</span>    96.880 us       48.440 us       53.892 us
+</span></span><span class="line"><span class="cl">  ext4_search_dir                          <span class="m">4</span>    86.536 us       21.634 us       530.259 us
+</span></span><span class="line"><span class="cl">  ext4_match                             <span class="m">286</span>    62.061 us       0.216 us        0.001 us
+</span></span><span class="line"><span class="cl">  ext4_getblk                              <span class="m">6</span>    18.148 us       3.024 us        5.078 us
+</span></span><span class="line"><span class="cl">  ext4_bread_batch                         <span class="m">2</span>    10.719 us       5.359 us        16.791 us
+</span></span><span class="line"><span class="cl">  ext4_map_blocks                          <span class="m">6</span>    9.737 us        1.622 us        1.034 us
+</span></span><span class="line"><span class="cl">  ext4_bread                               <span class="m">4</span>    9.589 us        2.397 us        0.034 us
+</span></span><span class="line"><span class="cl">  ext4_fname_prepare_lookup                <span class="m">4</span>    4.269 us        1.067 us        0.250 us
+</span></span><span class="line"><span class="cl">  ext4_inode_block_valid                   <span class="m">6</span>    4.054 us        0.675 us        0.186 us
+</span></span><span class="line"><span class="cl">  ext4_es_lookup_extent                    <span class="m">6</span>    2.444 us        0.407 us        0.046 us
+</span></span><span class="line"><span class="cl">  ext4_sb_block_valid                      <span class="m">6</span>    2.021 us        0.336 us        0.068 us
+</span></span><span class="line"><span class="cl">  ext4_fname_free_filename                 <span class="m">4</span>    1.140 us        0.285 us        0.015 us
+</span></span><span class="line"><span class="cl">  ext4_fname_from_fscrypt_name             <span class="m">4</span>    1.016 us        0.254 us        0.005 us
+</span></span><span class="line"><span class="cl">  ext4_fname_setup_ci_filename             <span class="m">4</span>    0.897 us        0.224 us        0.003 us
+</span></span><span class="line"><span class="cl">  ext4_htree_next_block                    <span class="m">2</span>    0.478 us        0.239 us        0.000 us
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="实战案例追踪内核模块初始化">实战案例：追踪内核模块初始化
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 只追踪某个模块的函数</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> :mod:ext4 &gt; set_ftrace_filter
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> function_graph &gt; current_tracer
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">mount /dev/sdb1 /mnt
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">cat trace <span class="p">|</span> head -20
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># tracer: function_graph
+</span></span><span class="line"><span class="cl">#
+</span></span><span class="line"><span class="cl"># CPU  DURATION                  FUNCTION CALLS
+</span></span><span class="line"><span class="cl"># |     |   |                     |   |   |   |
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat(dfd: ffffff9c, filename: 716a83a5938f, flags: 80000, mode: 0) */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat -&gt; 0x3 */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat(dfd: ffffff9c, filename: 716a83a29140, flags: 80000, mode: 0) */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat -&gt; 0x3 */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat(dfd: ffffff9c, filename: 716a83a29690, flags: 80000, mode: 0) */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat -&gt; 0x3 */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat(dfd: ffffff9c, filename: 716a83a29be0, flags: 80000, mode: 0) */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat -&gt; 0x3 */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat(dfd: ffffff9c, filename: 716a83a2a110, flags: 80000, mode: 0) */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat -&gt; 0x3 */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat(dfd: ffffff9c, filename: 716a83a2a6b0, flags: 80000, mode: 0) */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat -&gt; 0x3 */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat(dfd: ffffff9c, filename: 716a839cd1db, flags: 80000, mode: 0) */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat -&gt; 0x3 */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat(dfd: ffffff9c, filename: 716a837d48b0, flags: 80000, mode: 0) */
+</span></span><span class="line"><span class="cl"> 1)               |  /* sys_openat -&gt; 0xfffffffffffffffe */
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="ftrace-的优势与局限">ftrace 的优势与局限
+</h3><p><strong>优势：</strong></p>
+<ul>
+<li><strong>零用户态开销</strong>——所有工作在内核态完成，没有 <code>ptrace</code> 的上下文切换</li>
+<li><strong>无侵入</strong>——动态函数插桩，不干扰目标函数执行</li>
+<li><strong>支持生产环境</strong>——可在负载下运行（但需注意 ring buffer 溢出）</li>
+<li><strong>追踪整个内核</strong>——不仅是用户进程的上下文，还包括中断、软中断、调度等</li>
+<li><strong>function_graph 模式</strong>——天然支持调用链可视化</li>
+</ul>
+<p><strong>局限：</strong></p>
+<ul>
+<li><strong>只能追踪内核态</strong>——不能观察用户态代码</li>
+<li><strong>使用门槛高</strong>——通过 tracefs文件系统操作，需要了解内核函数名和子系统</li>
+<li><strong>function tracer 的开销</strong>——每秒数万次函数调用时仍会产生 ~5-10% 的性能损失</li>
+<li><strong>ring buffer 溢出</strong>——高负载下可能丢失事件（<code>overwrite</code> 模式）</li>
+<li><strong>调试能力有限</strong>——不能像 ptrace 那样读/写内存和寄存器</li>
+</ul>
+<h2 id="综合调试案例">综合调试案例
+</h2><h3 id="一个-http-服务器响应慢">一个 HTTP 服务器响应慢
+</h3><p>假设有一个 <code>http_server</code> 响应缓慢，我们进行分层排查：</p>
+<p><strong>Step 1: 整体概览 — <code>strace -c</code></strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">strace -c -p <span class="k">$(</span>pgrep http_server <span class="p">|</span> head -1<span class="k">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>结果：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">% time     seconds  usecs/call     calls    errors syscall
+</span></span><span class="line"><span class="cl">------ ----------- ----------- --------- --------- ----------------
+</span></span><span class="line"><span class="cl"> 90.12    8.123456       40123       202           poll
+</span></span><span class="line"><span class="cl">  5.23    0.471234         123       382           writev
+</span></span><span class="line"><span class="cl">  4.65    0.419001         110       380           readv
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>→ 90% 的时间花在 <code>poll</code> 上，且每次平均 40ms → 可能在等待 I/O 超时。</p>
+<p><strong>Step 2: 查看 poll 的细节</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">strace -e <span class="nv">trace</span><span class="o">=</span>poll -p <span class="k">$(</span>pgrep http_server <span class="p">|</span> head -1<span class="k">)</span> -ttt 2&gt;<span class="p">&amp;</span><span class="m">1</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">1728000001.123456 poll([{fd=4, events=POLLIN}], 1, 50000) = 1
+</span></span><span class="line"><span class="cl">1728000001.123512 poll([{fd=4, events=POLLIN}], 1, 50000) = 1
+</span></span><span class="line"><span class="cl">1728000001.125678 poll([{fd=4, events=POLLIN}], 1, 50000) = 0
+</span></span><span class="line"><span class="cl">1728000001.175678 poll([{fd=4, events=POLLIN}], 1, 50000) = 1
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>观察发现：poll 超时设置为 50ms，有些调用确实等到超时返回了 <code>= 0</code>（没有事件）→ 说明上游请求不够频繁，或 keepalive 空转。</p>
+<p><strong>Step 3: 查看内存分配模式</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ltrace -e malloc+free -c -p <span class="k">$(</span>pgrep http_server <span class="p">|</span> head -1<span class="k">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">% time     seconds  usecs/call     calls      function
+</span></span><span class="line"><span class="cl">------ ----------- ----------- --------- --------------------
+</span></span><span class="line"><span class="cl"> 55.32    0.523412         132      3965      malloc
+</span></span><span class="line"><span class="cl"> 44.68    0.344123          87      3955      free
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>→ malloc/free 数量接近，不太像泄漏；但调用次数多（4000+），可以考虑引入对象池。</p>
+<p><strong>Step 4: 查看内核态行为 — ftrace</strong></p>
+<p>如果怀疑是内核调度或文件系统层面的问题：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> /sys/kernel/tracing
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 追踪 http_server 相关的系统调用内核路径</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> do_sys_poll &gt; set_ftrace_filter
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> function_graph &gt; current_tracer
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl"><span class="c1"># ... 复现问题 ...</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">cat trace <span class="p">|</span> grep <span class="s2">&#34;http_serv&#34;</span> <span class="p">|</span> head -30
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="用-strace-排查命令找不到">用 strace 排查&quot;命令找不到&rdquo;
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ which some_cmd
+</span></span><span class="line"><span class="cl">/usr/local/bin/some_cmd
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ some_cmd
+</span></span><span class="line"><span class="cl">bash: some_cmd: <span class="nb">command</span> not found  <span class="c1"># ？？？</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>用 strace 追踪 shell：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">strace -e <span class="nv">trace</span><span class="o">=</span>execve,stat,openat bash -c <span class="s2">&#34;some_cmd&#34;</span> 2&gt;<span class="p">&amp;</span><span class="m">1</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">execve(&#34;/usr/local/bin/some_cmd&#34;, ...) = -1 ENOEXEC
+</span></span><span class="line"><span class="cl">execve(&#34;/bin/some_cmd&#34;, ...) = -1 ENOENT
+</span></span><span class="line"><span class="cl">openat(AT_FDCWD, &#34;/usr/local/bin/some_cmd&#34;, O_RDONLY) = 3
+</span></span><span class="line"><span class="cl">read(3, &#34;#! /usr/bin/python3\n&#34;, 80)   = 23
+</span></span><span class="line"><span class="cl">close(3)
+</span></span><span class="line"><span class="cl">execve(&#34;/usr/local/bin/some_cmd&#34;, ...) = -1 ENOEXEC
+</span></span><span class="line"><span class="cl">...
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>→ 原来是写错了，脚本开头是 <code>#! /usr/bin/python3</code>（多了空格）而不是正确的 <code>#!/usr/bin/python3</code>，导致内核不识别为解释器脚本。</p>
+<h3 id="用-ltrace-定位-crash-前的最后一次库调用">用 ltrace 定位 crash 前的最后一次库调用
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 程序运行时突然崩溃</span>
+</span></span><span class="line"><span class="cl">ltrace -n <span class="m">5</span> -o /tmp/ltrace.log ./myapp
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 查看日志尾部</span>
+</span></span><span class="line"><span class="cl">tail -20 /tmp/ltrace.log
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">myapp-&gt;free(0x55a8...)                              = &lt;void&gt;
+</span></span><span class="line"><span class="cl">myapp-&gt;strlen(&#34;data&#34;)                               = 4
+</span></span><span class="line"><span class="cl">myapp-&gt;malloc(512)                                  = 0x55a9...
+</span></span><span class="line"><span class="cl">myapp-&gt;memcpy(0x55a9..., 0x55a8..., 1024)           = 0x55a9...
+</span></span><span class="line"><span class="cl"> --- SIGSEGV (Segmentation fault) ---
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>→ 注意到 <code>malloc(512)</code> 但 <code>memcpy</code> 拷贝了 <strong>1024 字节</strong> ——缓冲区溢出导致在 <code>memcpy</code> 内部触发 SIGSEGV。</p>
+<h3 id="用-ftrace-排查内核调度延迟">用 ftrace 排查内核调度延迟
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> /sys/kernel/tracing
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 追踪调度器唤醒延迟</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> &gt; trace
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> __schedule &gt; set_ftrace_filter
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> function_graph &gt; current_tracer
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">1</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">sleep 0.1  <span class="c1"># 触发调度</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> &gt; tracing_on
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">cat trace
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"> 0)   0.125 us    |              __schedule();
+</span></span><span class="line"><span class="cl"> 0)   0.062 us    |                pick_next_task_fair();
+</span></span><span class="line"><span class="cl"> 0)   0.187 us    |                pick_next_entity();
+</span></span><span class="line"><span class="cl"> 0)   0.125 us    |                set_next_entity();
+</span></span><span class="line"><span class="cl"> 0)   0.062 us    |                context_switch();
+</span></span><span class="line"><span class="cl"> 0)   0.187 us    |                  switch_mm_irqs_off();
+</span></span><span class="line"><span class="cl"> 0)   0.125 us    |                  switch_to();
+</span></span><span class="line"><span class="cl"> 0)   4.562 us    |              } /* __schedule */
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>可以清晰看到一次上下文切换在内核中各子函数的耗时分布。</p>
+<hr>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>strace</th>
+          <th>ltrace</th>
+          <th>ftrace</th>
+          <th>ptrace</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>追踪粒度</strong></td>
+          <td>系统调用</td>
+          <td>共享库函数</td>
+          <td><strong>内核函数 + tracepoint</strong></td>
+          <td>系统调用 + 信号 + 内存</td>
+      </tr>
+      <tr>
+          <td><strong>追踪层级</strong></td>
+          <td>用户态边界</td>
+          <td>用户态</td>
+          <td><strong>内核态</strong></td>
+          <td>用户态/内核态边界</td>
+      </tr>
+      <tr>
+          <td><strong>是否需要 ptrace</strong></td>
+          <td>✅ 是</td>
+          <td>✅ 是</td>
+          <td>❌ <strong>内核内置</strong></td>
+          <td>本身就是</td>
+      </tr>
+      <tr>
+          <td><strong>是否需要源码</strong></td>
+          <td>否</td>
+          <td>否</td>
+          <td>否（需内核符号）</td>
+          <td>否</td>
+      </tr>
+      <tr>
+          <td><strong>侵入性</strong></td>
+          <td>高（进程挂起）</td>
+          <td>高（断点指令）</td>
+          <td><strong>低（nop 替换）</strong></td>
+          <td>极高</td>
+      </tr>
+      <tr>
+          <td><strong>性能影响</strong></td>
+          <td>10~100x 降速</td>
+          <td>5~50x 降速</td>
+          <td><strong>~5-10%（function tracer）</strong></td>
+          <td>取决于使用模式</td>
+      </tr>
+      <tr>
+          <td><strong>典型场景</strong></td>
+          <td>排障、审计、教学</td>
+          <td>内存问题、库分析</td>
+          <td><strong>内核调试、性能分析</strong></td>
+          <td>调试器开发、逆向</td>
+      </tr>
+      <tr>
+          <td><strong>启动方式</strong></td>
+          <td>命令行</td>
+          <td>命令行</td>
+          <td><strong>tracefs + echo</strong></td>
+          <td>系统调用 API</td>
+      </tr>
+      <tr>
+          <td><strong>生产环境可用</strong></td>
+          <td>❌</td>
+          <td>❌</td>
+          <td>✅ <strong>可用（慎）</strong></td>
+          <td>❌</td>
+      </tr>
+      <tr>
+          <td><strong>多线程支持</strong></td>
+          <td>✅ <code>-f</code></td>
+          <td>⚠️ 部分</td>
+          <td>✅ <strong>天然 per-CPU</strong></td>
+          <td>⚠️ 需额外选项</td>
+      </tr>
+      <tr>
+          <td><strong>调用栈/图</strong></td>
+          <td>❌ 没有</td>
+          <td>❌ 没有</td>
+          <td>✅ <strong>function_graph</strong></td>
+          <td>❌ 需要自行实现</td>
+      </tr>
+  </tbody>
+</table></div>
+<ul>
+<li><a class="link" href="https://ebpf.io/"  target="_blank" rel="noopener"
+    >eBPF &amp; Cilium 文档</a> — ptrace 的现代替代方案</li>
+<li><a class="link" href="https://lwn.net/Articles/290277/"  target="_blank" rel="noopener"
+    >LWN: ftrace 简介</a> — Steven Rostedt 的原创文章</li>
+<li><a class="link" href="https://kernelshark.org/"  target="_blank" rel="noopener"
+    >KernelShark</a> — ftrace 的 GUI 可视化工具</li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/linux-network-layer-%E4%B8%8Esocket/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux network layer 与socket</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/netfilter-hooks-in-kernel/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Netfilter Hooks in Kernel</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/netlink-%E5%88%9D%E8%AF%86/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Netlink 初识</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-e1000-%E7%BD%91%E5%8D%A1%E9%A9%B1%E5%8A%A8%E6%94%B6%E5%8F%91%E5%8C%85%E8%B7%AF%E5%BE%84%E8%A7%A3%E6%9E%90/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux E1000 网卡驱动收发包路径解析</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-procfs-%E5%92%8C-sysfs/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux procFS 和 SysFS</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        let rightSideBar = document.querySelector(".right-sidebar");
+        if (!rightSideBar) {
+            return;
+        }
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop
+        rightSideBar.appendChild(btn)
+        
+        window.onscroll = function() {
+            
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        };
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true ,look: 'handDrawn'});
+    </script>
