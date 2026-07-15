@@ -10,7 +10,7 @@
 <meta property='og:description' content=" flowchart TD A[Linux 追踪与性能工具全景] --&gt; B[基础机制 / 经典工具] A --&gt; C[内核追踪框架] A --&gt; D[现代可编程平台] B --&gt; B1[ptrace&lt;br&gt;进程调试与追踪的系统调用] B1 --&gt; B2[strace&lt;br&gt;追踪系统调用] B1 --&gt; B3[ltrace&lt;br&gt;追踪动态库函数调用] C --&gt; C1[ftrace&lt;br&gt;内核内置追踪器] C --&gt; C2[perf&lt;br&gt;性能事件与硬件计数器] D --&gt; D1[eBPF&lt;br&gt;内核沙箱程序] D1 --&gt; D2[kprobe / kretprobe&lt;br&gt;动态追踪内核函数] D1 --&gt; D3[uprobe / uretprobe&lt;br&gt;动态追踪用户态函数] D1 --&gt; D4[tracepoint&lt;br&gt;内核预置静态追踪点] ptrace - process trace 核心原理 https://www.man7.org/linux/man-pages/man2/ptrace.2.html\n1 2 3 4 #include &lt;sys/ptrace.h&gt; long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data); ptrace()\u00a0系统调用(system call)提供了一种机制，使得一个进程（tracer）可以观察和控制另一个进程（tracee）的执行，并检查和更改被追踪者的内存和寄存器。它主要用于实现断点调试和系统调用跟踪。它是一切用户态调试工具的基石——gdb、strace、ltrace 底层都依赖它。\ntracee首先需要被附加到tracer上。附加及其后续命令都是按线程进行的：在一个多线程进程中，每个线程都可以被单独附加到一个（可能是不同的）追踪器上，或者保持未附加状态从而不被调试。因此，“被追踪者”始终指代“（一个）线程”，而绝不是“一个（可能是多线程的）进程” , ptrace 命令始终通过以下形式的调用来发送给特定的被追踪者：ptrace(PTRACE_foo, pid, ...)其中 pid 是对应 Linux 线程的线程 ID\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/'>
 <meta property='og:site_name' content='Charles'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-15T00:05:18&#43;08:00'/><meta property='article:modified_time' content='2026-07-15T00:12:59&#43;08:00'/>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-15T00:05:18&#43;08:00'/><meta property='article:modified_time' content='2026-07-15T18:18:59&#43;08:00'/>
 <meta name="twitter:title" content="linux trace -- ptrace strace ltrace ftrace">
 <meta name="twitter:description" content=" flowchart TD A[Linux 追踪与性能工具全景] --&gt; B[基础机制 / 经典工具] A --&gt; C[内核追踪框架] A --&gt; D[现代可编程平台] B --&gt; B1[ptrace&lt;br&gt;进程调试与追踪的系统调用] B1 --&gt; B2[strace&lt;br&gt;追踪系统调用] B1 --&gt; B3[ltrace&lt;br&gt;追踪动态库函数调用] C --&gt; C1[ftrace&lt;br&gt;内核内置追踪器] C --&gt; C2[perf&lt;br&gt;性能事件与硬件计数器] D --&gt; D1[eBPF&lt;br&gt;内核沙箱程序] D1 --&gt; D2[kprobe / kretprobe&lt;br&gt;动态追踪内核函数] D1 --&gt; D3[uprobe / uretprobe&lt;br&gt;动态追踪用户态函数] D1 --&gt; D4[tracepoint&lt;br&gt;内核预置静态追踪点] ptrace - process trace 核心原理 https://www.man7.org/linux/man-pages/man2/ptrace.2.html\n1 2 3 4 #include &lt;sys/ptrace.h&gt; long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data); ptrace()\u00a0系统调用(system call)提供了一种机制，使得一个进程（tracer）可以观察和控制另一个进程（tracee）的执行，并检查和更改被追踪者的内存和寄存器。它主要用于实现断点调试和系统调用跟踪。它是一切用户态调试工具的基石——gdb、strace、ltrace 底层都依赖它。\ntracee首先需要被附加到tracer上。附加及其后续命令都是按线程进行的：在一个多线程进程中，每个线程都可以被单独附加到一个（可能是不同的）追踪器上，或者保持未附加状态从而不被调试。因此，“被追踪者”始终指代“（一个）线程”，而绝不是“一个（可能是多线程的）进程” , ptrace 命令始终通过以下形式的调用来发送给特定的被追踪者：ptrace(PTRACE_foo, pid, ...)其中 pid 是对应 Linux 线程的线程 ID\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
@@ -407,7 +407,7 @@
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-07-15 00:12</time>
+            <time class="article-lastmod">2026-07-15 18:18</time>
         </div>
         
 
@@ -2714,6 +2714,19 @@
             
                 
 <article class="">
+    <a href="/p/linux-perf/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux perf</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
     <a href="/p/linux-network-layer-%E4%B8%8Esocket/">
         
         
@@ -2759,19 +2772,6 @@
 
         <div class="article-details">
             <h2 class="article-title">Linux E1000 网卡驱动收发包路径解析</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/p/linux-procfs-%E5%92%8C-sysfs/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">Linux procFS 和 SysFS</h2>
         </div>
     </a>
 </article>

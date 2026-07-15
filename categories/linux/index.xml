@@ -7,7 +7,136 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Wed, 15 Jul 2026 00:12:59 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Wed, 15 Jul 2026 18:18:59 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Linux perf</title>
+        <link>https://charles-7777.github.io/p/linux-perf/</link>
+        <pubDate>Wed, 15 Jul 2026 17:17:02 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/linux-perf/</guid>
+        <description>&lt;blockquote class=&#34;alert alert-note&#34;&gt;
+    &lt;p&gt;上一篇【&lt;a class=&#34;link&#34; href=&#34;https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/&#34; &gt;linux trace &amp;ndash; ptrace strace ltrace ftrace &lt;/a&gt;】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id=&#34;perf--performance-event&#34;&gt;perf — Performance Event
+&lt;/h2&gt;&lt;blockquote class=&#34;alert alert-tip&#34;&gt;
+    &lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.man7.org/linux/man-pages/man1/perf.1.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;perf(1) — Linux manual page&lt;/a&gt;&lt;br&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://www.brendangregg.com/perf.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Linux perf Examples&amp;mdash;-brendangregg&lt;/a&gt;&lt;br&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://elixir.bootlin.com/linux/v5.15/source/tools/perf&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://elixir.bootlin.com/linux/v5.15/source/tools/perf&lt;/a&gt;&lt;br&gt;
+内核源码: &lt;code&gt;tools/perf/&lt;/code&gt; (用户态工具) + &lt;code&gt;kernel/events/&lt;/code&gt; (内核子系统)
+&lt;a class=&#34;link&#34; href=&#34;https://hotttao.github.io/posts/linux/linux_perf/04_perf/#1-perf-%E7%AE%80%E4%BB%8B&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;perf-简介&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&#34;https://charles-7777.github.io/p/linux-perf/perf_events_map.png&#34;
+	width=&#34;1500&#34;
+	height=&#34;1050&#34;
+	srcset=&#34;https://charles-7777.github.io/p/linux-perf/perf_events_map_hu_2fa384d39d2eea1f.png 480w, https://charles-7777.github.io/p/linux-perf/perf_events_map_hu_e2f32f7164fdddde.png 1024w&#34;
+	loading=&#34;lazy&#34;
+	
+	
+		class=&#34;gallery-image&#34; 
+		data-flex-grow=&#34;142&#34;
+		data-flex-basis=&#34;342px&#34;
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;perf是一个面向event的可观测性工具，能够帮助您实现高级性能分析和故障排查功能。它可以回答的问题包括：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;为什么内核在 CPU 上运行时间这么长？具体是哪些代码路径导致的？&lt;/li&gt;
+&lt;li&gt;哪些代码路径导致了 CPU 二级缓存缺失？&lt;/li&gt;
+&lt;li&gt;CPU 是否因内存 I/O 而停滞？&lt;/li&gt;
+&lt;li&gt;哪些代码路径在分配内存，分配了多少？&lt;/li&gt;
+&lt;li&gt;是什么触发了 TCP 重传？&lt;/li&gt;
+&lt;li&gt;某个内核函数是否被调用，调用频率是多少？&lt;/li&gt;
+&lt;li&gt;线程离开 CPU 的原因是什么？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;perf 的使用依赖我们前面所说的 event(事件)。event 是不同内核工具框架的统一接口，上面的图片说明了 event 来源:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Hardware Events: CPU性能监视计数器 PMCs&lt;/li&gt;
+&lt;li&gt;Software Events: 这些是基于内核计数器的低级事件。例如，CPU迁移、主次缺页异常等等。&lt;/li&gt;
+&lt;li&gt;Kernel Tracepoint Events: 硬编码在内核中的静态内核级的检测点，即静态探针&lt;/li&gt;
+&lt;li&gt;User Statically-Defined Tracing (USDT): 这些是用户级程序和应用程序的静态跟踪点。&lt;/li&gt;
+&lt;li&gt;Dynamic Tracing: 可以被放置在任何地方的动态探针。对于内核软件，它使用kprobes框架。对于用户级软件，uprobes。&lt;/li&gt;
+&lt;li&gt;Timed Profiling: 使用perf -FHz选项以指定频率收集的快照。这通常用于CPU使用情况分析，其工作原理是周期性的产生时钟中断事件。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;list子命令列出当前可用的事件，使用动态跟踪时，就是在扩展下面这个列表。这个列表中的 probe:tcp_sendmsg 探针就是动态插入 tcp_sendmsg() 的示例。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt; 1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 7
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 8
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 9
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;10
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;11
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;12
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;13
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;14
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;15
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;16
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;17
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;18
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;19
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;20
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;21
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;22
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;23
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;24
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;25
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;26
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;27
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;28
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;29
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;30
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;31
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;32
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;33
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;34
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;35
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;charles@ubuntu22:~/111$ sudo perf list
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;List of pre-defined events &lt;span class=&#34;o&#34;&gt;(&lt;/span&gt;to be used in -e&lt;span class=&#34;o&#34;&gt;)&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  alignment-faults                                   &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  bpf-output                                         &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  cgroup-switches                                    &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  context-switches OR cs                             &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  cpu-clock                                          &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  cpu-migrations OR migrations                       &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  dummy                                              &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  emulation-faults                                   &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  major-faults                                       &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  minor-faults                                       &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  page-faults OR faults                              &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  task-clock                                         &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Software event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  duration_time                                      &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Tool event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  msr/pperf/                                         &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Kernel PMU event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  msr/smi/                                           &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Kernel PMU event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  msr/tsc/                                           &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Kernel PMU event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  rNNN                                               &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Raw hardware event descriptor&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  cpu/t1&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;v1&lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;,t2&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;v2,t3 ...&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;/modifier                  &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Raw hardware event descriptor&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;   &lt;span class=&#34;o&#34;&gt;(&lt;/span&gt;see &lt;span class=&#34;s1&#34;&gt;&amp;#39;man perf-list&amp;#39;&lt;/span&gt; on how to encode it&lt;span class=&#34;o&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  mem:&amp;lt;addr&amp;gt;&lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;/len&lt;span class=&#34;o&#34;&gt;][&lt;/span&gt;:access&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;                          &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Hardware breakpoint&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  alarmtimer:alarmtimer_cancel                       &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Tracepoint event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  alarmtimer:alarmtimer_fired                        &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Tracepoint event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  alarmtimer:alarmtimer_start                        &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Tracepoint event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  alarmtimer:alarmtimer_suspend                      &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Tracepoint event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  amd_cpu:amd_pstate_perf                            &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Tracepoint event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  avc:selinux_audited                                &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Tracepoint event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  block:block_bio_backmerge                          &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;Tracepoint event&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description>
+        </item>
+        <item>
         <title>linux trace -- ptrace strace ltrace ftrace</title>
         <link>https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/</link>
         <pubDate>Wed, 15 Jul 2026 00:05:18 +0800</pubDate>
