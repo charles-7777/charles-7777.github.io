@@ -7,26 +7,35 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Wed, 15 Jul 2026 18:18:59 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Thu, 16 Jul 2026 00:28:53 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Linux perf</title>
         <link>https://charles-7777.github.io/p/linux-perf/</link>
         <pubDate>Wed, 15 Jul 2026 17:17:02 +0800</pubDate>
         
         <guid>https://charles-7777.github.io/p/linux-perf/</guid>
         <description>&lt;blockquote class=&#34;alert alert-note&#34;&gt;
-    &lt;p&gt;上一篇【&lt;a class=&#34;link&#34; href=&#34;https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/&#34; &gt;linux trace &amp;ndash; ptrace strace ltrace ftrace &lt;/a&gt;】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf&lt;/p&gt;&lt;/blockquote&gt;
-&lt;h2 id=&#34;perf--performance-event&#34;&gt;perf — Performance Event
-&lt;/h2&gt;&lt;blockquote class=&#34;alert alert-tip&#34;&gt;
-    &lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.man7.org/linux/man-pages/man1/perf.1.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &lt;p&gt;上一篇【&lt;a class=&#34;link&#34; href=&#34;https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/&#34; &gt;linux trace &amp;ndash; ptrace strace ltrace ftrace &lt;/a&gt;】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf
+[!TIP]
+&lt;a class=&#34;link&#34; href=&#34;https://www.man7.org/linux/man-pages/man1/perf.1.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;perf(1) — Linux manual page&lt;/a&gt;&lt;br&gt;
 &lt;a class=&#34;link&#34; href=&#34;https://www.brendangregg.com/perf.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;Linux perf Examples&amp;mdash;-brendangregg&lt;/a&gt;&lt;br&gt;
 &lt;a class=&#34;link&#34; href=&#34;https://elixir.bootlin.com/linux/v5.15/source/tools/perf&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;https://elixir.bootlin.com/linux/v5.15/source/tools/perf&lt;/a&gt;&lt;br&gt;
-内核源码: &lt;code&gt;tools/perf/&lt;/code&gt; (用户态工具) + &lt;code&gt;kernel/events/&lt;/code&gt; (内核子系统)
+    &gt;https://elixir.bootlin.com/linux/v5.15/source/tools/perf&lt;/a&gt;
+内核源码: &lt;code&gt;tools/perf/&lt;/code&gt; (用户态工具) + &lt;code&gt;kernel/events/&lt;/code&gt; (内核子系统)&lt;br&gt;
 &lt;a class=&#34;link&#34; href=&#34;https://hotttao.github.io/posts/linux/linux_perf/04_perf/#1-perf-%E7%AE%80%E4%BB%8B&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;perf-简介&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
-&lt;p&gt;&lt;img src=&#34;https://charles-7777.github.io/p/linux-perf/perf_events_map.png&#34;
+    &gt;perf-简介&lt;/a&gt;&lt;br&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://xie.infoq.cn/article/d86b3a3ca106449cb3f369a0f&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;深入探索 perf CPU Profiling 实现原理&lt;/a&gt;&lt;br&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://www.eet-china.com/mp/a168713.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;一文看懂Linux性能分析｜perf源码实现&lt;/a&gt;&lt;br&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://perfwiki.github.io/main/tutorial/#counting-with-perf-stat&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;perfwiki&lt;/a&gt;&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id=&#34;概述&#34;&gt;概述
+&lt;/h2&gt;&lt;p&gt;perf 全称 performance counters.Performance counters for Linux are a new kernel-based subsystem that provide a framework for all things performance analysis. It covers hardware level (CPU/PMU, &lt;code&gt;Performance Monitoring Unit&lt;/code&gt;) features and software features (&lt;code&gt;software counters&lt;/code&gt;, &lt;code&gt;tracepoints&lt;/code&gt;) as well.
+源码位于Linux 源码中：包括用户态工具（tools/perf）和 内核子系统（kernel/events/）&lt;/p&gt;
+&lt;h2 id=&#34;perf--performance-event&#34;&gt;perf — Performance Event
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://charles-7777.github.io/p/linux-perf/perf_events_map.png&#34;
 	width=&#34;1500&#34;
 	height=&#34;1050&#34;
 	srcset=&#34;https://charles-7777.github.io/p/linux-perf/perf_events_map_hu_2fa384d39d2eea1f.png 480w, https://charles-7777.github.io/p/linux-perf/perf_events_map_hu_e2f32f7164fdddde.png 1024w&#34;
