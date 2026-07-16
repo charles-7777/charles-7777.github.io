@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 上一篇【linux trace &ndash; ptrace strace ltrace ftrace 】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf [!TIP] perf(1) — Linux manual page\nLinux perf Examples&mdash;-brendangregg\nhttps://elixir.bootlin.com/linux/v5.15/source/tools/perf 内核源码: tools/perf/ (用户态工具) + kernel/events/ (内核子系统)\nperf-简介\n深入探索 perf CPU Profiling 实现原理\n一文看懂Linux性能分析｜perf源码实现\nperfwiki\n概述 perf 全称 performance counters.Performance counters for Linux are a new kernel-based subsystem that provide a framework for all things performance analysis. It covers hardware level (CPU/PMU, Performance Monitoring Unit) features and software features (software counters, tracepoints) as well. 源码位于Linux 源码中：包括用户态工具（tools/perf）和 内核子系统（kernel/events/）,还有arch/arm64/kernel/perf_xxx.c 和driver/perf/\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 上一篇【linux trace &ndash; ptrace strace ltrace ftrace 】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf\nperf(1) — Linux manual page\nLinux perf Examples&mdash;-brendangregg\nhttps://elixir.bootlin.com/linux/v5.15/source/tools/perf 内核源码: tools/perf/ (用户态工具) + kernel/events/ (内核子系统)\nperf-简介\n深入探索 perf CPU Profiling 实现原理\n一文看懂Linux性能分析｜perf源码实现\nperfwiki\n概述 perf 全称 performance counters.Performance counters for Linux are a new kernel-based subsystem that provide a framework for all things performance analysis. It covers hardware level (CPU/PMU, Performance Monitoring Unit) features and software features (software counters, tracepoints) as well. 源码位于Linux 源码中：包括用户态工具（tools/perf）和 内核子系统（kernel/events/）,还有arch/arm64/kernel/perf_xxx.c 和driver/perf/\n">
 <title>Linux perf</title>
 
 <link rel='canonical' href='https://charles-7777.github.io/p/linux-perf/'>
 
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Linux perf">
-<meta property='og:description' content=" 上一篇【linux trace &ndash; ptrace strace ltrace ftrace 】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf [!TIP] perf(1) — Linux manual page\nLinux perf Examples&mdash;-brendangregg\nhttps://elixir.bootlin.com/linux/v5.15/source/tools/perf 内核源码: tools/perf/ (用户态工具) + kernel/events/ (内核子系统)\nperf-简介\n深入探索 perf CPU Profiling 实现原理\n一文看懂Linux性能分析｜perf源码实现\nperfwiki\n概述 perf 全称 performance counters.Performance counters for Linux are a new kernel-based subsystem that provide a framework for all things performance analysis. It covers hardware level (CPU/PMU, Performance Monitoring Unit) features and software features (software counters, tracepoints) as well. 源码位于Linux 源码中：包括用户态工具（tools/perf）和 内核子系统（kernel/events/）,还有arch/arm64/kernel/perf_xxx.c 和driver/perf/\n">
+<meta property='og:description' content=" 上一篇【linux trace &ndash; ptrace strace ltrace ftrace 】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf\nperf(1) — Linux manual page\nLinux perf Examples&mdash;-brendangregg\nhttps://elixir.bootlin.com/linux/v5.15/source/tools/perf 内核源码: tools/perf/ (用户态工具) + kernel/events/ (内核子系统)\nperf-简介\n深入探索 perf CPU Profiling 实现原理\n一文看懂Linux性能分析｜perf源码实现\nperfwiki\n概述 perf 全称 performance counters.Performance counters for Linux are a new kernel-based subsystem that provide a framework for all things performance analysis. It covers hardware level (CPU/PMU, Performance Monitoring Unit) features and software features (software counters, tracepoints) as well. 源码位于Linux 源码中：包括用户态工具（tools/perf）和 内核子系统（kernel/events/）,还有arch/arm64/kernel/perf_xxx.c 和driver/perf/\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/linux-perf/'>
 <meta property='og:site_name' content='Charles'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-15T17:17:02&#43;08:00'/><meta property='article:modified_time' content='2026-07-17T00:57:49&#43;08:00'/>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-07-15T17:17:02&#43;08:00'/><meta property='article:modified_time' content='2026-07-17T00:59:36&#43;08:00'/>
 <meta name="twitter:title" content="Linux perf">
-<meta name="twitter:description" content=" 上一篇【linux trace &ndash; ptrace strace ltrace ftrace 】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf [!TIP] perf(1) — Linux manual page\nLinux perf Examples&mdash;-brendangregg\nhttps://elixir.bootlin.com/linux/v5.15/source/tools/perf 内核源码: tools/perf/ (用户态工具) + kernel/events/ (内核子系统)\nperf-简介\n深入探索 perf CPU Profiling 实现原理\n一文看懂Linux性能分析｜perf源码实现\nperfwiki\n概述 perf 全称 performance counters.Performance counters for Linux are a new kernel-based subsystem that provide a framework for all things performance analysis. It covers hardware level (CPU/PMU, Performance Monitoring Unit) features and software features (software counters, tracepoints) as well. 源码位于Linux 源码中：包括用户态工具（tools/perf）和 内核子系统（kernel/events/）,还有arch/arm64/kernel/perf_xxx.c 和driver/perf/\n">
+<meta name="twitter:description" content=" 上一篇【linux trace &ndash; ptrace strace ltrace ftrace 】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf\nperf(1) — Linux manual page\nLinux perf Examples&mdash;-brendangregg\nhttps://elixir.bootlin.com/linux/v5.15/source/tools/perf 内核源码: tools/perf/ (用户态工具) + kernel/events/ (内核子系统)\nperf-简介\n深入探索 perf CPU Profiling 实现原理\n一文看懂Linux性能分析｜perf源码实现\nperfwiki\n概述 perf 全称 performance counters.Performance counters for Linux are a new kernel-based subsystem that provide a framework for all things performance analysis. It covers hardware level (CPU/PMU, Performance Monitoring Unit) features and software features (software counters, tracepoints) as well. 源码位于Linux 源码中：包括用户态工具（tools/perf）和 内核子系统（kernel/events/）,还有arch/arm64/kernel/perf_xxx.c 和driver/perf/\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -377,7 +377,7 @@
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-07-17 00:57</time>
+            <time class="article-lastmod">2026-07-17 00:59</time>
         </div>
         
 
@@ -401,7 +401,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    6153 字
+                    6152 字
                 </time>
             </div>
         
@@ -422,9 +422,9 @@
     
     
     <blockquote class="alert alert-note">
-    <p>上一篇【<a class="link" href="https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/" >linux trace &ndash; ptrace strace ltrace ftrace </a>】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf
-[!TIP]
-<a class="link" href="https://www.man7.org/linux/man-pages/man1/perf.1.html"  target="_blank" rel="noopener"
+    <p>上一篇【<a class="link" href="https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/" >linux trace &ndash; ptrace strace ltrace ftrace </a>】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf</p></blockquote>
+<blockquote class="alert alert-tip">
+    <p><a class="link" href="https://www.man7.org/linux/man-pages/man1/perf.1.html"  target="_blank" rel="noopener"
     >perf(1) — Linux manual page</a><br>
 <a class="link" href="https://www.brendangregg.com/perf.html"  target="_blank" rel="noopener"
     >Linux perf Examples&mdash;-brendangregg</a><br>

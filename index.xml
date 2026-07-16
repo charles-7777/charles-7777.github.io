@@ -13,9 +13,9 @@
         
         <guid>https://charles-7777.github.io/p/linux-perf/</guid>
         <description>&lt;blockquote class=&#34;alert alert-note&#34;&gt;
-    &lt;p&gt;上一篇【&lt;a class=&#34;link&#34; href=&#34;https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/&#34; &gt;linux trace &amp;ndash; ptrace strace ltrace ftrace &lt;/a&gt;】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf
-[!TIP]
-&lt;a class=&#34;link&#34; href=&#34;https://www.man7.org/linux/man-pages/man1/perf.1.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &lt;p&gt;上一篇【&lt;a class=&#34;link&#34; href=&#34;https://charles-7777.github.io/p/linux-trace--ptrace-strace-ltrace-ftrace/&#34; &gt;linux trace &amp;ndash; ptrace strace ltrace ftrace &lt;/a&gt;】 简要学习了ptrace strace ltrace ftrace， 本篇学习一下perf&lt;/p&gt;&lt;/blockquote&gt;
+&lt;blockquote class=&#34;alert alert-tip&#34;&gt;
+    &lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.man7.org/linux/man-pages/man1/perf.1.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;perf(1) — Linux manual page&lt;/a&gt;&lt;br&gt;
 &lt;a class=&#34;link&#34; href=&#34;https://www.brendangregg.com/perf.html&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;Linux perf Examples&amp;mdash;-brendangregg&lt;/a&gt;&lt;br&gt;
