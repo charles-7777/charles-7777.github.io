@@ -1,0 +1,2405 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 基于 Linux 5.15 内核源码分析\nhttps://elixir.bootlin.com/linux/v5.15/source\n什么是 mmap？ mmap 是 Linux 系统的一种内存映射机制，允许将文件或设备直接映射到进程的虚拟地址空间。进程通过操作内存指针即可读写文件，无需调用 read() / write() 等系统调用。\nmmap 在 Linux 系统中广泛被使用：内存分配（malloc 大块）、零拷贝网络传输、进程间通信、大文件处理等。\nmmap 函数原型 1 2 3 #include &lt;sys/mman.h&gt; void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset); 参数说明：\n参数 类型 描述 addr void * 期望的映射起始地址，通常为 NULL（内核选择） length size_t 映射长度（字节） prot int 保护标志：PROT_READ / PROT_WRITE / PROT_EXEC / PROT_NONE flags int 映射标志：MAP_SHARED / MAP_PRIVATE / MAP_ANONYMOUS / MAP_FIXED 等 fd int 文件描述符（文件映射）；匿名映射传 -1 offset off_t 文件偏移量（需页对齐） 返回值： 成功返回映射的虚拟地址，失败返回 MAP_FAILED（即 (void *)-1）。\n">
+<title>mmap 系统调用原理解析</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/mmap-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="mmap 系统调用原理解析">
+<meta property='og:description' content=" 基于 Linux 5.15 内核源码分析\nhttps://elixir.bootlin.com/linux/v5.15/source\n什么是 mmap？ mmap 是 Linux 系统的一种内存映射机制，允许将文件或设备直接映射到进程的虚拟地址空间。进程通过操作内存指针即可读写文件，无需调用 read() / write() 等系统调用。\nmmap 在 Linux 系统中广泛被使用：内存分配（malloc 大块）、零拷贝网络传输、进程间通信、大文件处理等。\nmmap 函数原型 1 2 3 #include &lt;sys/mman.h&gt; void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset); 参数说明：\n参数 类型 描述 addr void * 期望的映射起始地址，通常为 NULL（内核选择） length size_t 映射长度（字节） prot int 保护标志：PROT_READ / PROT_WRITE / PROT_EXEC / PROT_NONE flags int 映射标志：MAP_SHARED / MAP_PRIVATE / MAP_ANONYMOUS / MAP_FIXED 等 fd int 文件描述符（文件映射）；匿名映射传 -1 offset off_t 文件偏移量（需页对齐） 返回值： 成功返回映射的虚拟地址，失败返回 MAP_FAILED（即 (void *)-1）。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/mmap-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='mmap' /><meta property='article:published_time' content='2026-07-19T23:56:01&#43;08:00'/><meta property='article:modified_time' content='2026-07-20T00:06:05&#43;08:00'/>
+<meta name="twitter:title" content="mmap 系统调用原理解析">
+<meta name="twitter:description" content=" 基于 Linux 5.15 内核源码分析\nhttps://elixir.bootlin.com/linux/v5.15/source\n什么是 mmap？ mmap 是 Linux 系统的一种内存映射机制，允许将文件或设备直接映射到进程的虚拟地址空间。进程通过操作内存指针即可读写文件，无需调用 read() / write() 等系统调用。\nmmap 在 Linux 系统中广泛被使用：内存分配（malloc 大块）、零拷贝网络传输、进程间通信、大文件处理等。\nmmap 函数原型 1 2 3 #include &lt;sys/mman.h&gt; void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset); 参数说明：\n参数 类型 描述 addr void * 期望的映射起始地址，通常为 NULL（内核选择） length size_t 映射长度（字节） prot int 保护标志：PROT_READ / PROT_WRITE / PROT_EXEC / PROT_NONE flags int 映射标志：MAP_SHARED / MAP_PRIVATE / MAP_ANONYMOUS / MAP_FIXED 等 fd int 文件描述符（文件映射）；匿名映射传 -1 offset off_t 文件偏移量（需页对齐） 返回值： 成功返回映射的虚拟地址，失败返回 MAP_FAILED（即 (void *)-1）。\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='/index.xml'
+                        target="_blank"
+                        title="RSS"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-rss" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="5" cy="19" r="1" />
+  <path d="M4 4a16 16 0 0 1 16 16" />
+  <path d="M4 11a9 9 0 0 1 9 9" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#什么是-mmap">什么是 mmap？</a></li>
+    <li><a href="#mmap-函数原型">mmap 函数原型</a></li>
+    <li><a href="#背景知识物理内存管理">背景知识：物理内存管理</a>
+      <ol>
+        <li><a href="#页page">页（Page）</a></li>
+        <li><a href="#arm64-四级页表">arm64 四级页表</a></li>
+        <li><a href="#虚拟地址--物理地址映射过程">虚拟地址 → 物理地址映射过程</a></li>
+        <li><a href="#进程虚拟地址空间布局">进程虚拟地址空间布局</a></li>
+      </ol>
+    </li>
+    <li><a href="#mmap-内核实现原理">mmap 内核实现原理</a>
+      <ol>
+        <li><a href="#系统调用入口">系统调用入口</a></li>
+        <li><a href="#do_mmap-处理流程">do_mmap() 处理流程</a></li>
+        <li><a href="#mmap_region--vma-安装">mmap_region() — VMA 安装</a></li>
+        <li><a href="#内核页表映射函数调用链">内核页表映射函数调用链</a></li>
+        <li><a href="#文件映射-vs-匿名映射">文件映射 vs 匿名映射</a></li>
+      </ol>
+    </li>
+    <li><a href="#mmap-demo">mmap demo</a>
+      <ol>
+        <li><a href="#示例程序">示例程序</a></li>
+        <li><a href="#编译与运行">编译与运行</a></li>
+        <li><a href="#使用-readelf-分析-elf-布局">使用 readelf 分析 ELF 布局</a></li>
+        <li><a href="#使用-objdump-反汇编-mmap-调用">使用 objdump 反汇编 mmap 调用</a></li>
+        <li><a href="#通过-proc-观察运行时的内存映射">通过 /proc/ 观察运行时的内存映射</a></li>
+        <li><a href="#综合分析对照表">综合分析对照表</a></li>
+        <li><a href="#关键观察">关键观察</a></li>
+        <li><a href="#关键源码文件索引">关键源码文件索引</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/linux/" >
+                Linux
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/mmap-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/">mmap 系统调用原理解析</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-07-19 23:56</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-07-20 00:06</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 13 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    2572 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <blockquote>
+<p>基于 Linux 5.15 内核源码分析<br>
+<a class="link" href="https://elixir.bootlin.com/linux/v5.15/source"  target="_blank" rel="noopener"
+    >https://elixir.bootlin.com/linux/v5.15/source</a></p></blockquote>
+<h2 id="什么是-mmap">什么是 mmap？
+</h2><p><code>mmap</code> 是 Linux 系统的一种内存映射机制，允许将文件或设备直接映射到进程的虚拟地址空间。进程通过操作内存指针即可读写文件，<strong>无需调用 <code>read()</code> / <code>write()</code> 等系统调用</strong>。</p>
+<p>mmap 在 Linux 系统中广泛被使用：内存分配（<code>malloc</code> 大块）、零拷贝网络传输、进程间通信、大文件处理等。</p>
+<h2 id="mmap-函数原型">mmap 函数原型
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;sys/mman.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="o">*</span><span class="nf">mmap</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">addr</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">length</span><span class="p">,</span> <span class="kt">int</span> <span class="n">prot</span><span class="p">,</span> <span class="kt">int</span> <span class="n">flags</span><span class="p">,</span> <span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="kt">off_t</span> <span class="n">offset</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>参数说明：</strong></p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>参数</th>
+          <th>类型</th>
+          <th>描述</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>addr</code></td>
+          <td><code>void *</code></td>
+          <td>期望的映射起始地址，通常为 <code>NULL</code>（内核选择）</td>
+      </tr>
+      <tr>
+          <td><code>length</code></td>
+          <td><code>size_t</code></td>
+          <td>映射长度（字节）</td>
+      </tr>
+      <tr>
+          <td><code>prot</code></td>
+          <td><code>int</code></td>
+          <td>保护标志：<code>PROT_READ</code> / <code>PROT_WRITE</code> / <code>PROT_EXEC</code> / <code>PROT_NONE</code></td>
+      </tr>
+      <tr>
+          <td><code>flags</code></td>
+          <td><code>int</code></td>
+          <td>映射标志：<code>MAP_SHARED</code> / <code>MAP_PRIVATE</code> / <code>MAP_ANONYMOUS</code> / <code>MAP_FIXED</code> 等</td>
+      </tr>
+      <tr>
+          <td><code>fd</code></td>
+          <td><code>int</code></td>
+          <td>文件描述符（文件映射）；匿名映射传 <code>-1</code></td>
+      </tr>
+      <tr>
+          <td><code>offset</code></td>
+          <td><code>off_t</code></td>
+          <td>文件偏移量（需页对齐）</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>返回值：</strong> 成功返回映射的虚拟地址，失败返回 <code>MAP_FAILED</code>（即 <code>(void *)-1</code>）。</p>
+<h2 id="背景知识物理内存管理">背景知识：物理内存管理
+</h2><p>要理解 mmap 的内核实现，必须先理解两个基础：<strong>物理内存如何组织</strong>，以及<strong>虚拟地址如何翻译为物理地址</strong>。</p>
+<h3 id="页page">页（Page）
+</h3><p>Linux 内核将物理内存划分为 4KB 大小的单元，称为<strong>页（Page）</strong>。每个物理页由一个 <code>struct page</code> 描述（<code>include/linux/mm_types.h:70</code>）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">page</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">flags</span><span class="p">;</span>            <span class="cm">/* 页面的状态标志 */</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">atomic_t</span> <span class="n">_count</span><span class="p">;</span>                <span class="cm">/* 页面的引用计数 */</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">atomic_t</span> <span class="n">_mapcount</span><span class="p">;</span>             <span class="cm">/* 页面被映射的次数 */</span>
+</span></span><span class="line"><span class="cl">    <span class="k">union</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">struct</span> <span class="n">address_space</span> <span class="o">*</span><span class="n">mapping</span><span class="p">;</span>  <span class="cm">/* 页面所属的地址空间 */</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">pgoff_t</span> <span class="n">index</span><span class="p">;</span>                  <span class="cm">/* 页面在文件中的偏移量 */</span>
+</span></span><span class="line"><span class="cl">        <span class="p">};</span>
+</span></span><span class="line"><span class="cl">        <span class="k">struct</span> <span class="n">kmem_cache</span> <span class="o">*</span><span class="n">slab</span><span class="p">;</span>    <span class="cm">/* 如果页面属于 SLAB 缓存，指向缓存 */</span>
+</span></span><span class="line"><span class="cl">        <span class="k">struct</span> <span class="n">page</span> <span class="o">*</span><span class="n">next</span><span class="p">;</span>          <span class="cm">/* 链表指针 */</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="o">*</span><span class="n">virtual</span><span class="p">;</span>                  <span class="cm">/* 页面在内核空间的虚拟地址 */</span>
+</span></span><span class="line"><span class="cl">    <span class="cm">/* ... */</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="arm64-四级页表">arm64 四级页表
+</h3><p>ARM64 架构（4K 页、48 位虚拟地址）使用四级页表映射，各层级全称如下：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>缩写</th>
+          <th>英文全称</th>
+          <th>中文含义</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>PGD</strong></td>
+          <td><strong>Page Global Directory</strong></td>
+          <td>页全局目录</td>
+      </tr>
+      <tr>
+          <td><strong>PUD</strong></td>
+          <td><strong>Page Upper Directory</strong></td>
+          <td>页上级目录</td>
+      </tr>
+      <tr>
+          <td><strong>PMD</strong></td>
+          <td><strong>Page Middle Directory</strong></td>
+          <td>页中间目录</td>
+      </tr>
+      <tr>
+          <td><strong>PTE</strong></td>
+          <td><strong>Page Table Entry</strong></td>
+          <td>页表项</td>
+      </tr>
+      <tr>
+          <td>P4D</td>
+          <td>Page 4th Directory</td>
+          <td>页四级目录（某些配置下被折叠）</td>
+      </tr>
+  </tbody>
+</table></div>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">虚拟地址 VA[47:0] 分解（arm64, 4K页, 48位VA）：
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  ┌────────────┬────────────┬────────────┬────────────┬────────────┐
+</span></span><span class="line"><span class="cl">  │  PGD 索引   │  PUD 索引   │  PMD 索引   │  PTE 索引   │  页内偏移   │
+</span></span><span class="line"><span class="cl">  │  bits      │  bits      │  bits      │  bits      │  bits      │
+</span></span><span class="line"><span class="cl">  │  [47:39]   │  [38:30]   │  [29:21]   │  [20:12]   │  [11:0]    │
+</span></span><span class="line"><span class="cl">  ├────────────┼────────────┼────────────┼────────────┼────────────┤
+</span></span><span class="line"><span class="cl">  │  9 bits    │  9 bits    │  9 bits    │  9 bits    │  12 bits   │
+</span></span><span class="line"><span class="cl">  │  512 项    │  512 项    │  512 项    │  512 项    │  4KB 页    │
+</span></span><span class="line"><span class="cl">  │  每项 8B   │  每项 8B   │  每项 8B   │  每项 8B   │            │
+</span></span><span class="line"><span class="cl">  └─────┬──────┴─────┬──────┴─────┬──────┴─────┬──────┴────────────┘
+</span></span><span class="line"><span class="cl">        │            │            │            │
+</span></span><span class="line"><span class="cl">        ▼            ▼            ▼            ▼
+</span></span><span class="line"><span class="cl">   ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌──────────────┐
+</span></span><span class="line"><span class="cl">   │  PGD   │→ │  PUD   │→ │  PMD   │→ │  PTE   │→ │  物理页      │
+</span></span><span class="line"><span class="cl">   │ 页表   │  │ 页表   │  │ 页表   │  │ 页表   │  │  (4KB)      │
+</span></span><span class="line"><span class="cl">   └────────┘  └────────┘  └────────┘  └────────┘  └──────────────┘
+</span></span><span class="line"><span class="cl">        ↑            ↑            ↑            ↑
+</span></span><span class="line"><span class="cl">   CR3/PGDIR   PGD 指向    PUD 指向    PMD 指向
+</span></span><span class="line"><span class="cl">   物理地址     PUD 表      PMD 表      PTE 表
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>页表层级常量</strong>（<code>arch/arm64/include/asm/pgtable-hwdef.h:41</code> 及之后）：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>层级</th>
+          <th>英文全称</th>
+          <th>位移宏</th>
+          <th>值（4K页, 48位VA）</th>
+          <th>每条目覆盖范围</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>PGD</td>
+          <td>Page Global Directory</td>
+          <td><code>PGDIR_SHIFT</code></td>
+          <td>39</td>
+          <td>512 GB</td>
+      </tr>
+      <tr>
+          <td>PUD</td>
+          <td>Page Upper Directory</td>
+          <td><code>PUD_SHIFT</code></td>
+          <td>30</td>
+          <td>1 GB</td>
+      </tr>
+      <tr>
+          <td>PMD</td>
+          <td>Page Middle Directory</td>
+          <td><code>PMD_SHIFT</code></td>
+          <td>21</td>
+          <td>2 MB</td>
+      </tr>
+      <tr>
+          <td>PTE</td>
+          <td>Page Table Entry</td>
+          <td><code>PAGE_SHIFT</code></td>
+          <td>12</td>
+          <td>4 KB</td>
+      </tr>
+  </tbody>
+</table></div>
+<blockquote>
+<p><strong>⚠️ 注意</strong>：表中 &ldquo;512 GB&rdquo; 是 **PGD 的一个条目（entry）**所覆盖的地址范围。PGD 页表共有 <code>PTRS_PER_PGD = 512</code> 个条目（9 位索引），因此 PGD 整张表可覆盖的总地址空间为 <strong>512 × 512 GB = 256 TB</strong>。在 arm64 48 位 VA 下，用户空间大小 <code>TASK_SIZE_64 = (1UL &lt;&lt; vabits_actual) = 1UL &lt;&lt; 48 = 256 TB</code>（<code>arch/arm64/include/asm/processor.h:53</code>），即整个 lower 48-bit 范围。一个进程能占用的虚拟地址空间受 TASK_SIZE 和物理内存/swap 总量的双重限制。</p></blockquote>
+<p><strong>页表项数</strong>：每级页表 <code>PTRS_PER_PTE = 1 &lt;&lt; (PAGE_SHIFT - 3) = 512</code> 项。</p>
+<p><strong>页表类型定义</strong>（<code>arch/arm64/include/asm/pgtable-types.h</code>）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">typedef</span> <span class="k">struct</span> <span class="p">{</span> <span class="kt">pteval_t</span> <span class="n">pte</span><span class="p">;</span> <span class="p">}</span> <span class="kt">pte_t</span><span class="p">;</span>   <span class="cm">/* PTE — Page Table Entry */</span>
+</span></span><span class="line"><span class="cl"><span class="k">typedef</span> <span class="k">struct</span> <span class="p">{</span> <span class="kt">pmdval_t</span> <span class="n">pmd</span><span class="p">;</span> <span class="p">}</span> <span class="kt">pmd_t</span><span class="p">;</span>   <span class="cm">/* PMD — Page Middle Directory */</span>
+</span></span><span class="line"><span class="cl"><span class="k">typedef</span> <span class="k">struct</span> <span class="p">{</span> <span class="kt">pudval_t</span> <span class="n">pud</span><span class="p">;</span> <span class="p">}</span> <span class="kt">pud_t</span><span class="p">;</span>   <span class="cm">/* PUD — Page Upper Directory */</span>
+</span></span><span class="line"><span class="cl"><span class="k">typedef</span> <span class="k">struct</span> <span class="p">{</span> <span class="kt">pgdval_t</span> <span class="n">pgd</span><span class="p">;</span> <span class="p">}</span> <span class="kt">pgd_t</span><span class="p">;</span>   <span class="cm">/* PGD — Page Global Directory */</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="虚拟地址--物理地址映射过程">虚拟地址 → 物理地址映射过程
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">虚拟地址映射物理地址的过程（四级页表）：
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  进程 PGD 基地址记录在 task_struct-&gt;mm-&gt;pgd
+</span></span><span class="line"><span class="cl">  CPU 选中进程后 → 页表基地址寄存器设为该值
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  步骤1: PGD[VA[47:39]]  → 得到 PUD 页表物理基地址
+</span></span><span class="line"><span class="cl">  步骤2: PUD[VA[38:30]]  → 得到 PMD 页表物理基地址
+</span></span><span class="line"><span class="cl">  步骤3: PMD[VA[29:21]]  → 得到 PTE 页表物理基地址
+</span></span><span class="line"><span class="cl">  步骤4: PTE[VA[20:12]]  → 得到物理页基地址
+</span></span><span class="line"><span class="cl">  步骤5: 物理页基地址 + VA[11:0] → 最终物理地址
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  ┌──────┐     ┌──────┐     ┌──────┐     ┌──────┐     ┌─────────┐
+</span></span><span class="line"><span class="cl">  │ PGD  │ ──→ │ PUD  │ ──→ │ PMD  │ ──→ │ PTE  │ ──→ │ 物理页  │
+</span></span><span class="line"><span class="cl">  │[idx0]│     │[idx1]│     │[idx2]│     │[idx3]│     │ + offset│
+</span></span><span class="line"><span class="cl">  └──────┘     └──────┘     └──────┘     └──────┘     └─────────┘
+</span></span><span class="line"><span class="cl">    9位索引      9位索引      9位索引      9位索引      12位偏移
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="进程虚拟地址空间布局">进程虚拟地址空间布局
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="err">完整的进程虚拟地址空间</span> <span class="p">(</span><span class="n">arm64</span> <span class="mi">48</span><span class="err">位</span><span class="n">VA</span><span class="p">,</span> <span class="mi">4</span><span class="n">K页</span><span class="p">)</span><span class="err">：</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="err">┌──────────────────────────────┐</span>  <span class="mh">0x0000</span><span class="n">_0000_0000_0000</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">代码段</span> <span class="p">(</span><span class="n">Text</span><span class="p">)</span>         <span class="err">│</span>  <span class="err">←</span> <span class="err">每个进程独立</span>
+</span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">数据段</span> <span class="p">(</span><span class="n">Data</span><span class="p">)</span>         <span class="err">│</span>  <span class="err">←</span> <span class="err">全局变量在此（进程私有）</span>
+</span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>          <span class="n">BSS</span> <span class="err">段</span>               <span class="err">│</span>  <span class="err">←</span> <span class="err">未初始化全局变量</span>
+</span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>   <span class="err">堆</span> <span class="p">(</span><span class="n">Heap</span><span class="p">)</span> <span class="err">—</span> <span class="n">brk</span><span class="o">/</span><span class="n">sbrk</span>       <span class="err">│</span>  <span class="err">↑</span> <span class="err">向上增长</span>
+</span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">│</span>                    <span class="err">│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>   <span class="err">文件映射和匿名映射区</span>         <span class="err">│</span>  <span class="err">←</span> <span class="n">mmap</span> <span class="err">在此分配</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">│</span>                    <span class="err">│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>    <span class="err">栈</span> <span class="p">(</span><span class="n">Stack</span><span class="p">)</span> <span class="err">—</span> <span class="err">向下增长</span>      <span class="err">│</span>  <span class="err">↓</span>
+</span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>    <span class="p">[</span><span class="n">vdso</span><span class="p">]</span> <span class="o">/</span> <span class="p">[</span><span class="n">vvar</span><span class="p">]</span>          <span class="err">│</span>  <span class="err">←</span> <span class="err">内核映射到用户空间的全局代码</span>
+</span></span><span class="line"><span class="cl">  <span class="err">├══════════════════════════════┤</span>  <span class="mh">0x0000</span><span class="n">_FFFF_FFFF_FFFF</span> <span class="p">(</span><span class="err">用户空间结束</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">全局共享内核空间</span>      <span class="err">│</span>  <span class="err">←</span> <span class="err">所有进程共享同一套内核页表</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>                              <span class="err">│</span>     <span class="p">(</span><span class="n">arm64</span> <span class="n">upper</span> <span class="n">half</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">┌──────────────────────────┐│</span>  <span class="n">ffff_0000_0000_0000</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="err">内核代码</span> <span class="p">(</span><span class="o">.</span><span class="n">text</span><span class="o">/.</span><span class="n">data</span><span class="p">)</span>   <span class="err">││</span>  <span class="err">←</span> <span class="err">全局共享</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="err">模块映射区</span> <span class="p">(</span><span class="n">module</span><span class="p">)</span>      <span class="err">││</span>  <span class="err">←</span> <span class="n">insmod</span> <span class="err">驱动</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">vmalloc</span> <span class="err">区</span>              <span class="err">││</span>  <span class="err">←</span> <span class="n">vmalloc</span><span class="p">()</span> <span class="err">分配的虚拟地址</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">fixmap</span> <span class="o">/</span> <span class="n">PCI</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span>        <span class="err">││</span>  <span class="err">←</span> <span class="err">固定映射</span> <span class="o">/</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="err">空间</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">vmemmap</span>                 <span class="err">││</span>  <span class="err">←</span> <span class="n">struct</span> <span class="n">page</span> <span class="err">数组映射</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="err">内核线性映射</span> <span class="p">(</span><span class="n">direct</span><span class="p">)</span>    <span class="err">││</span>  <span class="err">←</span> <span class="n">phys_to_virt</span><span class="p">,</span> <span class="err">直接访问所有物理内存</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">└──────────────────────────┘│</span>  <span class="n">ffff_FFFF_FFFF_FFFF</span>
+</span></span><span class="line"><span class="cl">  <span class="err">└──────────────────────────────┘</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="err">关键分区说明</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="err">·</span> <span class="err">用户空间</span> <span class="p">(</span><span class="mi">0000</span><span class="n">_0000_0000_0000</span> <span class="o">~</span> <span class="mi">0000</span><span class="n">_FFFF_FFFF_FFFF</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="err">每个进程独立，通过切换页表基地址寄存器隔离</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="err">·</span> <span class="err">内核空间</span> <span class="p">(</span><span class="n">FFFF_0000_0000_0000</span> <span class="o">~</span> <span class="n">FFFF_FFFF_FFFF_FFFF</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="err">所有进程全局共享，上下文切换时内核页表部分不变</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="err">·</span> <span class="err">全局变量</span> <span class="p">(</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="o">.</span><span class="n">bss</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="err">位于用户空间数据段，是每个进程私有的副本（写时复制继承）。</span>
+</span></span><span class="line"><span class="cl">     <span class="o">**</span><span class="err">内核线性映射</span><span class="o">**</span><span class="err">才是真正全局共享的物理内存访问通道。</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="err">·</span> <span class="p">[</span><span class="n">vdso</span><span class="p">]</span> <span class="o">/</span> <span class="p">[</span><span class="n">vvar</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">     <span class="err">内核映射到每个用户空间的</span><span class="s2">&#34;全局&#34;</span><span class="err">代码页，加速</span> <span class="n">gettimeofday</span><span class="p">()</span><span class="err">，</span>
+</span></span><span class="line"><span class="cl">     <span class="err">所有进程看到的内容相同（映射位置可能因</span> <span class="n">ASLR</span> <span class="err">而异）</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="mmap-内核实现原理">mmap 内核实现原理
+</h2><p>有了背景知识，现在来看 mmap 在内核中是如何一步步完成的。</p>
+<h3 id="系统调用入口">系统调用入口
+</h3><p>arm64 入口代码 (<code>arch/arm64/kernel/sys.c:21-29</code>)：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="nf">SYSCALL_DEFINE6</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">long</span><span class="p">,</span> <span class="n">addr</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">long</span><span class="p">,</span> <span class="n">len</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="kt">unsigned</span> <span class="kt">long</span><span class="p">,</span> <span class="n">prot</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">long</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="kt">unsigned</span> <span class="kt">long</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">long</span><span class="p">,</span> <span class="n">off</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="nf">offset_in_page</span><span class="p">(</span><span class="n">off</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="o">-</span><span class="n">EINVAL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">ksys_mmap_pgoff</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span> <span class="n">len</span><span class="p">,</span> <span class="n">prot</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="n">off</span> <span class="o">&gt;&gt;</span> <span class="n">PAGE_SHIFT</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>先看 mmap 的完整调用链：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">用户态 mmap()
+</span></span><span class="line"><span class="cl">    │
+</span></span><span class="line"><span class="cl">    ▼
+</span></span><span class="line"><span class="cl">  ┌──────────────────────────────────────────────────────┐
+</span></span><span class="line"><span class="cl">  │ arch/arm64/kernel/sys.c:21  SYSCALL_DEFINE6(mmap)    │  ← 架构入口
+</span></span><span class="line"><span class="cl">  │   检查 offset 页对齐, off &gt;&gt; PAGE_SHIFT              │
+</span></span><span class="line"><span class="cl">  └──────────────────────────┬───────────────────────────┘
+</span></span><span class="line"><span class="cl">                             │
+</span></span><span class="line"><span class="cl">                             ▼
+</span></span><span class="line"><span class="cl">  ┌──────────────────────────────────────────────────────┐
+</span></span><span class="line"><span class="cl">  │ mm/mmap.c:1583  ksys_mmap_pgoff()                   │  ← 内核通用
+</span></span><span class="line"><span class="cl">  │   解析 fd → struct file *，处理 hugepage             │
+</span></span><span class="line"><span class="cl">  └──────────────────────────┬───────────────────────────┘
+</span></span><span class="line"><span class="cl">                             │
+</span></span><span class="line"><span class="cl">                             ▼
+</span></span><span class="line"><span class="cl">  ┌──────────────────────────────────────────────────────┐
+</span></span><span class="line"><span class="cl">  │ mm/util.c:506  vm_mmap_pgoff()                      │  ← 加锁审计
+</span></span><span class="line"><span class="cl">  │   security_mmap_file() LSM 安全检查                  │
+</span></span><span class="line"><span class="cl">  │   mmap_write_lock_killable(mm) 获取写锁              │
+</span></span><span class="line"><span class="cl">  └──────────────────────────┬───────────────────────────┘
+</span></span><span class="line"><span class="cl">                             │
+</span></span><span class="line"><span class="cl">                             ▼
+</span></span><span class="line"><span class="cl">  ┌──────────────────────────────────────────────────────┐
+</span></span><span class="line"><span class="cl">  │ mm/mmap.c:1404  do_mmap()                           │  ← 核心创建
+</span></span><span class="line"><span class="cl">  │   地址选择、权限检查、vm_flags 计算                   │
+</span></span><span class="line"><span class="cl">  └──────────────────────────┬───────────────────────────┘
+</span></span><span class="line"><span class="cl">                             │
+</span></span><span class="line"><span class="cl">                             ▼
+</span></span><span class="line"><span class="cl">  ┌──────────────────────────────────────────────────────┐
+</span></span><span class="line"><span class="cl">  │ mm/mmap.c:1716  mmap_region()                       │  ← VMA 安装
+</span></span><span class="line"><span class="cl">  │   分配 vm_area_struct、设置 vm_ops、插入红黑树        │
+</span></span><span class="line"><span class="cl">  └──────────────────────────────────────────────────────┘
+</span></span><span class="line"><span class="cl">                             │
+</span></span><span class="line"><span class="cl">                             ▼
+</span></span><span class="line"><span class="cl">  mm_populate() (若 MAP_POPULATE 或 VM_LOCKED)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="do_mmap-处理流程">do_mmap() 处理流程
+</h3><p><code>do_mmap()</code> (<code>mm/mmap.c:1404-1581</code>) 是 mmap 的核心函数：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">        do_mmap(file, addr, len, prot, flags, pgoff, &amp;populate, &amp;uf)
+</span></span><span class="line"><span class="cl">                        │
+</span></span><span class="line"><span class="cl">                        ▼
+</span></span><span class="line"><span class="cl">            ┌─────────────────────┐
+</span></span><span class="line"><span class="cl">            │  参数合法性检查      │  ← len==0 → EINVAL; 地址对齐; 溢出
+</span></span><span class="line"><span class="cl">            └─────────┬───────────┘
+</span></span><span class="line"><span class="cl">                      │
+</span></span><span class="line"><span class="cl">                      ▼
+</span></span><span class="line"><span class="cl">            ┌─────────────────────┐
+</span></span><span class="line"><span class="cl">            │ get_unmapped_area() │  ← 查找或验证可用虚拟地址
+</span></span><span class="line"><span class="cl">            └─────────┬───────────┘
+</span></span><span class="line"><span class="cl">                      │
+</span></span><span class="line"><span class="cl">                      ▼
+</span></span><span class="line"><span class="cl">            ┌─────────────────────┐
+</span></span><span class="line"><span class="cl">            │  合成 vm_flags      │  ← calc_vm_prot_bits + calc_vm_flag_bits
+</span></span><span class="line"><span class="cl">            └─────────┬───────────┘
+</span></span><span class="line"><span class="cl">                      │
+</span></span><span class="line"><span class="cl">                      ▼
+</span></span><span class="line"><span class="cl">        ┌──────────────┴──────────────┐
+</span></span><span class="line"><span class="cl">        │                             │
+</span></span><span class="line"><span class="cl">   file != NULL                  file == NULL
+</span></span><span class="line"><span class="cl">   (文件映射)                     (匿名映射)
+</span></span><span class="line"><span class="cl">        │                             │
+</span></span><span class="line"><span class="cl">        ▼                             ▼
+</span></span><span class="line"><span class="cl">  ┌──────────────────┐      ┌───────────────────────┐
+</span></span><span class="line"><span class="cl">  │ · 检查文件权限    │      │ · MAP_SHARED: pgoff=0 │
+</span></span><span class="line"><span class="cl">  │ · 验证 f_op-&gt;mmap │      │ · MAP_PRIVATE:        │
+</span></span><span class="line"><span class="cl">  │ · MAP_SHARED      │      │   pgoff=addr&gt;&gt;PSHIFT  │
+</span></span><span class="line"><span class="cl">  │   需写权限        │      └──────────┬────────────┘
+</span></span><span class="line"><span class="cl">  └────────┬─────────┘                 │
+</span></span><span class="line"><span class="cl">           │                            │
+</span></span><span class="line"><span class="cl">           └──────────┬─────────────────┘
+</span></span><span class="line"><span class="cl">                      │
+</span></span><span class="line"><span class="cl">                      ▼
+</span></span><span class="line"><span class="cl">            ┌─────────────────────┐
+</span></span><span class="line"><span class="cl">            │   mmap_region()     │  ← 真正的 VMA 创建
+</span></span><span class="line"><span class="cl">            └─────────────────────┘
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="mmap_region--vma-安装">mmap_region() — VMA 安装
+</h3><p><code>mmap_region()</code> (<code>mm/mmap.c:1716-1871</code>) 将 VMA 真正安装到进程地址空间：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>步骤</th>
+          <th>代码位置</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>地址空间检查</td>
+          <td><code>may_expand_vm()</code></td>
+          <td>检查进程 <code>RLIMIT_AS</code> 限制</td>
+      </tr>
+      <tr>
+          <td>解除旧映射</td>
+          <td><code>munmap_vma_range()</code></td>
+          <td>如果有旧映射先解除</td>
+      </tr>
+      <tr>
+          <td>尝试合并 VMA</td>
+          <td><code>vma_merge()</code></td>
+          <td>与相邻 VMA 合并</td>
+      </tr>
+      <tr>
+          <td>分配 VMA 结构体</td>
+          <td><code>vm_area_alloc()</code></td>
+          <td>分配 <code>struct vm_area_struct</code></td>
+      </tr>
+      <tr>
+          <td><strong>文件映射</strong></td>
+          <td><code>call_mmap(file, vma)</code></td>
+          <td>调用 <code>f_op-&gt;mmap()</code> 设置 <code>vm_ops</code></td>
+      </tr>
+      <tr>
+          <td><strong>匿名共享映射</strong></td>
+          <td><code>shmem_zero_setup(vma)</code></td>
+          <td>创建 shmem 伪文件</td>
+      </tr>
+      <tr>
+          <td><strong>匿名私有映射</strong></td>
+          <td><code>vma_set_anonymous(vma)</code></td>
+          <td><code>vm_ops = NULL</code></td>
+      </tr>
+      <tr>
+          <td>插入树/链表</td>
+          <td><code>vma_link()</code></td>
+          <td>插入红黑树和双向链表</td>
+      </tr>
+      <tr>
+          <td>统计</td>
+          <td><code>vm_stat_account()</code></td>
+          <td>更新内存统计</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="内核页表映射函数调用链">内核页表映射函数调用链
+</h3><p>mmap 建立地址映射的最终落脚点是<strong>填充页表</strong>。ARM64 的页表填充通过 <code>arch/arm64/mm/mmu.c</code> 中的函数链完成：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">__create_pgd_mapping(pgdir, phys, virt, size, prot, alloc, flags)  ← 第 363 行
+</span></span><span class="line"><span class="cl">    │  遍历 PGD 条目 (按 pgd_addr_end 分段)
+</span></span><span class="line"><span class="cl">    │
+</span></span><span class="line"><span class="cl">    └─ alloc_init_pud()                                          ← 第 308 行
+</span></span><span class="line"><span class="cl">        │  p4d_offset() 访问 P4D → __p4d_populate() 分配 PUD 表
+</span></span><span class="line"><span class="cl">        │  尝试 1GB 大块映射 (pud_set_huge)
+</span></span><span class="line"><span class="cl">        │
+</span></span><span class="line"><span class="cl">        └─ alloc_init_cont_pmd()                                 ← 第 255 行
+</span></span><span class="line"><span class="cl">            │  __pud_populate() 分配 PMD 表
+</span></span><span class="line"><span class="cl">            │
+</span></span><span class="line"><span class="cl">            └─ init_pmd()                                        ← 第 218 行
+</span></span><span class="line"><span class="cl">                │  pmd_set_fixmap_offset() 定位 PMD 条目
+</span></span><span class="line"><span class="cl">                │  尝试 2MB 大块映射 (pmd_set_huge)
+</span></span><span class="line"><span class="cl">                │
+</span></span><span class="line"><span class="cl">                └─ alloc_init_cont_pte()                         ← 第 179 行
+</span></span><span class="line"><span class="cl">                    │  __pmd_populate() 分配 PTE 表
+</span></span><span class="line"><span class="cl">                    │
+</span></span><span class="line"><span class="cl">                    └─ init_pte()                                ← 第 155 行
+</span></span><span class="line"><span class="cl">                        │  pte_set_fixmap_offset() 定位 PTE 条目
+</span></span><span class="line"><span class="cl">                        │  set_pte() 写入页表项
+</span></span><span class="line"><span class="cl">                        │  逐页: pfn_pte(__phys_to_pfn(phys), prot)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="文件映射-vs-匿名映射">文件映射 vs 匿名映射
+</h3><p>内核通过 <code>vm_ops</code> 函数指针表实现<strong>多态</strong>机制，三种映射方式在 <code>mmap_region()</code> 中分支：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>特性</th>
+          <th>文件映射</th>
+          <th>匿名共享</th>
+          <th>匿名私有</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>vm_file</code></td>
+          <td>真实文件 <code>struct file *</code></td>
+          <td>shmem 伪文件</td>
+          <td><code>NULL</code></td>
+      </tr>
+      <tr>
+          <td><code>vm_ops</code></td>
+          <td>文件系统设置（如 <code>ext4_file_vm_ops</code>）</td>
+          <td><code>&amp;shmem_vm_ops</code></td>
+          <td><code>NULL</code></td>
+      </tr>
+      <tr>
+          <td>设置位置</td>
+          <td><code>call_mmap()</code> + <code>f_op-&gt;mmap()</code></td>
+          <td><code>shmem_zero_setup()</code></td>
+          <td><code>vma_set_anonymous()</code></td>
+      </tr>
+      <tr>
+          <td>缺页处理</td>
+          <td><code>vma-&gt;vm_ops-&gt;fault()</code> → 从磁盘读取</td>
+          <td><code>shmem_fault()</code> → 共享内存</td>
+          <td><code>do_anonymous_page()</code> → 零填充页</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>两种映射没有本质区别——<strong>区别仅在于映射的目的物理页不同</strong>：</p>
+<ul>
+<li><strong>文件映射</strong>：映射的物理地址指向<strong>文件的页缓存</strong>（page cache）。Linux 将磁盘文件预读取至页缓存，访问页缓存等同于访问磁盘文件。</li>
+<li><strong>匿名映射</strong>：映射的物理地址指向<strong>匿名页</strong>（由 <code>do_anonymous_page()</code> 分配的零填充页，或 shmem 管理的共享页）。</li>
+</ul>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">文件映射原理：
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  进程虚拟地址                  页缓存                  磁盘文件
+</span></span><span class="line"><span class="cl">  ┌──────────┐              ┌──────────┐            ┌──────────┐
+</span></span><span class="line"><span class="cl">  │ 虚拟地址  │  ──页表──→   │ 物理页   │  ──回写→   │ 文件数据  │
+</span></span><span class="line"><span class="cl">  │  (VMA)   │              │ (Page)   │  ←预读取─  │   on     │
+</span></span><span class="line"><span class="cl">  └──────────┘              └──────────┘            │  Disk    │
+</span></span><span class="line"><span class="cl">                                                      └──────────┘
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="mmap-demo">mmap demo
+</h2><p>以下示例展示 mmap 的三种典型用法，并结合 <code>readelf</code>、<code>objdump</code>、<code>/proc/</code> 文件系统逐一分析。</p>
+<h3 id="示例程序">示例程序
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span><span class="lnt">69
+</span><span class="lnt">70
+</span><span class="lnt">71
+</span><span class="lnt">72
+</span><span class="lnt">73
+</span><span class="lnt">74
+</span><span class="lnt">75
+</span><span class="lnt">76
+</span><span class="lnt">77
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cm">/*
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * mmap_demo.c — 演示 mmap 三种典型用法
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 编译: gcc -O2 -o mmap_demo mmap_demo.c
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;fcntl.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;sys/mman.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;sys/stat.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="cm">/* ─── 1. 匿名私有映射 (分配大块内存) ─── */</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">size_t</span> <span class="n">anon_len</span> <span class="o">=</span> <span class="mi">4096</span> <span class="o">*</span> <span class="mi">10</span><span class="p">;</span>  <span class="cm">/* 10 页 */</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="o">*</span><span class="n">anon</span> <span class="o">=</span> <span class="nf">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">anon_len</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                      <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                      <span class="n">MAP_PRIVATE</span> <span class="o">|</span> <span class="n">MAP_ANONYMOUS</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                      <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">anon</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">perror</span><span class="p">(</span><span class="s">&#34;匿名映射失败&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">strcpy</span><span class="p">((</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">anon</span><span class="p">,</span> <span class="s">&#34;Hello from anonymous mmap!&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;[匿名映射] 地址: %p, 长度: %zu bytes, 内容: %s</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="n">anon</span><span class="p">,</span> <span class="n">anon_len</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">anon</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;  按 ENTER 继续...&#34;</span><span class="p">);</span> <span class="nf">getchar</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* ─── 2. 文件映射 (读/写文件) ─── */</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">fd</span> <span class="o">=</span> <span class="nf">open</span><span class="p">(</span><span class="s">&#34;/tmp/mmap_test.txt&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                  <span class="n">O_RDWR</span> <span class="o">|</span> <span class="n">O_CREAT</span> <span class="o">|</span> <span class="n">O_TRUNC</span><span class="p">,</span> <span class="mo">0644</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">fd</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="nf">perror</span><span class="p">(</span><span class="s">&#34;open&#34;</span><span class="p">);</span> <span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* 先准备好文件内容 */</span>
+</span></span><span class="line"><span class="cl">    <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">msg</span> <span class="o">=</span> <span class="s">&#34;mmap file I/O demo</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">write</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="nf">strlen</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">size_t</span> <span class="n">file_len</span> <span class="o">=</span> <span class="mi">4096</span><span class="p">;</span>  <span class="cm">/* 映射 1 页 */</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="o">*</span><span class="n">file_map</span> <span class="o">=</span> <span class="nf">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">file_len</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                          <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                          <span class="n">MAP_SHARED</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">file_map</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">perror</span><span class="p">(</span><span class="s">&#34;文件映射失败&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">close</span><span class="p">(</span><span class="n">fd</span><span class="p">);</span>  <span class="cm">/* 映射后可以关闭 fd */</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;[文件映射] 地址: %p, 长度: %zu</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">file_map</span><span class="p">,</span> <span class="n">file_len</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;  文件内容: %s</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">file_map</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="cm">/* 通过内存修改文件内容 */</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">memcpy</span><span class="p">(</span><span class="n">file_map</span><span class="p">,</span> <span class="s">&#34;MODIFIED via mmap!&#34;</span><span class="p">,</span> <span class="mi">19</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;  修改后, 查看文件: $ cat /tmp/mmap_test.txt</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;  按 ENTER 继续...&#34;</span><span class="p">);</span> <span class="nf">getchar</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* ─── 3. 匿名共享映射 (IPC 模拟) ─── */</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">size_t</span> <span class="n">shm_len</span> <span class="o">=</span> <span class="mi">4096</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="o">*</span><span class="n">shared</span> <span class="o">=</span> <span class="nf">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">shm_len</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                        <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                        <span class="n">MAP_SHARED</span> <span class="o">|</span> <span class="n">MAP_ANONYMOUS</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                        <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">shared</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">perror</span><span class="p">(</span><span class="s">&#34;共享映射失败&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">sprintf</span><span class="p">((</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">shared</span><span class="p">,</span> <span class="s">&#34;PID=%d shared data&#34;</span><span class="p">,</span> <span class="nf">getpid</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;[共享映射] 地址: %p, 内容: %s</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">shared</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">shared</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="cm">/* ─── 暂停, 便于观察 /proc/pid/maps ─── */</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\n</span><span class="s">查看进程内存映射: $ cat /proc/%d/maps</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="nf">getpid</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;按 ENTER 退出清理...&#34;</span><span class="p">);</span> <span class="nf">getchar</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nf">munmap</span><span class="p">(</span><span class="n">anon</span><span class="p">,</span> <span class="n">anon_len</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">munmap</span><span class="p">(</span><span class="n">file_map</span><span class="p">,</span> <span class="n">file_len</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">munmap</span><span class="p">(</span><span class="n">shared</span><span class="p">,</span> <span class="n">shm_len</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="编译与运行">编译与运行
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ gcc -O0 -o mmap_demo mmap_demo.c
+</span></span><span class="line"><span class="cl">$ ./mmap_demo
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="使用-readelf-分析-elf-布局">使用 readelf 分析 ELF 布局
+</h3><p>先看编译后的程序本身有哪些内存区域会被内核加载：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ readelf -S mmap_demo          <span class="c1"># 查看节区表 (Section Headers)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>关键输出片段：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Section Headers:
+</span></span><span class="line"><span class="cl">  [Nr] Name              Type             Address           Offset
+</span></span><span class="line"><span class="cl">       Size              EntSize          Flags  Link  Info  Align
+</span></span><span class="line"><span class="cl">  [13] .text             PROGBITS         0000000000001060  00001060
+</span></span><span class="line"><span class="cl">       0000000000000b55  0000000000000000  AX       0     0     16
+</span></span><span class="line"><span class="cl">  [16] .rodata           PROGBITS         0000000000002000  00002000
+</span></span><span class="line"><span class="cl">       0000000000000208  0000000000000000   A       0     0     8
+</span></span><span class="line"><span class="cl">  [24] .data             PROGBITS         0000000000004020  00003020
+</span></span><span class="line"><span class="cl">       0000000000000108  0000000000000000  WA       0     0     8
+</span></span><span class="line"><span class="cl">  [25] .bss              NOBITS           0000000000004140  00003128
+</span></span><span class="line"><span class="cl">       0000000000000028  0000000000000000  WA       0     0     8
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>节区</th>
+          <th>地址</th>
+          <th>文件偏移</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>.text</code></td>
+          <td>0x1060</td>
+          <td>0x1060</td>
+          <td>代码段，<code>AX</code>（可分配+可执行）</td>
+      </tr>
+      <tr>
+          <td><code>.rodata</code></td>
+          <td>0x2000</td>
+          <td>0x2000</td>
+          <td>只读数据（字符串常量），<code>A</code></td>
+      </tr>
+      <tr>
+          <td><code>.data</code></td>
+          <td>0x4020</td>
+          <td>0x3020</td>
+          <td>已初始化全局数据，<code>WA</code>（可写）</td>
+      </tr>
+      <tr>
+          <td><code>.bss</code></td>
+          <td>0x4140</td>
+          <td>—</td>
+          <td>未初始化全局数据（不占文件空间）</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>再用 <code>readelf -l</code> 查看<strong>程序头</strong>（决定内核如何加载）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ readelf -l mmap_demo
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Program Headers:
+</span></span><span class="line"><span class="cl">  Type           Offset   VirtAddr          PhysAddr          FileSiz  MemSiz   Flg Align
+</span></span><span class="line"><span class="cl">  PHDR           0x000040 0x0000000000000040 0x0000000000000040 0x000208 0x000208 R   0x8
+</span></span><span class="line"><span class="cl">  LOAD           0x000000 0x0000000000000000 0x0000000000000000 0x000878 0x000878 R   0x1000
+</span></span><span class="line"><span class="cl">  LOAD           0x001000 0x0000000000001000 0x0000000000001000 0x00bb5  0x00bb5  R E 0x1000
+</span></span><span class="line"><span class="cl">  LOAD           0x002000 0x0000000000002000 0x0000000000002000 0x000208 0x000208 R   0x1000
+</span></span><span class="line"><span class="cl">  LOAD           0x002dd8 0x0000000000003dd8 0x0000000000003dd8 0x000258 0x000390 RW  0x1000
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>每个 <code>LOAD</code> 段对应内核加载时需要创建的一个 VMA：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>段</th>
+          <th>文件偏移</th>
+          <th>虚拟地址</th>
+          <th>文件大小</th>
+          <th>内存大小</th>
+          <th>标志</th>
+          <th>加载内容</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>LOAD #1</td>
+          <td>0x000000</td>
+          <td>0x000000</td>
+          <td>0x878</td>
+          <td>0x878</td>
+          <td>R</td>
+          <td>ELF header, 只读</td>
+      </tr>
+      <tr>
+          <td>LOAD #2</td>
+          <td>0x001000</td>
+          <td>0x001000</td>
+          <td>0xbb5</td>
+          <td>0xbb5</td>
+          <td>R E</td>
+          <td><code>.text</code> 代码段</td>
+      </tr>
+      <tr>
+          <td>LOAD #3</td>
+          <td>0x002000</td>
+          <td>0x002000</td>
+          <td>0x208</td>
+          <td>0x208</td>
+          <td>R</td>
+          <td><code>.rodata</code></td>
+      </tr>
+      <tr>
+          <td>LOAD #4</td>
+          <td>0x002dd8</td>
+          <td>0x003dd8</td>
+          <td>0x258</td>
+          <td><strong>0x390</strong></td>
+          <td>RW</td>
+          <td><code>.data</code> + <code>.bss</code></td>
+      </tr>
+  </tbody>
+</table></div>
+<p>注意第 4 个段：<code>MemSiz &gt; FileSiz</code>，多出的部分就是 <code>.bss</code>（内核启动时清零）。</p>
+<h3 id="使用-objdump-反汇编-mmap-调用">使用 objdump 反汇编 mmap 调用
+</h3><p>反汇编 <code>mmap</code> 在 PLT 中的跳转和实际调用：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ objdump -d mmap_demo <span class="p">|</span> grep -A <span class="m">20</span> <span class="s1">&#39;&lt;main&gt;&#39;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>关注 <code>call</code> 指令后的函数调用关系：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">0000000000001200</span> <span class="err">&lt;</span><span class="nf">main</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="err">1200:</span>  <span class="nf">push</span>   <span class="nv">%rbp</span>
+</span></span><span class="line"><span class="cl">    <span class="err">1201:</span>  <span class="nf">mov</span>    <span class="nv">%rsp</span><span class="p">,</span><span class="nv">%rbp</span>
+</span></span><span class="line"><span class="cl">    <span class="err">1204:</span>  <span class="na">...</span>                    <span class="c1"># 准备栈帧
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># 匿名映射: mmap(NULL, 40960, PROT_READ|PROT_WRITE,
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="c1">#                 MAP_PRIVATE|MAP_ANONYMOUS, -1, 0)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1258:</span>  <span class="nf">mov</span>    <span class="no">$0xffffffff</span><span class="p">,</span><span class="nv">%r9d</span>    <span class="c1"># offset = -1
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">125</span><span class="nl">e:</span>  <span class="nf">mov</span>    <span class="no">$0x22</span><span class="p">,</span><span class="nv">%r8d</span>          <span class="c1"># flags = MAP_PRIVATE|MAP_ANONYMOUS
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1264:</span>  <span class="nf">mov</span>    <span class="no">$0x3</span><span class="p">,</span><span class="nv">%ecx</span>           <span class="c1"># prot = PROT_READ|PROT_WRITE
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1269:</span>  <span class="nf">mov</span>    <span class="no">$0xa000</span><span class="p">,</span><span class="nv">%edx</span>        <span class="c1"># length = 40960
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">126</span><span class="nl">e:</span>  <span class="nf">xor</span>    <span class="nv">%esi</span><span class="p">,</span><span class="nv">%esi</span>           <span class="c1"># addr = NULL
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1270:</span>  <span class="nf">xor</span>    <span class="nv">%edi</span><span class="p">,</span><span class="nv">%edi</span>
+</span></span><span class="line"><span class="cl">    <span class="err">1272:</span>  <span class="nf">call</span>   <span class="err">&lt;</span><span class="no">mmap@plt</span><span class="err">&gt;</span>          <span class="c1"># → PLT → glibc → syscall
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="na">...</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>mmap@plt</code> 会跳转到 glibc 的 mmap 包装函数，最终执行 <code>syscall</code> 指令陷入内核。</p>
+<h3 id="通过-proc-观察运行时的内存映射">通过 /proc/ 观察运行时的内存映射
+</h3><p>运行程序并在暂停时查看 <code>/proc/&lt;pid&gt;/maps</code>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ cat /proc/<span class="sb">`</span>pgrep mmap_demo<span class="sb">`</span>/maps
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出示例：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="mi">5566</span><span class="n">c1a4d000</span><span class="o">-</span><span class="mi">5566</span><span class="n">c1a4e000</span> <span class="n">r</span><span class="o">--</span><span class="n">p</span> <span class="mi">00000000</span> <span class="mi">08</span><span class="p">:</span><span class="mi">01</span> <span class="mi">2883744</span>  <span class="n">mmap_demo</span>    <span class="c1"># ELF 头(LOAD #1)</span>
+</span></span><span class="line"><span class="cl"><span class="mi">5566</span><span class="n">c1a4e000</span><span class="o">-</span><span class="mi">5566</span><span class="n">c1a4f000</span> <span class="n">r</span><span class="o">-</span><span class="n">xp</span> <span class="mi">00001000</span> <span class="mi">08</span><span class="p">:</span><span class="mi">01</span> <span class="mi">2883744</span>  <span class="n">mmap_demo</span>    <span class="c1"># .text (LOAD #2)</span>
+</span></span><span class="line"><span class="cl"><span class="mi">5566</span><span class="n">c1a4f000</span><span class="o">-</span><span class="mi">5566</span><span class="n">c1a50000</span> <span class="n">r</span><span class="o">--</span><span class="n">p</span> <span class="mi">00002000</span> <span class="mi">08</span><span class="p">:</span><span class="mi">01</span> <span class="mi">2883744</span>  <span class="n">mmap_demo</span>    <span class="c1"># .rodata (LOAD #3)</span>
+</span></span><span class="line"><span class="cl"><span class="mi">5566</span><span class="n">c1a50000</span><span class="o">-</span><span class="mi">5566</span><span class="n">c1a51000</span> <span class="n">r</span><span class="o">--</span><span class="n">p</span> <span class="mi">00003000</span> <span class="mi">08</span><span class="p">:</span><span class="mi">01</span> <span class="mi">2883744</span>  <span class="n">mmap_demo</span>    <span class="c1"># .data relro</span>
+</span></span><span class="line"><span class="cl"><span class="mi">5566</span><span class="n">c1a51000</span><span class="o">-</span><span class="mi">5566</span><span class="n">c1a52000</span> <span class="n">rw</span><span class="o">-</span><span class="n">p</span> <span class="mi">00003000</span> <span class="mi">08</span><span class="p">:</span><span class="mi">01</span> <span class="mi">2883744</span>  <span class="n">mmap_demo</span>    <span class="c1"># .data + .bss (LOAD #4)</span>
+</span></span><span class="line"><span class="cl"><span class="mi">5566</span><span class="n">c1b7d000</span><span class="o">-</span><span class="mi">5566</span><span class="n">c1b7e000</span> <span class="n">rw</span><span class="o">-</span><span class="n">p</span> <span class="mi">00000000</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="mi">0</span>        <span class="p">[</span><span class="n">heap</span><span class="p">]</span>       <span class="c1"># 堆</span>
+</span></span><span class="line"><span class="cl"><span class="mi">7</span><span class="n">f0e8db8c000</span><span class="o">-</span><span class="mi">7</span><span class="n">f0e8db9d000</span> <span class="n">rw</span><span class="o">-</span><span class="n">p</span> <span class="mi">00000000</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="mi">0</span>        <span class="p">[</span><span class="n">anon</span><span class="p">]</span>       <span class="c1"># ← 匿名映射 (10页)</span>
+</span></span><span class="line"><span class="cl"><span class="mi">7</span><span class="n">f0e8db9d000</span><span class="o">-</span><span class="mi">7</span><span class="n">f0e8db9e000</span> <span class="n">rw</span><span class="o">-</span><span class="n">s</span> <span class="mi">00000000</span> <span class="mi">08</span><span class="p">:</span><span class="mi">01</span> <span class="mi">2883759</span>  <span class="o">/</span><span class="n">tmp</span><span class="o">/</span><span class="n">mmap_test</span><span class="o">.</span><span class="n">txt</span>  <span class="c1"># ← 文件映射</span>
+</span></span><span class="line"><span class="cl"><span class="mi">7</span><span class="n">f0e8db9e000</span><span class="o">-</span><span class="mi">7</span><span class="n">f0e8db9f000</span> <span class="n">rw</span><span class="o">-</span><span class="n">s</span> <span class="mi">00000000</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="mi">0</span>        <span class="p">[</span><span class="n">anon</span><span class="p">]</span>       <span class="c1"># ← 匿名共享映射</span>
+</span></span><span class="line"><span class="cl"><span class="o">...</span>
+</span></span><span class="line"><span class="cl"><span class="mi">7</span><span class="n">ffe96e50000</span><span class="o">-</span><span class="mi">7</span><span class="n">ffe96e71000</span> <span class="n">rw</span><span class="o">-</span><span class="n">p</span> <span class="mi">00000000</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="mi">0</span>        <span class="p">[</span><span class="n">stack</span><span class="p">]</span>      <span class="c1"># 栈</span>
+</span></span><span class="line"><span class="cl"><span class="mi">7</span><span class="n">ffe96eef000</span><span class="o">-</span><span class="mi">7</span><span class="n">ffe96ef3000</span> <span class="n">r</span><span class="o">--</span><span class="n">p</span> <span class="mi">00000000</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="mi">0</span>        <span class="p">[</span><span class="n">vvar</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="mi">7</span><span class="n">ffe96ef3000</span><span class="o">-</span><span class="mi">7</span><span class="n">ffe96ef5000</span> <span class="n">r</span><span class="o">-</span><span class="n">xp</span> <span class="mi">00000000</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="mi">0</span>        <span class="p">[</span><span class="n">vdso</span><span class="p">]</span>       <span class="c1"># 内核提供的 VDSO</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>每个字段的含义</strong>（以文件映射行为例）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">7f0e8db9d000-7f0e8db9e000  rw-s  00000000  08:01  2883759  /tmp/mmap_test.txt
+</span></span><span class="line"><span class="cl">├────── VMA 范围 ──────┤   ├┤  ├─offset─┤ ├──┼──┼─├──── inode ────┤
+</span></span><span class="line"><span class="cl">│ 起始地址-结束地址          ││  文件偏移   设备  inode  文件名
+</span></span><span class="line"><span class="cl">                            ││
+</span></span><span class="line"><span class="cl">                            │└─ s = MAP_SHARED / p = MAP_PRIVATE
+</span></span><span class="line"><span class="cl">                           └── 权限: r=读 w=写 x=执行
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>再看更详细的 <code>/proc/&lt;pid&gt;/smaps</code>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ cat /proc/<span class="sb">`</span>pgrep mmap_demo<span class="sb">`</span>/smaps <span class="p">|</span> grep -A <span class="m">10</span> <span class="s2">&#34;7f0e8db9d000&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">7f0e8db9d000-7f0e8db9e000 rw-s 00000000 08:01 2883759  /tmp/mmap_test.txt
+</span></span><span class="line"><span class="cl">Size:                  4 kB     # VMA 大小
+</span></span><span class="line"><span class="cl">KernelPageSize:        4 kB     # 内核页大小
+</span></span><span class="line"><span class="cl">Rss:                   4 kB     # 实际驻留物理内存
+</span></span><span class="line"><span class="cl">Pss:                   4 kB     # 按共享比例分摊的物理内存
+</span></span><span class="line"><span class="cl">Shared_Clean:          0 kB
+</span></span><span class="line"><span class="cl">Shared_Dirty:          0 kB
+</span></span><span class="line"><span class="cl">Private_Clean:         0 kB
+</span></span><span class="line"><span class="cl">Private_Dirty:         4 kB     # 私有脏页
+</span></span><span class="line"><span class="cl">Referenced:            4 kB
+</span></span><span class="line"><span class="cl">Anonymous:             0 kB
+</span></span><span class="line"><span class="cl">VmFlags: rd wr sh mr mw me ms  # VMA 标志
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="综合分析对照表">综合分析对照表
+</h3><p>将 ELF 静态布局、内核加载、运行时 <code>/proc/</code> 观测三方面对应起来：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>ELF 节区 (readelf)</th>
+          <th>VMA 起始 (maps)</th>
+          <th>权限</th>
+          <th>文件偏移</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>.text</code> (LOAD #2)</td>
+          <td>0x5566c1a4e000</td>
+          <td>r-xp</td>
+          <td>0x1000</td>
+          <td>代码段，<code>readelf</code> 地址+偏移一致</td>
+      </tr>
+      <tr>
+          <td><code>.rodata</code> (LOAD #3)</td>
+          <td>0x5566c1a4f000</td>
+          <td>r&ndash;p</td>
+          <td>0x2000</td>
+          <td>只读数据</td>
+      </tr>
+      <tr>
+          <td><code>.data</code> + <code>.bss</code> (LOAD #4)</td>
+          <td>0x5566c1a51000</td>
+          <td>rw-p</td>
+          <td>0x3000</td>
+          <td>可读写数据，<code>MemSiz &gt; FileSiz</code></td>
+      </tr>
+      <tr>
+          <td>匿名 mmap</td>
+          <td>0x7f0e8db8c000</td>
+          <td>rw-p</td>
+          <td>0x00</td>
+          <td><code>MAP_ANONYMOUS, fd=-1</code></td>
+      </tr>
+      <tr>
+          <td>文件 mmap</td>
+          <td>0x7f0e8db9d000</td>
+          <td>rw-s</td>
+          <td>0x00</td>
+          <td><code>MAP_SHARED, fd=/tmp/...</code></td>
+      </tr>
+      <tr>
+          <td>共享匿名 mmap</td>
+          <td>0x7f0e8db9e000</td>
+          <td>rw-s</td>
+          <td>0x00</td>
+          <td>`MAP_SHARED</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="关键观察">关键观察
+</h3><ol>
+<li><strong>匿名映射无后备文件</strong>：<code>/proc/pid/maps</code> 中显示 <code>[anon]</code> 或 <code>[heap]</code>，无文件名</li>
+<li><strong>文件映射关联 inode</strong>：<code>/proc/</code> 输出中可见设备号和 inode，与 <code>ls -i</code> 一致</li>
+<li><strong>MAP_SHARED vs MAP_PRIVATE</strong>：权限字段末位 <code>s</code> vs <code>p</code>，决定写时复制行为</li>
+<li><strong>文件偏移来自 ELF LOAD 段</strong>：.text 段在文件偏移 0x1000，映射后 VMA 起始也看到偏移 0x1000</li>
+<li><strong>缺页按需填充</strong>：<code>smaps</code> 中 <code>Rss &lt; Size</code>（未访问的页尚未分配物理页）</li>
+</ol>
+<h3 id="关键源码文件索引">关键源码文件索引
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>文件</th>
+          <th>内容</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>arch/arm64/kernel/sys.c:21</code></td>
+          <td>arm64 mmap 系统调用入口</td>
+      </tr>
+      <tr>
+          <td><code>mm/mmap.c:1404</code></td>
+          <td><code>do_mmap()</code> 核心映射函数</td>
+      </tr>
+      <tr>
+          <td><code>mm/mmap.c:1583</code></td>
+          <td><code>ksys_mmap_pgoff()</code> 内核通用入口</td>
+      </tr>
+      <tr>
+          <td><code>mm/mmap.c:1716</code></td>
+          <td><code>mmap_region()</code> VMA 安装</td>
+      </tr>
+      <tr>
+          <td><code>mm/util.c:506</code></td>
+          <td><code>vm_mmap_pgoff()</code> 加锁审计</td>
+      </tr>
+      <tr>
+          <td><code>arch/arm64/mm/mmu.c:363</code></td>
+          <td><code>__create_pgd_mapping()</code> 页表创建</td>
+      </tr>
+      <tr>
+          <td><code>arch/arm64/include/asm/pgtable-types.h:23</code></td>
+          <td>页表类型（pte_t/pmd_t/pud_t/pgd_t）</td>
+      </tr>
+      <tr>
+          <td><code>arch/arm64/include/asm/pgtable-hwdef.h:41</code></td>
+          <td>页表位移常量</td>
+      </tr>
+      <tr>
+          <td><code>include/linux/mm_types.h:319</code></td>
+          <td><code>struct vm_area_struct</code></td>
+      </tr>
+      <tr>
+          <td><code>include/linux/mm_types.h:70</code></td>
+          <td><code>struct page</code></td>
+      </tr>
+      <tr>
+          <td><code>include/linux/mm.h:588</code></td>
+          <td><code>struct vm_operations_struct</code></td>
+      </tr>
+  </tbody>
+</table></div>
+<blockquote>
+<p><a class="link" href="https://mp.weixin.qq.com/s/W7dcBy3IuMwKFjMScOVWgg"  target="_blank" rel="noopener"
+    >一张图搞懂mmap实现原理</a></p></blockquote>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/mmap/">Mmap</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/linux-perf/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux perf</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-trace--ptrace-strace-ltrace-ftrace/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">linux trace -- ptrace strace ltrace ftrace</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-network-layer-%E4%B8%8Esocket/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux network layer 与socket</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/netfilter-hooks-in-kernel/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Netfilter Hooks in Kernel</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/netlink-%E5%88%9D%E8%AF%86/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Netlink 初识</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        right: 20px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop;
+        document.body.appendChild(btn);
+
+        
+        window.addEventListener('scroll', function() {
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        });
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+
+<style>
+     
+    .right-sidebar.toc-hidden {
+        display: none !important;
+    }
+
+     
+    #tocToggleBtn {
+        display: none;
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 99;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        padding: 6px;
+        border: none;
+        border-radius: 50%;
+        background: var(--card-background);
+        box-shadow: var(--shadow-l2);
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        transition: color 0.2s ease, background-color 0.2s ease;
+    }
+
+    #tocToggleBtn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    #tocToggleBtn svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+    }
+
+     
+    .toc-title-flex {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .toc-title-flex .section-title {
+        flex: 1;
+    }
+
+    .toc-inline-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        padding: 3px;
+        border: none;
+        background: none;
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        border-radius: 6px;
+        transition: color 0.2s ease, background-color 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .toc-inline-btn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    .toc-inline-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+</style>
+
+
+<script>
+    
+
+    function initTocToggle() {
+        let tocContent = document.querySelector('.widget--toc');
+        if (!tocContent) {
+            return;
+        }
+
+        let rightSidebar = document.querySelector('.right-sidebar');
+        if (!rightSidebar) {
+            return;
+        }
+
+        
+        let tocSection = tocContent.closest('section.widget');
+        let tocTitle = tocSection && tocSection.querySelector('.widget-title');
+
+        if (tocTitle) {
+            tocTitle.classList.add('toc-title-flex');
+
+            let inlineBtn = document.createElement('button');
+            inlineBtn.className = 'toc-inline-btn';
+            inlineBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+            let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+            updateBtnIcon(inlineBtn, isCollapsed);
+            if (isCollapsed) {
+                inlineBtn.title = '\u663e\u793a\u76ee\u5f55';
+            }
+
+            inlineBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleToc(rightSidebar);
+                
+                let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+                updateBtnIcon(inlineBtn, nowCollapsed);
+                let floatBtn = document.getElementById('tocToggleBtn');
+                if (floatBtn) {
+                    updateBtnIcon(floatBtn, nowCollapsed);
+                    floatBtn.title = inlineBtn.title;
+                }
+            });
+
+            tocTitle.appendChild(inlineBtn);
+        }
+
+        
+        let floatBtn = document.createElement('button');
+        floatBtn.id = 'tocToggleBtn';
+        floatBtn.style.display = 'flex';
+        floatBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+        let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+        updateBtnIcon(floatBtn, isCollapsed);
+        if (isCollapsed) {
+            rightSidebar.classList.add('toc-hidden');
+            floatBtn.title = '\u663e\u793a\u76ee\u5f55';
+        }
+
+        floatBtn.addEventListener('click', function () {
+            toggleToc(rightSidebar);
+            
+            let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+            updateBtnIcon(floatBtn, nowCollapsed);
+            let inlineBtns = document.querySelectorAll('.toc-inline-btn');
+            inlineBtns.forEach(function (b) {
+                updateBtnIcon(b, nowCollapsed);
+                b.title = floatBtn.title;
+            });
+        });
+
+        document.body.appendChild(floatBtn);
+    }
+
+     
+    function toggleToc(rightSidebar) {
+        rightSidebar.classList.toggle('toc-hidden');
+        let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+        localStorage.setItem('toc-collapsed', nowCollapsed);
+    }
+
+     
+    function updateBtnIcon(btn, collapsed) {
+        btn.innerHTML = collapsed ? getEyeOffSvg() : getEyeSvg();
+        btn.title = collapsed ? '\u663e\u793a\u76ee\u5f55' : '\u9690\u85cf\u76ee\u5f55';
+    }
+
+     
+    function getEyeSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+
+     
+    function getEyeOffSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    }
+
+    initTocToggle();
+</script>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>

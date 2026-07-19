@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Mmap on Charles</title>
+        <link>https://charles-7777.github.io/tags/mmap/</link>
+        <description>Recent content in Mmap on Charles</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <copyright>Charles Lv</copyright>
+        <lastBuildDate>Mon, 20 Jul 2026 00:06:05 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/mmap/index.xml" rel="self" type="application/rss+xml" />
+        <item>
+        <title>mmap 系统调用原理解析</title>
+        <link>https://charles-7777.github.io/p/mmap-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</link>
+        <pubDate>Sun, 19 Jul 2026 23:56:01 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/mmap-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</guid>
+        </item>
+        
+    </channel>
+</rss>

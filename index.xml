@@ -8,6 +8,14 @@
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright><atom:link href="https://charles-7777.github.io/index.xml" rel="self" type="application/rss+xml" />
         <item>
+        <title>mmap 系统调用原理解析</title>
+        <link>https://charles-7777.github.io/p/mmap-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</link>
+        <pubDate>Sun, 19 Jul 2026 23:56:01 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/mmap-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</guid>
+        </item>
+        
+        <item>
         <title>Linux perf</title>
         <link>https://charles-7777.github.io/p/linux-perf/</link>
         <pubDate>Wed, 15 Jul 2026 17:17:02 +0800</pubDate>
@@ -157,14 +165,6 @@
         <pubDate>Wed, 13 May 2026 09:56:42 +0800</pubDate>
         
         <guid>https://charles-7777.github.io/p/c%E8%AF%AD%E8%A8%80%E5%AE%9E%E7%8E%B0%E5%A4%9A%E6%80%81%E6%A8%A1%E4%BB%BFc-%E8%99%9A%E5%87%BD%E6%95%B0%E8%A1%A8/</guid>
-        </item>
-        
-        <item>
-        <title>ZMQ</title>
-        <link>https://charles-7777.github.io/p/zmq/</link>
-        <pubDate>Sat, 09 May 2026 13:20:58 +0800</pubDate>
-        
-        <guid>https://charles-7777.github.io/p/zmq/</guid>
         </item>
         
     </channel>
