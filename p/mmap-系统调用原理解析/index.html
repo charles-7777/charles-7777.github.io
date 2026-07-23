@@ -10,7 +10,7 @@
 <meta property='og:description' content=" 基于 Linux 5.15 内核源码分析\nhttps://elixir.bootlin.com/linux/v5.15/source\n什么是 mmap？ mmap 是 Linux 系统的一种内存映射机制，允许将文件或设备直接映射到进程的虚拟地址空间。进程通过操作内存指针即可读写文件，无需调用 read() / write() 等系统调用。\nmmap 在 Linux 系统中广泛被使用：内存分配（malloc 大块）、零拷贝网络传输、进程间通信、大文件处理等。\nmmap 函数原型 1 2 3 #include &lt;sys/mman.h&gt; void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset); 参数说明：\n参数 类型 描述 addr void * 期望的映射起始地址，通常为 NULL（内核选择） length size_t 映射长度（字节） prot int 保护标志：PROT_READ / PROT_WRITE / PROT_EXEC / PROT_NONE flags int 映射标志：MAP_SHARED / MAP_PRIVATE / MAP_ANONYMOUS / MAP_FIXED 等 fd int 文件描述符（文件映射）；匿名映射传 -1 offset off_t 文件偏移量（需页对齐） 返回值： 成功返回映射的虚拟地址，失败返回 MAP_FAILED（即 (void *)-1）。\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/mmap-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/'>
 <meta property='og:site_name' content='Charles'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='mmap' /><meta property='article:published_time' content='2026-07-19T23:56:01&#43;08:00'/><meta property='article:modified_time' content='2026-07-20T00:06:05&#43;08:00'/>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='mmap' /><meta property='article:published_time' content='2026-07-19T23:56:01&#43;08:00'/><meta property='article:modified_time' content='2026-07-24T00:17:31&#43;08:00'/>
 <meta name="twitter:title" content="mmap 系统调用原理解析">
 <meta name="twitter:description" content=" 基于 Linux 5.15 内核源码分析\nhttps://elixir.bootlin.com/linux/v5.15/source\n什么是 mmap？ mmap 是 Linux 系统的一种内存映射机制，允许将文件或设备直接映射到进程的虚拟地址空间。进程通过操作内存指针即可读写文件，无需调用 read() / write() 等系统调用。\nmmap 在 Linux 系统中广泛被使用：内存分配（malloc 大块）、零拷贝网络传输、进程间通信、大文件处理等。\nmmap 函数原型 1 2 3 #include &lt;sys/mman.h&gt; void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset); 参数说明：\n参数 类型 描述 addr void * 期望的映射起始地址，通常为 NULL（内核选择） length size_t 映射长度（字节） prot int 保护标志：PROT_READ / PROT_WRITE / PROT_EXEC / PROT_NONE flags int 映射标志：MAP_SHARED / MAP_PRIVATE / MAP_ANONYMOUS / MAP_FIXED 等 fd int 文件描述符（文件映射）；匿名映射传 -1 offset off_t 文件偏移量（需页对齐） 返回值： 成功返回映射的虚拟地址，失败返回 MAP_FAILED（即 (void *)-1）。\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
@@ -383,7 +383,7 @@
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-07-20 00:06</time>
+            <time class="article-lastmod">2026-07-24 00:17</time>
         </div>
         
 
@@ -407,7 +407,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    2572 字
+                    2685 字
                 </time>
             </div>
         
@@ -755,74 +755,148 @@
 </span><span class="lnt">37
 </span><span class="lnt">38
 </span><span class="lnt">39
-</span><span class="lnt">40
-</span><span class="lnt">41
-</span><span class="lnt">42
-</span><span class="lnt">43
-</span><span class="lnt">44
-</span><span class="lnt">45
-</span><span class="lnt">46
-</span><span class="lnt">47
-</span><span class="lnt">48
-</span><span class="lnt">49
-</span><span class="lnt">50
-</span><span class="lnt">51
 </span></code></pre></td>
 <td class="lntd">
 <pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="err">完整的进程虚拟地址空间</span> <span class="p">(</span><span class="n">arm64</span> <span class="mi">48</span><span class="err">位</span><span class="n">VA</span><span class="p">,</span> <span class="mi">4</span><span class="n">K页</span><span class="p">)</span><span class="err">：</span>
+</span></span><span class="line"><span class="cl"><span class="err">┈┈┈</span> <span class="err">从低地址到高地址</span> <span class="err">┈┈┈</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">  <span class="err">┌──────────────────────────────┐</span>  <span class="mh">0x0000</span><span class="n">_0000_0000_0000</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">代码段</span> <span class="p">(</span><span class="n">Text</span><span class="p">)</span>         <span class="err">│</span>  <span class="err">←</span> <span class="err">每个进程独立</span>
 </span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">数据段</span> <span class="p">(</span><span class="n">Data</span><span class="p">)</span>         <span class="err">│</span>  <span class="err">←</span> <span class="err">全局变量在此（进程私有）</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">数据段</span> <span class="p">(</span><span class="n">Data</span><span class="p">)</span>         <span class="err">│</span>  <span class="err">←</span> <span class="err">已初始化全局变量（进程私有）</span>
 </span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>          <span class="n">BSS</span> <span class="err">段</span>               <span class="err">│</span>  <span class="err">←</span> <span class="err">未初始化全局变量</span>
 </span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>   <span class="err">堆</span> <span class="p">(</span><span class="n">Heap</span><span class="p">)</span> <span class="err">—</span> <span class="n">brk</span><span class="o">/</span><span class="n">sbrk</span>       <span class="err">│</span>  <span class="err">↑</span> <span class="err">向上增长</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>   <span class="err">堆</span> <span class="p">(</span><span class="n">Heap</span><span class="p">)</span> <span class="err">—</span> <span class="n">brk</span><span class="o">/</span><span class="n">sbrk</span>       <span class="err">│</span>  <span class="err">↓</span> <span class="n">brk</span> <span class="err">增大（地址增大）</span>
 </span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">│</span>                    <span class="err">│</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>   <span class="err">文件映射和匿名映射区</span>         <span class="err">│</span>  <span class="err">←</span> <span class="n">mmap</span> <span class="err">在此分配</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">│</span>                    <span class="err">│</span>
 </span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>    <span class="err">栈</span> <span class="p">(</span><span class="n">Stack</span><span class="p">)</span> <span class="err">—</span> <span class="err">向下增长</span>      <span class="err">│</span>  <span class="err">↓</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>    <span class="err">栈</span> <span class="p">(</span><span class="n">Stack</span><span class="p">)</span> <span class="err">—</span> <span class="err">向低地址增长</span>   <span class="err">│</span>  <span class="err">↑</span> <span class="n">rsp</span> <span class="err">减小（地址减小）</span>
 </span></span><span class="line"><span class="cl">  <span class="err">├──────────────────────────────┤</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>    <span class="p">[</span><span class="n">vdso</span><span class="p">]</span> <span class="o">/</span> <span class="p">[</span><span class="n">vvar</span><span class="p">]</span>          <span class="err">│</span>  <span class="err">←</span> <span class="err">内核映射到用户空间的全局代码</span>
-</span></span><span class="line"><span class="cl">  <span class="err">├══════════════════════════════┤</span>  <span class="mh">0x0000</span><span class="n">_FFFF_FFFF_FFFF</span> <span class="p">(</span><span class="err">用户空间结束</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">全局共享内核空间</span>      <span class="err">│</span>  <span class="err">←</span> <span class="err">所有进程共享同一套内核页表</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>                              <span class="err">│</span>     <span class="p">(</span><span class="n">arm64</span> <span class="n">upper</span> <span class="n">half</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">┌──────────────────────────┐│</span>  <span class="n">ffff_0000_0000_0000</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="err">内核代码</span> <span class="p">(</span><span class="o">.</span><span class="n">text</span><span class="o">/.</span><span class="n">data</span><span class="p">)</span>   <span class="err">││</span>  <span class="err">←</span> <span class="err">全局共享</span>
+</span></span><span class="line"><span class="cl">  <span class="err">├══════════════════════════════┤</span>  <span class="mh">0x0000</span><span class="n">_FFFF_FFFF_FFFF</span> <span class="err">←</span> <span class="err">用户空间结束</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>         <span class="err">内核空间</span>              <span class="err">│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">┌──────────────────────────┐│</span>  <span class="err">←</span> <span class="err">全局共享，所有进程相同</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">kernel</span> <span class="n">logical</span> <span class="n">map</span>      <span class="err">││</span>  <span class="err">线性映射，直接访问物理内存</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="err">模块映射区</span> <span class="p">(</span><span class="n">module</span><span class="p">)</span>      <span class="err">││</span>  <span class="err">←</span> <span class="n">insmod</span> <span class="err">驱动</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="p">[</span><span class="n">kasan</span> <span class="n">shadow</span><span class="p">]</span>  <span class="mi">32</span><span class="n">TB</span>    <span class="err">││</span>  <span class="n">KASAN</span> <span class="err">影子内存</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">vmalloc</span> <span class="err">区</span>              <span class="err">││</span>  <span class="err">←</span> <span class="n">vmalloc</span><span class="p">()</span> <span class="err">分配的虚拟地址</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">bpf</span> <span class="n">jit</span>         <span class="mi">128</span><span class="n">MB</span>   <span class="err">││</span>  <span class="n">BPF</span> <span class="n">JIT</span> <span class="err">编译区</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">fixmap</span> <span class="o">/</span> <span class="n">PCI</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span>        <span class="err">││</span>  <span class="err">←</span> <span class="err">固定映射</span> <span class="o">/</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="err">空间</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">modules</span>         <span class="mi">128</span><span class="n">MB</span>   <span class="err">││</span>  <span class="err">驱动模块</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">vmemmap</span>                 <span class="err">││</span>  <span class="err">←</span> <span class="n">struct</span> <span class="n">page</span> <span class="err">数组映射</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">vmalloc</span>         <span class="mi">124</span><span class="n">TB</span>   <span class="err">││</span>  <span class="n">vmalloc</span><span class="p">()</span> <span class="err">分配</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
-</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="err">内核线性映射</span> <span class="p">(</span><span class="n">direct</span><span class="p">)</span>    <span class="err">││</span>  <span class="err">←</span> <span class="n">phys_to_virt</span><span class="p">,</span> <span class="err">直接访问所有物理内存</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="p">[</span><span class="n">guard</span><span class="p">]</span> <span class="o">+</span> <span class="n">PCI</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span>       <span class="err">││</span>  <span class="err">固定映射</span> <span class="o">/</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="err">空间</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="n">vmemmap</span>          <span class="mi">2</span><span class="n">TB</span>    <span class="err">││</span>  <span class="n">struct</span> <span class="n">page</span> <span class="err">数组</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">├──────────────────────────┤│</span>
+</span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">│</span>  <span class="p">[</span><span class="n">guard</span> <span class="n">region</span><span class="p">]</span>   <span class="mi">2</span><span class="n">TB</span>    <span class="err">││</span>
 </span></span><span class="line"><span class="cl">  <span class="err">│</span>  <span class="err">└──────────────────────────┘│</span>  <span class="n">ffff_FFFF_FFFF_FFFF</span>
 </span></span><span class="line"><span class="cl">  <span class="err">└──────────────────────────────┘</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="err">关键分区说明</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="err">·</span> <span class="err">用户空间</span> <span class="p">(</span><span class="mi">0000</span><span class="n">_0000_0000_0000</span> <span class="o">~</span> <span class="mi">0000</span><span class="n">_FFFF_FFFF_FFFF</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">     <span class="err">每个进程独立，通过切换页表基地址寄存器隔离</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="err">·</span> <span class="err">内核空间</span> <span class="p">(</span><span class="n">FFFF_0000_0000_0000</span> <span class="o">~</span> <span class="n">FFFF_FFFF_FFFF_FFFF</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">     <span class="err">所有进程全局共享，上下文切换时内核页表部分不变</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="err">·</span> <span class="err">全局变量</span> <span class="p">(</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="o">.</span><span class="n">bss</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">     <span class="err">位于用户空间数据段，是每个进程私有的副本（写时复制继承）。</span>
-</span></span><span class="line"><span class="cl">     <span class="o">**</span><span class="err">内核线性映射</span><span class="o">**</span><span class="err">才是真正全局共享的物理内存访问通道。</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="err">·</span> <span class="p">[</span><span class="n">vdso</span><span class="p">]</span> <span class="o">/</span> <span class="p">[</span><span class="n">vvar</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">     <span class="err">内核映射到每个用户空间的</span><span class="s2">&#34;全局&#34;</span><span class="err">代码页，加速</span> <span class="n">gettimeofday</span><span class="p">()</span><span class="err">，</span>
-</span></span><span class="line"><span class="cl">     <span class="err">所有进程看到的内容相同（映射位置可能因</span> <span class="n">ASLR</span> <span class="err">而异）</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><h2 id="mmap-内核实现原理">mmap 内核实现原理
+</div><p><strong>arm64 内核地址空间完整分区表（从低到高排列）：</strong> <code>linux/Documentation/arm64/memory.rst</code></p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>Start</th>
+          <th>End</th>
+          <th>Size</th>
+          <th>用途</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>0000000000000000</code></td>
+          <td><code>0000ffffffffffff</code></td>
+          <td>256 TB</td>
+          <td><strong>user</strong>（用户空间）</td>
+      </tr>
+      <tr>
+          <td><code>ffff000000000000</code></td>
+          <td><code>ffff7fffffffffff</code></td>
+          <td>128 TB</td>
+          <td><strong>kernel logical memory map</strong>（内核线性映射，直接访问所有物理内存）</td>
+      </tr>
+      <tr>
+          <td><code>ffff600000000000</code></td>
+          <td><code>ffff7fffffffffff</code></td>
+          <td>32 TB</td>
+          <td>[kasan shadow region]（KASAN 影子内存）</td>
+      </tr>
+      <tr>
+          <td><code>ffff800000000000</code></td>
+          <td><code>ffff800007ffffff</code></td>
+          <td>128 MB</td>
+          <td><strong>bpf jit region</strong>（BPF JIT 编译区）</td>
+      </tr>
+      <tr>
+          <td><code>ffff800008000000</code></td>
+          <td><code>ffff80000fffffff</code></td>
+          <td>128 MB</td>
+          <td><strong>modules</strong>（模块加载区）</td>
+      </tr>
+      <tr>
+          <td><code>ffff800010000000</code></td>
+          <td><code>fffffbffefffffff</code></td>
+          <td>124 TB</td>
+          <td><strong>vmalloc</strong>（vmalloc/ioremap 分配区）</td>
+      </tr>
+      <tr>
+          <td><code>fffffbfff0000000</code></td>
+          <td><code>fffffbfffdffffff</code></td>
+          <td>224 MB</td>
+          <td><strong>fixed mappings</strong>（固定映射，top-down 分配）</td>
+      </tr>
+      <tr>
+          <td><code>fffffbfffe000000</code></td>
+          <td><code>fffffbfffe7fffff</code></td>
+          <td>8 MB</td>
+          <td>[guard region]</td>
+      </tr>
+      <tr>
+          <td><code>fffffbfffe800000</code></td>
+          <td><code>fffffbffff7fffff</code></td>
+          <td>16 MB</td>
+          <td><strong>PCI I/O space</strong>（PCI IO 空间）</td>
+      </tr>
+      <tr>
+          <td><code>fffffbffff800000</code></td>
+          <td><code>fffffbffffffffff</code></td>
+          <td>8 MB</td>
+          <td>[guard region]</td>
+      </tr>
+      <tr>
+          <td><code>fffffc0000000000</code></td>
+          <td><code>fffffdffffffffff</code></td>
+          <td>2 TB</td>
+          <td><strong>vmemmap</strong>（struct page 数组映射）</td>
+      </tr>
+      <tr>
+          <td><code>fffffe0000000000</code></td>
+          <td><code>ffffffffffffffff</code></td>
+          <td>2 TB</td>
+          <td>[guard region]</td>
+      </tr>
+  </tbody>
+</table></div>
+<blockquote>
+<p>表中 &ldquo;kernel logical memory map&rdquo;（内核线性映射区）是内核访问物理内存的窗口：<code>virt = phys + PAGE_OFFSET</code>，128 TB 空间足以映射当前所有物理内存。<code>vmalloc</code> 用于非连续内存分配，<code>vmemmap</code> 用于存储每个物理页对应的 <code>struct page</code>。</p></blockquote>
+<p>关键分区说明:</p>
+<p>· <strong>用户空间</strong> (0000_0000_0000_0000 ~ 0000_FFFF_FFFF_FFFF)(边界由 TASK_SIZE 定义<code>arch/arm64/include/asm/processor.h</code>)
+每个进程独立，通过切换页表基地址寄存器隔离</p>
+<p>· <strong>内核空间</strong> (FFFF_0000_0000_0000 ~ FFFF_FFFF_FFFF_FFFF)
+所有进程全局共享，上下文切换时内核页表部分不变</p>
+<p>· <strong>全局变量</strong> (.data / .bss)
+位于用户空间数据段，是每个进程私有的副本（写时复制继承）。<br>
+<strong>内核线性映射</strong>（kernel logical memory map）才是真正全局共享的物理内存访问通道。</p>
+<p>· <strong>[vdso] / [vvar]</strong>
+内核映射到每个用户空间的&quot;全局&quot;代码页，加速 gettimeofday()，
+所有进程看到的内容相同（映射位置可能因 ASLR 而异）</p>
+<h2 id="mmap-内核实现原理">mmap 内核实现原理
 </h2><p>有了背景知识，现在来看 mmap 在内核中是如何一步步完成的。</p>
 <h3 id="系统调用入口">系统调用入口
 </h3><p>arm64 入口代码 (<code>arch/arm64/kernel/sys.c:21-29</code>)：</p>
