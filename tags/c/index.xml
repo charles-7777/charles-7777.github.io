@@ -7,7 +7,15 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Fri, 24 Jul 2026 15:00:21 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/c/index.xml" rel="self" type="application/rss+xml" />
+        <lastBuildDate>Fri, 24 Jul 2026 18:25:31 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/c/index.xml" rel="self" type="application/rss+xml" />
+        <item>
+        <title>函数调用栈的实现解析</title>
+        <link>https://charles-7777.github.io/p/%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E6%A0%88%E7%9A%84%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/</link>
+        <pubDate>Fri, 24 Jul 2026 17:31:58 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E6%A0%88%E7%9A%84%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/</guid>
+        </item>
+        
         <item>
         <title>数组越界与栈溢出</title>
         <link>https://charles-7777.github.io/p/%E6%95%B0%E7%BB%84%E8%B6%8A%E7%95%8C%E4%B8%8E%E6%A0%88%E6%BA%A2%E5%87%BA/</link>
