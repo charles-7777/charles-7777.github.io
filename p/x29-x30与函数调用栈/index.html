@@ -1,0 +1,2581 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="X29 和 X30：两个决定栈命运的寄存器 在 ARM64 的 31 个通用寄存器 (X0–X30) 中，有两个被架构约定赋予了特殊职责：\n寄存器 别名 职责 X29 FP (Frame Pointer) 帧指针，指向当前函数栈帧的底部 X30 LR (Link Register) 链接寄存器，保存函数的返回地址 X30 (LR) —— 函数怎么&quot;记得&quot;回哪去 当 CPU 执行 bl (Branch with Link) 指令调用一个函数时，硬件自动做两件事：\n1 2 bl &lt;target&gt; ⟹ ① 将下一条指令的地址写入 X30 (LR) ② 跳转到 &lt;target&gt; 执行 对应 ret 指令则做一件事：\n1 ret ⟹ 跳转到 X30 (LR) 中的地址继续执行 核心矛盾：如果函数 A 调用了函数 B，bl B 会把 A 的返回地址写入 X30。 然后 B 再调用 C 时，bl C 又会覆盖 X30。这样 A 的返回地址就丢了。\n">
+<title>X29 X30与函数调用栈</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/x29-x30%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E6%A0%88/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="X29 X30与函数调用栈">
+<meta property='og:description' content="X29 和 X30：两个决定栈命运的寄存器 在 ARM64 的 31 个通用寄存器 (X0–X30) 中，有两个被架构约定赋予了特殊职责：\n寄存器 别名 职责 X29 FP (Frame Pointer) 帧指针，指向当前函数栈帧的底部 X30 LR (Link Register) 链接寄存器，保存函数的返回地址 X30 (LR) —— 函数怎么&quot;记得&quot;回哪去 当 CPU 执行 bl (Branch with Link) 指令调用一个函数时，硬件自动做两件事：\n1 2 bl &lt;target&gt; ⟹ ① 将下一条指令的地址写入 X30 (LR) ② 跳转到 &lt;target&gt; 执行 对应 ret 指令则做一件事：\n1 ret ⟹ 跳转到 X30 (LR) 中的地址继续执行 核心矛盾：如果函数 A 调用了函数 B，bl B 会把 A 的返回地址写入 X30。 然后 B 再调用 C 时，bl C 又会覆盖 X30。这样 A 的返回地址就丢了。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/x29-x30%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E6%A0%88/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='c' /><meta property='article:published_time' content='2026-07-24T17:31:58&#43;08:00'/><meta property='article:modified_time' content='2026-07-26T21:04:38&#43;08:00'/>
+<meta name="twitter:title" content="X29 X30与函数调用栈">
+<meta name="twitter:description" content="X29 和 X30：两个决定栈命运的寄存器 在 ARM64 的 31 个通用寄存器 (X0–X30) 中，有两个被架构约定赋予了特殊职责：\n寄存器 别名 职责 X29 FP (Frame Pointer) 帧指针，指向当前函数栈帧的底部 X30 LR (Link Register) 链接寄存器，保存函数的返回地址 X30 (LR) —— 函数怎么&quot;记得&quot;回哪去 当 CPU 执行 bl (Branch with Link) 指令调用一个函数时，硬件自动做两件事：\n1 2 bl &lt;target&gt; ⟹ ① 将下一条指令的地址写入 X30 (LR) ② 跳转到 &lt;target&gt; 执行 对应 ret 指令则做一件事：\n1 ret ⟹ 跳转到 X30 (LR) 中的地址继续执行 核心矛盾：如果函数 A 调用了函数 B，bl B 会把 A 的返回地址写入 X30。 然后 B 再调用 C 时，bl C 又会覆盖 X30。这样 A 的返回地址就丢了。\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='/index.xml'
+                        target="_blank"
+                        title="RSS"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-rss" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="5" cy="19" r="1" />
+  <path d="M4 4a16 16 0 0 1 16 16" />
+  <path d="M4 11a9 9 0 0 1 9 9" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#x29-和-x30两个决定栈命运的寄存器">X29 和 X30：两个决定栈命运的寄存器</a>
+      <ol>
+        <li><a href="#x30-lr--函数怎么记得回哪去">X30 (LR) —— 函数怎么&quot;记得&quot;回哪去</a></li>
+        <li><a href="#x29-fp--怎么找到我的栈帧">X29 (FP) —— 怎么找到&quot;我&quot;的栈帧</a></li>
+      </ol>
+    </li>
+    <li><a href="#arm64-函数调用栈解析">arm64 函数调用栈解析</a>
+      <ol>
+        <li><a href="#栈帧的结构">栈帧的结构</a></li>
+        <li><a href="#函数序言-prologue-与-尾声-epilogue">函数序言 (Prologue) 与 尾声 (Epilogue)</a>
+          <ol>
+            <li><a href="#标准模式非叶子函数--会调用其他函数的函数">标准模式（非叶子函数 — 会调用其他函数的函数）</a></li>
+            <li><a href="#叶子函数模式不调用其他函数的函数">叶子函数模式（不调用其他函数的函数）</a></li>
+          </ol>
+        </li>
+        <li><a href="#逐函数反汇编分析">逐函数反汇编分析</a>
+          <ol>
+            <li><a href="#main--调用链的起点"><code>main</code> —— 调用链的起点</a></li>
+            <li><a href="#process--中间层函数"><code>process</code> —— 中间层函数</a></li>
+            <li><a href="#calc--中间层函数"><code>calc</code> —— 中间层函数</a></li>
+            <li><a href="#add--叶子函数"><code>add</code> —— 叶子函数</a></li>
+            <li><a href="#print_result--另一个叶子函数"><code>print_result</code> —— 另一个叶子函数</a></li>
+          </ol>
+        </li>
+        <li><a href="#动手实验用-gdb-验证调用栈">动手实验：用 GDB 验证调用栈</a>
+          <ol>
+            <li><a href="#关键观察点">关键观察点</a></li>
+          </ol>
+        </li>
+        <li><a href="#调用过程中的栈变化全景">调用过程中的栈变化全景</a></li>
+        <li><a href="#栈展开-stack-unwinding-原理">栈展开 (Stack Unwinding) 原理</a>
+          <ol>
+            <li><a href="#算法">算法</a></li>
+            <li><a href="#库函数支持">库函数支持</a></li>
+            <li><a href="#实际调用链回溯">实际调用链回溯</a></li>
+          </ol>
+        </li>
+        <li><a href="#叶子函数与非叶子函数">叶子函数与非叶子函数</a></li>
+        <li><a href="#总结">总结</a></li>
+      </ol>
+    </li>
+    <li><a href="#对比分析x86-64-与-arm64">对比分析：x86-64 与 ARM64</a>
+      <ol>
+        <li><a href="#核心差异总览">核心差异总览</a></li>
+        <li><a href="#关键机制差异详解">关键机制差异详解</a>
+          <ol>
+            <li><a href="#差异一返回地址放哪">差异一：返回地址放哪？</a></li>
+            <li><a href="#差异二帧指针的角色">差异二：帧指针的角色</a></li>
+          </ol>
+        </li>
+        <li><a href="#逐函数-x86-64-反汇编">逐函数 x86-64 反汇编</a>
+          <ol>
+            <li><a href="#add--x86-64-的叶子函数"><code>add</code> —— x86-64 的叶子函数</a></li>
+            <li><a href="#calc--x86-64-的非叶子函数"><code>calc</code> —— x86-64 的非叶子函数</a></li>
+            <li><a href="#main--x86-64-的入口"><code>main</code> —— x86-64 的入口</a></li>
+          </ol>
+        </li>
+        <li><a href="#x86-64-栈内存布局执行到-add-时">x86-64 栈内存布局（执行到 add 时）</a></li>
+        <li><a href="#栈回溯x86-64-版本">栈回溯：x86-64 版本</a></li>
+        <li><a href="#leave-指令揭秘"><code>leave</code> 指令揭秘</a></li>
+        <li><a href="#优化模式下的差异">优化模式下的差异</a></li>
+        <li><a href="#总结对比">总结对比</a></li>
+        <li><a href="#一句话区别">一句话区别</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/c/" >
+                C
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/x29-x30%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E6%A0%88/">X29 X30与函数调用栈</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-07-24 17:31</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-07-26 21:04</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 18 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    3689 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h2 id="x29-和-x30两个决定栈命运的寄存器">X29 和 X30：两个决定栈命运的寄存器
+</h2><p>在 ARM64 的 31 个通用寄存器 (X0–X30) 中，有两个被<strong>架构约定</strong>赋予了特殊职责：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>寄存器</th>
+          <th>别名</th>
+          <th>职责</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>X29</strong></td>
+          <td><strong>FP</strong> (Frame Pointer)</td>
+          <td>帧指针，指向当前函数栈帧的底部</td>
+      </tr>
+      <tr>
+          <td><strong>X30</strong></td>
+          <td><strong>LR</strong> (Link Register)</td>
+          <td>链接寄存器，保存函数的<strong>返回地址</strong></td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="x30-lr--函数怎么记得回哪去">X30 (LR) —— 函数怎么&quot;记得&quot;回哪去
+</h3><p>当 CPU 执行 <code>bl</code> (Branch with Link) 指令调用一个函数时，硬件自动做两件事：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">bl  &lt;target&gt;   ⟹   ① 将下一条指令的地址写入 X30 (LR)
+</span></span><span class="line"><span class="cl">                   ② 跳转到 &lt;target&gt; 执行
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>对应 <code>ret</code> 指令则做一件事：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">ret            ⟹   跳转到 X30 (LR) 中的地址继续执行
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>核心矛盾</strong>：如果函数 A 调用了函数 B，<code>bl B</code> 会把 A 的返回地址写入 X30。
+然后 B 再调用 C 时，<code>bl C</code> 又会<strong>覆盖</strong> X30。这样 A 的返回地址就丢了。</p>
+<p><strong>解决方案</strong>：在函数入口，先将 X30 (LR) <strong>保存到栈上</strong>，返回前再从栈上恢复。</p>
+<h3 id="x29-fp--怎么找到我的栈帧">X29 (FP) —— 怎么找到&quot;我&quot;的栈帧
+</h3><p>X29 指向当前函数栈帧的一个固定位置。它的核心作用有两个：</p>
+<ol>
+<li><strong>为局部变量和临时数据提供基地址</strong> —— 通过 <code>[x29, #offset]</code> 寻址</li>
+<li><strong>形成链表，支持栈回溯 (Stack backtrace)</strong> —— 每个栈帧中保存了上一个函数的 X29 (即上一个 FP)，从而形成一条&quot;帧指针链&quot;</li>
+</ol>
+<h2 id="arm64-函数调用栈解析">arm64 函数调用栈解析
+</h2><h3 id="栈帧的结构">栈帧的结构
+</h3><p>ARM64 调用约定 (AAPCS64) 下的典型栈帧布局如下：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">                        ← 高地址 (栈底方向)
+</span></span><span class="line"><span class="cl">      +---------------------------+
+</span></span><span class="line"><span class="cl">      |   调用者 (Caller) 的栈帧    |
+</span></span><span class="line"><span class="cl">      +---------------------------+
+</span></span><span class="line"><span class="cl">      |   调用者保存的 X29 (FP)    |  ← 当前栈帧的起始处
+</span></span><span class="line"><span class="cl">      |   调用者保存的 X30 (LR)    |
+</span></span><span class="line"><span class="cl">      +---------------------------+
+</span></span><span class="line"><span class="cl">      |   被调用者保存的寄存器      |  (如有: X19–X28)
+</span></span><span class="line"><span class="cl">      +---------------------------+
+</span></span><span class="line"><span class="cl">      |   局部变量区               |
+</span></span><span class="line"><span class="cl">      +---------------------------+
+</span></span><span class="line"><span class="cl">      |   参数构造区 (可选)         |  (用于传参给下一级)
+</span></span><span class="line"><span class="cl">      +---------------------------+  ← SP (栈指针)
+</span></span><span class="line"><span class="cl">                        ↓ 低地址 (栈顶方向)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>关键约束</strong>：ARM64 的栈是<strong>满递减 (full-descending)</strong> 的 —— SP 指向栈上最后一个已占用的位置，栈向低地址增长。分配空间时 SP 减小，释放时 SP 增大。SP 必须始终保持 <strong>16 字节对齐</strong>。</p>
+<h3 id="函数序言-prologue-与-尾声-epilogue">函数序言 (Prologue) 与 尾声 (Epilogue)
+</h3><h4 id="标准模式非叶子函数--会调用其他函数的函数">标准模式（非叶子函数 — 会调用其他函数的函数）
+</h4><p><strong>序言 (Prologue)</strong>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="nf">stp</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">x30</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#-N]!    // ① 分配 N 字节栈空间，同时将 X29、X30 压栈
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">mov</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">sp</span>                  <span class="c1">// ② 设置当前帧指针 FP = SP
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>stp</code> (Store Pair) 是 ARM64 的成对存储指令</li>
+<li><code>[sp, #-N]!</code> 的 <code>!</code> 表示<strong>先修改 SP (SP -= N)，再用新 SP 作为地址</strong></li>
+<li>这两条指令合起来：<strong>分配栈空间 + 保存 FP/LR + 建立新的帧指针</strong>，一步到位</li>
+</ul>
+<p><strong>尾声 (Epilogue)</strong>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="nf">ldp</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">x30</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">],</span> <span class="c1">#N      // ① 恢复 X29、X30，同时释放栈空间
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">ret</span>                             <span class="c1">// ② 跳回 X30 (LR) 中的返回地址
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>ldp</code> (Load Pair) 的 <code>[sp], #N</code> 表示<strong>先从 SP 加载 X29/X30，再 SP += N</strong></li>
+<li>这两条指令合起来：<strong>恢复 FP/LR + 释放栈空间 + 返回</strong></li>
+</ul>
+<h4 id="叶子函数模式不调用其他函数的函数">叶子函数模式（不调用其他函数的函数）
+</h4><p>如果函数不调用其他函数（称为<strong>叶子函数 leaf function</strong>），它不需要保存 X29/X30：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="nf">sub</span>    <span class="no">sp</span><span class="p">,</span> <span class="no">sp</span><span class="p">,</span> <span class="c1">#0x20            // 只分配栈空间（给局部变量用）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="na">...</span>                             <span class="c1">// 函数体
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">add</span>    <span class="no">sp</span><span class="p">,</span> <span class="no">sp</span><span class="p">,</span> <span class="c1">#0x20            // 释放栈空间
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">ret</span>                             <span class="c1">// 返回 — X30 未被覆盖，仍有效
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="逐函数反汇编分析">逐函数反汇编分析
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="nf">add</span><span class="p">(</span><span class="kt">int</span> <span class="n">a</span><span class="p">,</span> <span class="kt">int</span> <span class="n">b</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">sum</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">sum</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="nf">calc</span><span class="p">(</span><span class="kt">int</span> <span class="n">x</span><span class="p">,</span> <span class="kt">int</span> <span class="n">y</span><span class="p">,</span> <span class="kt">int</span> <span class="n">z</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">tmp</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">result</span> <span class="o">=</span> <span class="nf">add</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">z</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="nf">process</span><span class="p">(</span><span class="kt">int</span> <span class="n">n</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">a</span> <span class="o">=</span> <span class="n">n</span> <span class="o">*</span> <span class="mi">2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">b</span> <span class="o">=</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">3</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">c</span> <span class="o">=</span> <span class="nf">calc</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">c</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">void</span> <span class="nf">print_result</span><span class="p">(</span><span class="kt">int</span> <span class="n">val</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="cm">/* 空函数体，仅用于展示多级调用链 */</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">val</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">v</span> <span class="o">=</span> <span class="mi">42</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">r</span> <span class="o">=</span> <span class="nf">process</span><span class="p">(</span><span class="n">v</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">print_result</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">aarch64-linux-gnu-gcc -O0 -g -fno-omit-frame-pointer demo.c 
+</span></span><span class="line"><span class="cl">aarch64-linux-gnu-objdump -d 
+</span></span><span class="line"><span class="cl">aarch64-linux-gnu-objdump --dwarf<span class="o">=</span>frames
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="main--调用链的起点"><code>main</code> —— 调用链的起点
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">00000000000007</span><span class="nf">d8</span> <span class="err">&lt;</span><span class="no">main</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 序言 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">d8:</span> <span class="nf">a9be7bfd</span>    <span class="no">stp</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">x30</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#-32]!    // SP -= 32, 保存[X29, X30]到栈上
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">dc:</span> <span class="err">910003</span><span class="nf">fd</span>    <span class="no">mov</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">sp</span>                   <span class="c1">// FP = SP (新栈帧基址)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 函数体 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">e0:</span> <span class="err">52800540</span>    <span class="nf">mov</span>    <span class="no">w0</span><span class="p">,</span> <span class="c1">#0x2a                 // w0 = 42 (参数 v)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">e4:</span> <span class="nf">b9001be0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#24]             // 局部变量 v = 42 存到栈上
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">e8:</span> <span class="nf">b9401be0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#24]             // w0 = v (加载参数)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">ec:</span> <span class="err">97</span><span class="nf">ffffe5</span>    <span class="no">bl</span>      <span class="mh">780</span> <span class="p">&lt;</span><span class="no">process</span><span class="p">&gt;</span>            <span class="c1">// LR = 0x7f0, 跳转到 process
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"> <span class="err">7</span><span class="nl">f0:</span> <span class="nf">b9001fe0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]             // 局部变量 r = process(v) 的返回值
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">f4:</span> <span class="nf">b9401fe0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]             // w0 = r
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">f8:</span> <span class="err">97</span><span class="nf">fffff3</span>    <span class="no">bl</span>      <span class="mh">7c4</span> <span class="p">&lt;</span><span class="no">print_result</span><span class="p">&gt;</span>       <span class="c1">// LR = 0x7fc, 调用 print_result
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"> <span class="err">7</span><span class="nl">fc:</span> <span class="err">52800000</span>    <span class="nf">mov</span>    <span class="no">w0</span><span class="p">,</span> <span class="c1">#0x0                  // return 0
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 尾声 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">800:</span> <span class="nf">a8c27bfd</span>    <span class="no">ldp</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">x30</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">],</span> <span class="c1">#32       // 恢复 X29/X30, 然后 SP += 32
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">804:</span> <span class="nf">d65f03c0</span>    <span class="no">ret</span>                               <span class="c1">// 跳回 X30 (返回 _start)
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>关键观察</strong>：</p>
+<ul>
+<li><code>stp x29, x30, [sp, #-32]!</code> 分配了 32 字节栈空间，并在底部保存了上一帧的 FP 和 LR</li>
+<li><code>mov x29, sp</code> 让 X29 指向刚保存的 (旧 FP, 旧 LR) 这对数据</li>
+<li>调用 <code>process</code> 前将参数放在 w0 中（ARM64 调用约定：前 8 个整数参数通过 X0–X7 传递）</li>
+<li><code>bl</code> 将返回地址 <code>0x7f0</code> 存入 X30 后跳转</li>
+<li>尾声的 <code>ldp x29, x30, [sp], #32</code> 对称地恢复并释放</li>
+</ul>
+<h4 id="process--中间层函数"><code>process</code> —— 中间层函数
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">0000000000000780</span> <span class="err">&lt;</span><span class="nf">process</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 序言 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">780:</span> <span class="nf">a9bd7bfd</span>    <span class="no">stp</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">x30</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#-48]!    // SP -= 48, 保存 [X29, X30]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">784:</span> <span class="err">910003</span><span class="nf">fd</span>    <span class="no">mov</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">sp</span>                   <span class="c1">// FP = SP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 函数体 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">788:</span> <span class="nf">b9001fe0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]             // 存储参数 n
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">78</span><span class="nl">c:</span> <span class="nf">b9401fe0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">790:</span> <span class="err">531</span><span class="nf">f7800</span>    <span class="no">lsl</span>    <span class="no">w0</span><span class="p">,</span> <span class="no">w0</span><span class="p">,</span> <span class="c1">#1                // a = n * 2 (左移1位)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">794:</span> <span class="nf">b90027e0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#36]             // 存储局部变量 a
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">798:</span> <span class="nf">b9401fe0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">79</span><span class="nl">c:</span> <span class="err">11000</span><span class="nf">c00</span>    <span class="no">add</span>    <span class="no">w0</span><span class="p">,</span> <span class="no">w0</span><span class="p">,</span> <span class="c1">#0x3              // b = n + 3
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">a0:</span> <span class="nf">b9002be0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#40]             // 存储局部变量 b
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">a4:</span> <span class="nf">b9401fe2</span>    <span class="no">ldr</span>    <span class="no">w2</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]             // w2 = n  (第三个参数)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">a8:</span> <span class="nf">b9402be1</span>    <span class="no">ldr</span>    <span class="no">w1</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#40]             // w1 = b  (第二个参数)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">ac:</span> <span class="nf">b94027e0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#36]             // w0 = a  (第一个参数)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">b0:</span> <span class="err">97</span><span class="nf">ffffe4</span>    <span class="no">bl</span>      <span class="mh">740</span> <span class="p">&lt;</span><span class="no">calc</span><span class="p">&gt;</span>               <span class="c1">// LR = 0x7b4, 调用 calc(a, b, n)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"> <span class="err">7</span><span class="nl">b4:</span> <span class="nf">b9002fe0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#44]             // c = calc(...) 的返回值
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">b8:</span> <span class="nf">b9402fe0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#44]             // return c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 尾声 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">bc:</span> <span class="nf">a8c37bfd</span>    <span class="no">ldp</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">x30</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">],</span> <span class="c1">#48       // 恢复 X29/X30, SP += 48
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">c0:</span> <span class="nf">d65f03c0</span>    <span class="no">ret</span>                               <span class="c1">// 跳回 LR
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>关键观察</strong>：</p>
+<ul>
+<li>分配了 48 字节栈空间（比 main 的 32 字节大），因为局部变量更多</li>
+<li>它的序言覆盖了 X30（保存了返回 main 的地址），所以当它再调用 calc 时，X30 被 <code>bl</code> 覆盖不会造成问题</li>
+<li>调用 <code>calc</code> 时传三个参数 (a, b, n)，分别放在 w0、w1、w2</li>
+</ul>
+<h4 id="calc--中间层函数"><code>calc</code> —— 中间层函数
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">0000000000000740</span> <span class="err">&lt;</span><span class="nf">calc</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 序言 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">740:</span> <span class="nf">a9bd7bfd</span>    <span class="no">stp</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">x30</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#-48]!    // SP -= 48, 保存 [X29, X30]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">744:</span> <span class="err">910003</span><span class="nf">fd</span>    <span class="no">mov</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">sp</span>                   <span class="c1">// FP = SP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 函数体 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">748:</span> <span class="nf">b9001fe0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]             // 存储参数 x
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">74</span><span class="nl">c:</span> <span class="nf">b9001be1</span>    <span class="no">str</span>    <span class="no">w1</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#24]             // 存储参数 y
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">750:</span> <span class="nf">b90017e2</span>    <span class="no">str</span>    <span class="no">w2</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#20]             // 存储参数 z
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">754:</span> <span class="nf">b9401fe1</span>    <span class="no">ldr</span>    <span class="no">w1</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">758:</span> <span class="nf">b9401be0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#24]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">75</span><span class="nl">c:</span> <span class="err">1</span><span class="nf">b007c20</span>    <span class="no">mul</span>    <span class="no">w0</span><span class="p">,</span> <span class="no">w1</span><span class="p">,</span> <span class="no">w0</span>                <span class="c1">// tmp = x * y
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">760:</span> <span class="nf">b9002be0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#40]             // 存储 tmp
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">764:</span> <span class="nf">b94017e1</span>    <span class="no">ldr</span>    <span class="no">w1</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#20]             // w1 = z
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">768:</span> <span class="nf">b9402be0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#40]             // w0 = tmp
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">76</span><span class="nl">c:</span> <span class="err">97</span><span class="nf">ffffeb</span>    <span class="no">bl</span>      <span class="mh">718</span> <span class="p">&lt;</span><span class="no">add</span><span class="p">&gt;</span>                <span class="c1">// LR = 0x770, 调用 add(tmp, z)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"> <span class="err">770:</span> <span class="nf">b9002fe0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#44]             // result = add(...)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">774:</span> <span class="nf">b9402fe0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#44]             // return result
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 尾声 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">778:</span> <span class="nf">a8c37bfd</span>    <span class="no">ldp</span>    <span class="no">x29</span><span class="p">,</span> <span class="no">x30</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">],</span> <span class="c1">#48       // 恢复 X29/X30, SP += 48
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">77</span><span class="nl">c:</span> <span class="nf">d65f03c0</span>    <span class="no">ret</span>                               <span class="c1">// 跳回 LR
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="add--叶子函数"><code>add</code> —— 叶子函数
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">0000000000000718</span> <span class="err">&lt;</span><span class="nf">add</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 没有序言（叶子函数）=====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">718:</span> <span class="nf">d10083ff</span>    <span class="no">sub</span>    <span class="no">sp</span><span class="p">,</span> <span class="no">sp</span><span class="p">,</span> <span class="c1">#0x20             // 仅分配 32 字节（给局部变量）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">71</span><span class="nl">c:</span> <span class="nf">b9000fe0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#12]             // 存储参数 a
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">720:</span> <span class="nf">b9000be1</span>    <span class="no">str</span>    <span class="no">w1</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#8]              // 存储参数 b
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">724:</span> <span class="nf">b9400fe1</span>    <span class="no">ldr</span>    <span class="no">w1</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#12]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">728:</span> <span class="nf">b9400be0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#8]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">72</span><span class="nl">c:</span> <span class="err">0</span><span class="nf">b000020</span>    <span class="no">add</span>    <span class="no">w0</span><span class="p">,</span> <span class="no">w1</span><span class="p">,</span> <span class="no">w0</span>                <span class="c1">// sum = a + b
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">730:</span> <span class="nf">b9001fe0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]             // 存储 sum
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">734:</span> <span class="nf">b9401fe0</span>    <span class="no">ldr</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#28]             // return sum
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 没有尾声（仅释放栈）=====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">738:</span> <span class="err">910083</span><span class="nf">ff</span>    <span class="no">add</span>    <span class="no">sp</span><span class="p">,</span> <span class="no">sp</span><span class="p">,</span> <span class="c1">#0x20             // SP += 32
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">73</span><span class="nl">c:</span> <span class="nf">d65f03c0</span>    <span class="no">ret</span>                               <span class="c1">// 跳回 LR (仍然是 calc 中的 0x770)
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>关键区别</strong>：</p>
+<ul>
+<li><strong>没有</strong> <code>stp x29, x30</code> —— 因为 add 不会再调用其他函数，X30 不会被覆盖</li>
+<li><strong>没有</strong> <code>mov x29, sp</code> —— 不需要帧指针</li>
+<li>只分配了局部变量所需的空间 (32 字节)，用完即释放</li>
+<li><code>ret</code> 时 X30 仍然完好地保存着 <code>calc</code> 中 <code>bl</code> 写入的返回地址 <code>0x770</code></li>
+</ul>
+<h4 id="print_result--另一个叶子函数"><code>print_result</code> —— 另一个叶子函数
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">00000000000007</span><span class="nf">c4</span> <span class="err">&lt;</span><span class="no">print_result</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"> <span class="err">7</span><span class="nl">c4:</span> <span class="nf">d10043ff</span>    <span class="no">sub</span>    <span class="no">sp</span><span class="p">,</span> <span class="no">sp</span><span class="p">,</span> <span class="c1">#0x10             // 分配 16 字节
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">c8:</span> <span class="nf">b9000fe0</span>    <span class="no">str</span>    <span class="no">w0</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">,</span> <span class="c1">#12]             // 存参数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">cc:</span> <span class="nf">d503201f</span>    <span class="no">nop</span>
+</span></span><span class="line"><span class="cl"> <span class="err">7</span><span class="nl">d0:</span> <span class="err">910043</span><span class="nf">ff</span>    <span class="no">add</span>    <span class="no">sp</span><span class="p">,</span> <span class="no">sp</span><span class="p">,</span> <span class="c1">#0x10             // 释放 16 字节
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> <span class="err">7</span><span class="nl">d4:</span> <span class="nf">d65f03c0</span>    <span class="no">ret</span>                               <span class="c1">// 跳回 LR (main 中的 0x7fc)
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="动手实验用-gdb-验证调用栈">动手实验：用 GDB 验证调用栈
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 交叉编译时保留调试符号（已加 -g）</span>
+</span></span><span class="line"><span class="cl">aarch64-linux-gnu-gcc -O0 -g -o demo demo.c
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 在 ARM64 环境（或 QEMU）中启动 GDB</span>
+</span></span><span class="line"><span class="cl">gdb demo
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>用 GDB 单步跟踪 <code>demo.c</code> 的调用过程，实地观察 X29/FP、X30/LR 和 SP 的变化。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 在 add 入口处断点
+</span></span><span class="line"><span class="cl">break add
+</span></span><span class="line"><span class="cl">run
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"># 查看完整调用链
+</span></span><span class="line"><span class="cl">backtrace
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 预期输出（从当前 add 开始向上追溯 4 层）：
+</span></span><span class="line"><span class="cl"># #0  add (a=3780, b=42) at demo.c:7
+</span></span><span class="line"><span class="cl"># #1  0x0000aaaaaaaa0770 in calc (x=84, y=45, z=42) at demo.c:13
+</span></span><span class="line"><span class="cl"># #2  0x0000aaaaaaaa07b4 in process (n=42) at demo.c:20
+</span></span><span class="line"><span class="cl"># #3  0x0000aaaaaaaa07f0 in main (v=42) at demo.c:30
+</span></span><span class="line"><span class="cl"># #4  0x0000fffff7f3dxxx in __libc_start_main ...
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 查看当前帧的详细信息（含帧地址、返回地址、栈分配）
+</span></span><span class="line"><span class="cl">info frame
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 预期输出关键行：
+</span></span><span class="line"><span class="cl">#  Frame at 0x........:     ← 当前帧地址（即 add 的 SP + 32 后的值）
+</span></span><span class="line"><span class="cl">#   pc = 0x... in add
+</span></span><span class="line"><span class="cl">#   fp = 0x...         ← X29 的值
+</span></span><span class="line"><span class="cl">#   sp = 0x...         ← 当前 SP
+</span></span><span class="line"><span class="cl">#   in call to function add
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 查看寄存器：FP (X29)、LR (X30)、SP、PC
+</span></span><span class="line"><span class="cl">info registers x29 x30 sp pc
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 预期输出示例：
+</span></span><span class="line"><span class="cl"># x29            0x........     ← 指向 add 栈帧底部（保存的 calc 的 FP/LR）
+</span></span><span class="line"><span class="cl"># x30            0x........     ← 返回 calc 中 bl add 的下一条指令地址
+</span></span><span class="line"><span class="cl"># sp             0x........     ← 栈顶
+</span></span><span class="line"><span class="cl"># pc             0x........     ← 当前指令地址
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 以 8 字节为单位 dump 栈内存（从 SP 往上 48 字节——覆盖 add 整个帧）
+</span></span><span class="line"><span class="cl">x/6gx $sp
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 预期输出（地址仅供参考）：
+</span></span><span class="line"><span class="cl"># 0x........:    0x0000....  0x0000....   ← add 的局部变量区
+</span></span><span class="line"><span class="cl"># 0x........:    0x0000....  0x0000....   ← add 的局部变量区
+</span></span><span class="line"><span class="cl"># 0x........:    0x0000....  0x0000....   ← [保存的 calc 的 X29]  [保存的 calc 的 X30]
+</span></span><span class="line"><span class="cl">#              ↑ 这个 X29 指向 calc 的帧      ↑ 这个 X30 就是 add 的返回地址
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># 单步执行一条指令（从 add 的第一条指令 sub sp, sp, #0x20 开始追踪）
+</span></span><span class="line"><span class="cl">stepi
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"># 每步都观察 SP / x29 / x30 的变化
+</span></span><span class="line"><span class="cl">info registers x29 x30 sp
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="关键观察点">关键观察点
+</h4><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>执行到哪个位置</th>
+          <th>SP 变化</th>
+          <th>X29 (FP)</th>
+          <th>X30 (LR)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>add</code> 入口（刚 <code>bl add</code> 后）</td>
+          <td>SP 指向调用者（calc）的栈内</td>
+          <td>指向 calc 的帧底</td>
+          <td>==返回 calc 的地址==</td>
+      </tr>
+      <tr>
+          <td>执行 <code>sub sp, sp, #0x20</code> 后</td>
+          <td><strong>SP -= 32</strong>，栈帧建立</td>
+          <td>不变</td>
+          <td>不变</td>
+      </tr>
+      <tr>
+          <td>执行 <code>ret</code> 前</td>
+          <td>不变</td>
+          <td>不变</td>
+          <td>仍为 calc 返回地址</td>
+      </tr>
+      <tr>
+          <td><code>ret</code> 后回到 calc</td>
+          <td>SP 回到 calc 帧内</td>
+          <td>不变</td>
+          <td>被 <code>bl</code> 下一指令覆盖</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>核心验证点：<strong>在 add 内部全程 X30 不变</strong>（因为 add 是叶子函数，不调用其他函数），这验证了 ARM64 叶子函数无需保存 LR</p>
+<h3 id="调用过程中的栈变化全景">调用过程中的栈变化全景
+</h3><p>假设执行到 <code>add</code> 函数内部（刚执行完 <code>sub sp, sp, #0x20</code>），此时栈的完整布局如下：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">                  ┌────────────────────────────┐  ← 高地址
+</span></span><span class="line"><span class="cl">                  │        ... (其他数据)        │
+</span></span><span class="line"><span class="cl">                  ├────────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   main 的局部变量区域        │
+</span></span><span class="line"><span class="cl">                  │   v  = [SP+24]  (值 42)     │
+</span></span><span class="line"><span class="cl">                  │   r  = [SP+28]  (返回值)     │
+</span></span><span class="line"><span class="cl">                  ├────────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   main 保存的 X29 (旧 FP)    │  ← main 的 FP (X29)
+</span></span><span class="line"><span class="cl">                  │   main 保存的 X30 (返回 LR)  │
+</span></span><span class="line"><span class="cl">       main 帧    ├────────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   process 的局部变量区域      │
+</span></span><span class="line"><span class="cl">                  │   n  = [SP+28]  (值 42)     │
+</span></span><span class="line"><span class="cl">                  │   a  = [SP+36]  (值 84)     │
+</span></span><span class="line"><span class="cl">                  │   b  = [SP+40]  (值 45)     │
+</span></span><span class="line"><span class="cl">                  │   c  = [SP+44]  (返回值)     │
+</span></span><span class="line"><span class="cl">                  ├────────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   process 保存的 X29 (main FP)│  ← process 的 FP (X29)
+</span></span><span class="line"><span class="cl">                  │   process 保存的 X30 (main LR)│
+</span></span><span class="line"><span class="cl">    process 帧    ├────────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   calc 的局部变量区域         │
+</span></span><span class="line"><span class="cl">                  │   z  = [SP+20]  (值 42)     │
+</span></span><span class="line"><span class="cl">                  │   y  = [SP+24]  (值 45)     │
+</span></span><span class="line"><span class="cl">                  │   x  = [SP+28]  (值 84)     │
+</span></span><span class="line"><span class="cl">                  │   tmp= [SP+40]  (值 3780)   │  ← 84 × 45
+</span></span><span class="line"><span class="cl">                  │   res= [SP+44]  (值 3822)   │  ← 3780 + 42
+</span></span><span class="line"><span class="cl">                  ├────────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   calc 保存的 X29 (proc FP)  │  ← calc 的 FP (X29)
+</span></span><span class="line"><span class="cl">                  │   calc 保存的 X30 (proc LR)  │
+</span></span><span class="line"><span class="cl">     calc 帧      ├────────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   add 的局部变量区域          │
+</span></span><span class="line"><span class="cl">                  │   a  = [SP+12]  (值 3780)   │
+</span></span><span class="line"><span class="cl">                  │   b  = [SP+8]   (值 42)     │
+</span></span><span class="line"><span class="cl">                  │   sum= [SP+28]  (值 3822)   │
+</span></span><span class="line"><span class="cl">     add 帧       ├────────────────────────────┤  ← SP (当前栈顶)
+</span></span><span class="line"><span class="cl">                  └────────────────────────────┘  ← 低地址
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>帧指针链 (FP Chain)</strong> 从当前 add 向上追溯：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">add 的 X29 ──→ [calc 的帧中保存的 X29] ──→ [process 的帧中保存的 X29] ──→ [main 的帧中保存的 X29] ──→ 0
+</span></span><span class="line"><span class="cl">     ↓                     ↓                         ↓                         ↓
+</span></span><span class="line"><span class="cl">  指向 calc 的 FP      指向 process 的 FP         指向 main 的 FP           指向初始值 0
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这正是栈回溯 (Stack Unwinding) 的物理基础。</p>
+<h3 id="栈展开-stack-unwinding-原理">栈展开 (Stack Unwinding) 原理
+</h3><p>栈展开（也叫<strong>栈回溯 / Stack Backtrace</strong>）就是从当前函数出发，沿着帧指针链逆向走回调用链的全过程。</p>
+<h4 id="算法">算法
+</h4><p>对于一个非叶子函数的栈帧（已保存了 X29/X30 成对数据）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">                     ┌─────────────────┐
+</span></span><span class="line"><span class="cl">  FP (X29) ────────→ │  旧 X29 (上一级 FP) │  ← 读出后赋值给 FP，向上跳一级
+</span></span><span class="line"><span class="cl">                     │  旧 X30 (返回地址)  │  ← 读出即得上一级的返回地址
+</span></span><span class="line"><span class="cl">                     ├─────────────────┤
+</span></span><span class="line"><span class="cl">                     │    局部变量区      │
+</span></span><span class="line"><span class="cl">                     │        ...        │
+</span></span><span class="line"><span class="cl">                     └─────────────────┘
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>伪代码</strong>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">unwind</span><span class="p">(</span><span class="kt">uint64_t</span> <span class="n">fp</span><span class="p">,</span> <span class="kt">uint64_t</span> <span class="n">lr</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">fp</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 从栈帧中取出返回地址和上一级 FP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="kt">uint64_t</span> <span class="n">prev_fp</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)(</span><span class="n">fp</span> <span class="o">+</span> <span class="mi">0</span><span class="p">);</span>   <span class="c1">// 帧底 +0 处是旧 FP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="kt">uint64_t</span> <span class="n">prev_lr</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)(</span><span class="n">fp</span> <span class="o">+</span> <span class="mi">8</span><span class="p">);</span>   <span class="c1">// 帧底 +8 处是旧 LR
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;LR = 0x%lx</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">prev_lr</span><span class="p">);</span>           <span class="c1">// 打印返回地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="n">fp</span> <span class="o">=</span> <span class="n">prev_fp</span><span class="p">;</span>                               <span class="c1">// 上移一级
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="库函数支持">库函数支持
+</h4><ul>
+<li><code>__builtin_frame_address(level)</code> — GCC/Clang 内建，获取第 N 级函数的 FP</li>
+<li><code>__builtin_return_address(level)</code> — 获取第 N 级函数的返回地址</li>
+<li><code>backtrace()</code> / <code>backtrace_symbols()</code> — glibc 提供的高层栈回溯接口</li>
+</ul>
+<h4 id="实际调用链回溯">实际调用链回溯
+</h4><p>从 add 内部触发回溯，得到的地址链：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>级别</th>
+          <th>返回地址 (X30)</th>
+          <th>函数</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0</td>
+          <td><code>0x770</code></td>
+          <td><code>add</code> → <code>calc</code> 中的 <code>bl add</code> 之后</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td><code>0x7b4</code></td>
+          <td><code>calc</code> → <code>process</code> 中的 <code>bl calc</code> 之后</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td><code>0x7f0</code></td>
+          <td><code>process</code> → <code>main</code> 中的 <code>bl process</code> 之后</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td><code>0x620+?</code></td>
+          <td><code>main</code> → <code>_start</code> / <code>__libc_start_main</code></td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<h3 id="叶子函数与非叶子函数">叶子函数与非叶子函数
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>特征</th>
+          <th>叶子函数 (Leaf)</th>
+          <th>非叶子函数 (Non-leaf)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>保存 X29/X30?</td>
+          <td>❌ 不保存</td>
+          <td>✅ <code>stp x29, x30, ...</code></td>
+      </tr>
+      <tr>
+          <td>设置帧指针?</td>
+          <td>❌</td>
+          <td>✅ <code>mov x29, sp</code></td>
+      </tr>
+      <tr>
+          <td>栈帧固定大小?</td>
+          <td>是（仅局部变量）</td>
+          <td>是（含保存的寄存器）</td>
+      </tr>
+      <tr>
+          <td>栈展开支持?</td>
+          <td>通过调用者的帧</td>
+          <td>通过自己的 FP/LR 保存对</td>
+      </tr>
+      <tr>
+          <td>X30 是否被覆盖风险?</td>
+          <td>无风险（不调用）</td>
+          <td>有风险（调用前已保存）</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>以上是 <code>-O0</code>（无优化）的输出。开启优化后：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">-O0:   sub sp, sp, #0x20     // 即使叶子函数也分配栈空间（给所有局部变量）
+</span></span><span class="line"><span class="cl">-O2:   // 可能完全不用栈，直接在寄存器中完成计算
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>例如 <code>-O2</code> 下 add 可能被<strong>内联 (inline)</strong> 到 calc 中，根本不会产生函数调用指令。</p>
+<h3 id="总结">总结
+</h3><blockquote>
+<p><strong>函数调用栈 = 由 FP (X29) 链串联起来的多个栈帧，每个栈帧保存了返回地址 (X30/LR) 和上一级 FP，形成一个可从当前函数回溯到 _start 的单向链表。</strong></p></blockquote>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>#</th>
+          <th>要点</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td><strong>X30 (LR)</strong> 由硬件在 <code>bl</code> 时自动写入返回地址，<code>ret</code> 时自动跳回</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td><strong>X29 (FP)</strong> 由软件在函数入口设置为当前栈帧的基址，形成回溯链表</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td><strong>序言 (Prologue)</strong> 分配空间 + 保存 FP/LR + 建立新 FP</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td><strong>尾声 (Epilogue)</strong> 恢复 FP/LR + 释放空间 + <code>ret</code></td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>叶子函数不保存 FP/LR，因为 X30 安全</td>
+      </tr>
+      <tr>
+          <td>6</td>
+          <td>栈回溯 = 沿着 FP 链遍历，从每个帧中提取 LR 即得调用历史</td>
+      </tr>
+      <tr>
+          <td>7</td>
+          <td>ARM64 栈是满递减的，SP 保持 16 字节对齐</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<blockquote>
+<p><strong>实践建议</strong>：在调试崩溃 (Segfault / Panic) 时，CPU 的当前 PC 加上 FP 链就可以还原出完整的调用堆栈。理解 X29/X30 的机制，就等于掌握了栈回溯的全部密码。</p></blockquote>
+<hr>
+<h2 id="对比分析x86-64-与-arm64">对比分析：x86-64 与 ARM64
+</h2><h3 id="核心差异总览">核心差异总览
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>ARM64 (AArch64)</th>
+          <th>x86-64</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>返回地址存放</strong></td>
+          <td>专用寄存器 X30 (LR)</td>
+          <td><strong>栈上</strong>（<code>call</code> 压栈，<code>ret</code> 弹栈）</td>
+      </tr>
+      <tr>
+          <td><strong>帧指针</strong></td>
+          <td>X29 (FP)</td>
+          <td>RBP</td>
+      </tr>
+      <tr>
+          <td><strong>调用指令</strong></td>
+          <td><code>bl target</code> — LR=下条地址，跳转</td>
+          <td><code>call target</code> — 返回地址压栈，跳转</td>
+      </tr>
+      <tr>
+          <td><strong>返回指令</strong></td>
+          <td><code>ret</code> — 跳转 X30</td>
+          <td><code>ret</code> — 从栈顶弹出地址并跳转</td>
+      </tr>
+      <tr>
+          <td><strong>序言范式</strong></td>
+          <td><code>stp x29, x30, [sp,#-N]!</code> / <code>mov x29, sp</code></td>
+          <td><code>push rbp</code> / <code>mov rsp, rbp</code> / <code>sub $N, rsp</code></td>
+      </tr>
+      <tr>
+          <td><strong>尾声范式</strong></td>
+          <td><code>ldp x29, x30, [sp], #N</code> / <code>ret</code></td>
+          <td><code>leave</code>（或 <code>mov rsp, rbp; pop rbp</code>）/ <code>ret</code></td>
+      </tr>
+      <tr>
+          <td><strong>叶子函数优化</strong></td>
+          <td>可不保存 X29/X30</td>
+          <td><code>-O0</code> 也会保存 RBP</td>
+      </tr>
+      <tr>
+          <td><strong>参数传递</strong></td>
+          <td>X0–X7（寄存器传参）</td>
+          <td>RDI, RSI, RDX, RCX, R8, R9（寄存器传参）</td>
+      </tr>
+      <tr>
+          <td><strong>栈方向</strong></td>
+          <td>满递减 (Full-descending)</td>
+          <td>满递减 (Full-descending)</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="关键机制差异详解">关键机制差异详解
+</h3><h4 id="差异一返回地址放哪">差异一：返回地址放哪？
+</h4><p><strong>ARM64</strong>：返回地址放在 <strong>X30 (LR)</strong> 寄存器中。函数调用链的每一级都必须在自己被覆盖前把 LR 保存到栈上。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="c1">// ARM64: bl 不碰栈，只写 X30
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">bl</span>  <span class="no">calc</span>          <span class="c1">// X30 = 0x7f0, PC = calc
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>x86-64</strong>：返回地址直接<strong>压到栈上</strong>。<code>call</code> 等价于 <code>push 返回地址; jmp target</code>。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="c1">// x86-64: call 自动压栈
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">call</span>  <span class="no">calc</span>         <span class="c1">// RSP -= 8, [RSP] = 返回地址, RIP = calc
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>这意味着 x86-64 的栈帧底部<strong>天然有返回地址</strong>，无需专门的寄存器来保存。</p>
+<h4 id="差异二帧指针的角色">差异二：帧指针的角色
+</h4><p><strong>ARM64</strong>：X29 (FP) 由序言 <code>mov x29, sp</code> 设定，指向刚保存的 (旧 FP, 旧 LR) 这对数据。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">  FP ──→ [ 旧 FP  |  旧 LR  ]  ← 连续 16 字节
+</span></span><span class="line"><span class="cl">           ↑ +0       ↑ +8
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>x86-64</strong>：RBP 由序言 <code>push rbp; mov rsp, rbp</code> 设定。栈帧布局为：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">  RBP ──→ [ 旧 RBP         ]  ← +0
+</span></span><span class="line"><span class="cl">           [ 返回地址        ]  ← +8  （由 call 压入）
+</span></span><span class="line"><span class="cl">           [ 局部变量区      ]  ← 负偏移
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>重要区别</strong>：ARM64 的 FP 指向一个<strong>成对保存区</strong>（FP+LR 一起存），x86-64 的 RBP 指向<strong>单独保存的旧 RBP</strong>，而返回地址在 RBP+8。</p>
+<h3 id="逐函数-x86-64-反汇编">逐函数 x86-64 反汇编
+</h3><h4 id="add--x86-64-的叶子函数"><code>add</code> —— x86-64 的叶子函数
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">0000000000001129</span> <span class="err">&lt;</span><span class="nf">add</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 序言 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1129:</span> <span class="nf">f3</span> <span class="mi">0</span><span class="no">f</span> <span class="mi">1</span><span class="no">e</span> <span class="no">fa</span>    <span class="no">endbr64</span>                     <span class="c1">//  CET (Control-flow Enforcement)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">112</span><span class="nl">d:</span> <span class="err">55</span>             <span class="nf">push</span>   <span class="nv">%rbp</span>                 <span class="c1">// 保存旧 RBP 到栈上
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">112</span><span class="nl">e:</span> <span class="err">48</span> <span class="err">89</span> <span class="nf">e5</span>       <span class="no">mov</span>    <span class="nv">%rsp</span><span class="p">,</span><span class="nv">%rbp</span>            <span class="c1">// RBP = RSP（建立帧指针）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 函数体 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1131:</span> <span class="err">89</span> <span class="err">7</span><span class="nf">d</span> <span class="no">ec</span>       <span class="no">mov</span>    <span class="nv">%edi</span><span class="p">,-</span><span class="mi">0x14</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>     <span class="c1">// 参数 a（来自 EDI）→ 栈上
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1134:</span> <span class="err">89</span> <span class="err">75</span> <span class="nf">e8</span>       <span class="no">mov</span>    <span class="nv">%esi</span><span class="p">,-</span><span class="mi">0x18</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>     <span class="c1">// 参数 b（来自 ESI）→ 栈上
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1137:</span> <span class="err">8</span><span class="nf">b</span> <span class="mi">55</span> <span class="no">ec</span>       <span class="no">mov</span>    <span class="p">-</span><span class="mi">0x14</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%edx</span>     <span class="c1">// 加载 a
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">113</span><span class="nl">a:</span> <span class="err">8</span><span class="nf">b</span> <span class="mi">45</span> <span class="no">e8</span>       <span class="no">mov</span>    <span class="p">-</span><span class="mi">0x18</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%eax</span>     <span class="c1">// 加载 b
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">113</span><span class="nl">d:</span> <span class="err">01</span> <span class="nf">d0</span>          <span class="no">add</span>    <span class="nv">%edx</span><span class="p">,</span><span class="nv">%eax</span>            <span class="c1">// eax = a + b
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">113</span><span class="nl">f:</span> <span class="err">89</span> <span class="err">45</span> <span class="nf">fc</span>       <span class="no">mov</span>    <span class="nv">%eax</span><span class="p">,-</span><span class="mi">0x4</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>      <span class="c1">// sum 存栈
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1142:</span> <span class="err">8</span><span class="nf">b</span> <span class="mi">45</span> <span class="no">fc</span>       <span class="no">mov</span>    <span class="p">-</span><span class="mi">0x4</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%eax</span>      <span class="c1">// 返回值放入 EAX
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 尾声 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1145:</span> <span class="err">5</span><span class="nf">d</span>             <span class="no">pop</span>    <span class="nv">%rbp</span>                 <span class="c1">// 恢复旧 RBP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1146:</span> <span class="nf">c3</span>             <span class="no">ret</span>                          <span class="c1">// 从栈顶弹出返回地址
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>与 ARM64 对比 (<code>add</code>)</strong>：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>步骤</th>
+          <th>ARM64</th>
+          <th>x86-64</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>序言</td>
+          <td><code>sub sp, #0x20</code>（仅腾空间）</td>
+          <td><code>push rbp</code> + <code>mov rsp, rbp</code>（还是保存了帧指针！）</td>
+      </tr>
+      <tr>
+          <td>原因</td>
+          <td>叶子函数：X30 安全，不保存</td>
+          <td><code>-O0</code> 强制所有函数建立帧指针</td>
+      </tr>
+      <tr>
+          <td>尾声</td>
+          <td><code>add sp, #0x20</code></td>
+          <td><code>pop rbp</code></td>
+      </tr>
+      <tr>
+          <td>返回</td>
+          <td><code>ret</code>（跳 X30）</td>
+          <td><code>ret</code>（弹栈顶地址）</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>关键观察</strong>：x86-64 在 <code>-O0</code> 下即使是叶子函数也执行 <code>push rbp / pop rbp</code>，这是因为 x86-64 的调试约定更依赖 RBP 链，而 ARM64 的 DWARF <code>.eh_frame</code> 表提供了另一种展开路径，所以叶子函数可以跳过 FP 保存。</p>
+<h4 id="calc--x86-64-的非叶子函数"><code>calc</code> —— x86-64 的非叶子函数
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">0000000000001147</span> <span class="err">&lt;</span><span class="nf">calc</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 序言 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1147:</span> <span class="nf">f3</span> <span class="mi">0</span><span class="no">f</span> <span class="mi">1</span><span class="no">e</span> <span class="no">fa</span>    <span class="no">endbr64</span>
+</span></span><span class="line"><span class="cl">    <span class="err">114</span><span class="nl">b:</span> <span class="err">55</span>             <span class="nf">push</span>   <span class="nv">%rbp</span>                 <span class="c1">// 保存旧 RBP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">114</span><span class="nl">c:</span> <span class="err">48</span> <span class="err">89</span> <span class="nf">e5</span>       <span class="no">mov</span>    <span class="nv">%rsp</span><span class="p">,</span><span class="nv">%rbp</span>            <span class="c1">// RBP = RSP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">114</span><span class="nl">f:</span> <span class="err">48</span> <span class="err">83</span> <span class="nf">ec</span> <span class="mi">20</span>    <span class="no">sub</span>    <span class="no">$0x20</span><span class="p">,</span><span class="nv">%rsp</span>           <span class="c1">// 分配 32 字节局部变量空间
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 函数体 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1153:</span> <span class="err">89</span> <span class="err">7</span><span class="nf">d</span> <span class="no">ec</span>       <span class="no">mov</span>    <span class="nv">%edi</span><span class="p">,-</span><span class="mi">0x14</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>     <span class="c1">// 存参数 x
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1156:</span> <span class="err">89</span> <span class="err">75</span> <span class="nf">e8</span>       <span class="no">mov</span>    <span class="nv">%esi</span><span class="p">,-</span><span class="mi">0x18</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>     <span class="c1">// 存参数 y
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1159:</span> <span class="err">89</span> <span class="err">55</span> <span class="nf">e4</span>       <span class="no">mov</span>    <span class="nv">%edx</span><span class="p">,-</span><span class="mi">0x1c</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>     <span class="c1">// 存参数 z
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">115</span><span class="nl">c:</span> <span class="err">8</span><span class="nf">b</span> <span class="mi">45</span> <span class="no">ec</span>       <span class="no">mov</span>    <span class="p">-</span><span class="mi">0x14</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%eax</span>
+</span></span><span class="line"><span class="cl">    <span class="err">115</span><span class="nl">f:</span> <span class="err">0</span><span class="nf">f</span> <span class="no">af</span> <span class="mi">45</span> <span class="no">e8</span>    <span class="no">imul</span>   <span class="p">-</span><span class="mi">0x18</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%eax</span>     <span class="c1">// tmp = x * y
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1163:</span> <span class="err">89</span> <span class="err">45</span> <span class="nf">f8</span>       <span class="no">mov</span>    <span class="nv">%eax</span><span class="p">,-</span><span class="mi">0x8</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>      <span class="c1">// 存 tmp
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1166:</span> <span class="err">8</span><span class="nf">b</span> <span class="mi">55</span> <span class="no">e4</span>       <span class="no">mov</span>    <span class="p">-</span><span class="mi">0x1c</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%edx</span>     <span class="c1">// 准备参数 z
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1169:</span> <span class="err">8</span><span class="nf">b</span> <span class="mi">45</span> <span class="no">f8</span>       <span class="no">mov</span>    <span class="p">-</span><span class="mi">0x8</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%eax</span>      <span class="c1">// 准备参数 tmp
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">116</span><span class="nl">c:</span> <span class="err">89</span> <span class="nf">d6</span>          <span class="no">mov</span>    <span class="nv">%edx</span><span class="p">,</span><span class="nv">%esi</span>            <span class="c1">// 第二个参数 → ESI
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">116</span><span class="nl">e:</span> <span class="err">89</span> <span class="nf">c7</span>          <span class="no">mov</span>    <span class="nv">%eax</span><span class="p">,</span><span class="nv">%edi</span>            <span class="c1">// 第一个参数 → EDI
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1170:</span> <span class="nf">e8</span> <span class="no">b4</span> <span class="no">ff</span> <span class="no">ff</span> <span class="no">ff</span> <span class="no">call</span>   <span class="mh">1129</span> <span class="p">&lt;</span><span class="no">add</span><span class="p">&gt;</span>           <span class="c1">// ① 压入返回地址 0x1175
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>                                                      <span class="c1">// ② 跳转到 add
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1175:</span> <span class="err">89</span> <span class="err">45</span> <span class="nf">fc</span>       <span class="no">mov</span>    <span class="nv">%eax</span><span class="p">,-</span><span class="mi">0x4</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>      <span class="c1">// res = add() 返回值
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">1178:</span> <span class="err">8</span><span class="nf">b</span> <span class="mi">45</span> <span class="no">fc</span>       <span class="no">mov</span>    <span class="p">-</span><span class="mi">0x4</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%eax</span>      <span class="c1">// return res
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 尾声 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">117</span><span class="nl">b:</span> <span class="nf">c9</span>             <span class="no">leave</span>                        <span class="c1">// 相当于: mov rsp, rbp; pop rbp
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">117</span><span class="nl">c:</span> <span class="nf">c3</span>             <span class="no">ret</span>                          <span class="c1">// 从栈顶弹出返回地址
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>与 ARM64 对比 (<code>calc</code>)</strong>：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>步骤</th>
+          <th>ARM64</th>
+          <th>x86-64</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>保存返回地址</td>
+          <td>隐式：<code>stp x29, x30</code> 一起存</td>
+          <td><strong>显式</strong>：由 <code>call</code> 指令自动压栈</td>
+      </tr>
+      <tr>
+          <td>保存帧指针</td>
+          <td>和 LR 一起存在 <code>stp</code> 中</td>
+          <td><code>push rbp</code> 单独压栈</td>
+      </tr>
+      <tr>
+          <td>分配空间</td>
+          <td>在 <code>stp</code> 中一并完成（<code>sp,#-48!</code>）</td>
+          <td>单独 <code>sub $0x20, rsp</code></td>
+      </tr>
+      <tr>
+          <td>参数传递</td>
+          <td>X0=tmp, X1=z（先放好再 <code>bl</code>）</td>
+          <td>EDI=tmp, ESI=z（System V 约定）</td>
+      </tr>
+      <tr>
+          <td>释放空间</td>
+          <td><code>ldp x29, x30, [sp], #48</code> 一步完成</td>
+          <td><code>leave</code> = <code>mov rsp, rbp</code> + <code>pop rbp</code> 两步</td>
+      </tr>
+  </tbody>
+</table></div>
+<h4 id="main--x86-64-的入口"><code>main</code> —— x86-64 的入口
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">00000000000011</span><span class="nf">c5</span> <span class="err">&lt;</span><span class="no">main</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 序言 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">11</span><span class="nl">c5:</span> <span class="nf">f3</span> <span class="mi">0</span><span class="no">f</span> <span class="mi">1</span><span class="no">e</span> <span class="no">fa</span>    <span class="no">endbr64</span>
+</span></span><span class="line"><span class="cl">    <span class="err">11</span><span class="nl">c9:</span> <span class="err">55</span>             <span class="nf">push</span>   <span class="nv">%rbp</span>
+</span></span><span class="line"><span class="cl">    <span class="err">11</span><span class="nl">ca:</span> <span class="err">48</span> <span class="err">89</span> <span class="nf">e5</span>       <span class="no">mov</span>    <span class="nv">%rsp</span><span class="p">,</span><span class="nv">%rbp</span>
+</span></span><span class="line"><span class="cl">    <span class="err">11</span><span class="nl">cd:</span> <span class="err">48</span> <span class="err">83</span> <span class="nf">ec</span> <span class="mi">10</span>    <span class="no">sub</span>    <span class="no">$0x10</span><span class="p">,</span><span class="nv">%rsp</span>           <span class="c1">// 分配 16 字节
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 函数体 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">11</span><span class="nl">d1:</span> <span class="nf">c7</span> <span class="mi">45</span> <span class="no">f8</span> <span class="mi">2</span><span class="no">a</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span>  <span class="no">movl</span>   <span class="no">$0x2a</span><span class="p">,-</span><span class="mi">0x8</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>  <span class="c1">// v = 42
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">11</span><span class="nl">d8:</span> <span class="err">8</span><span class="nf">b</span> <span class="mi">45</span> <span class="no">f8</span>       <span class="no">mov</span>    <span class="p">-</span><span class="mi">0x8</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%eax</span>      <span class="c1">// 加载 v
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">11</span><span class="nl">db:</span> <span class="err">89</span> <span class="nf">c7</span>          <span class="no">mov</span>    <span class="nv">%eax</span><span class="p">,</span><span class="nv">%edi</span>            <span class="c1">// 第一个参数 → EDI
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">11</span><span class="nl">dd:</span> <span class="nf">e8</span> <span class="mi">9</span><span class="no">b</span> <span class="no">ff</span> <span class="no">ff</span> <span class="no">ff</span> <span class="no">call</span>   <span class="mh">117d</span> <span class="p">&lt;</span><span class="no">process</span><span class="p">&gt;</span>       <span class="c1">// 压入 0x11e2 并跳转
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">11</span><span class="nl">e2:</span> <span class="err">89</span> <span class="err">45</span> <span class="nf">fc</span>       <span class="no">mov</span>    <span class="nv">%eax</span><span class="p">,-</span><span class="mi">0x4</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">)</span>      <span class="c1">// r = process() 返回值
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">11</span><span class="nl">e5:</span> <span class="err">8</span><span class="nf">b</span> <span class="mi">45</span> <span class="no">fc</span>       <span class="no">mov</span>    <span class="p">-</span><span class="mi">0x4</span><span class="p">(</span><span class="nv">%rbp</span><span class="p">),</span><span class="nv">%eax</span>
+</span></span><span class="line"><span class="cl">    <span class="err">11</span><span class="nl">e8:</span> <span class="err">89</span> <span class="nf">c7</span>          <span class="no">mov</span>    <span class="nv">%eax</span><span class="p">,</span><span class="nv">%edi</span>
+</span></span><span class="line"><span class="cl">    <span class="err">11</span><span class="nl">ea:</span> <span class="nf">e8</span> <span class="no">c8</span> <span class="no">ff</span> <span class="no">ff</span> <span class="no">ff</span> <span class="no">call</span>   <span class="mh">11b7</span> <span class="p">&lt;</span><span class="no">print_result</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="err">11</span><span class="nl">ef:</span> <span class="nf">b8</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="no">mov</span>    <span class="no">$0x0</span><span class="p">,</span><span class="nv">%eax</span>            <span class="c1">// return 0
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">;===== 尾声 =====
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="err">11</span><span class="nl">f4:</span> <span class="nf">c9</span>             <span class="no">leave</span>
+</span></span><span class="line"><span class="cl">    <span class="err">11</span><span class="nl">f5:</span> <span class="nf">c3</span>             <span class="no">ret</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="x86-64-栈内存布局执行到-add-时">x86-64 栈内存布局（执行到 add 时）
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">                  ┌──────────────────────────┐  ← 高地址
+</span></span><span class="line"><span class="cl">                  │         ...               │
+</span></span><span class="line"><span class="cl">                  ├──────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   main 的局部变量          │
+</span></span><span class="line"><span class="cl">                  │   v  = [RBP-8]  (值 42)   │
+</span></span><span class="line"><span class="cl">                  │   r  = [RBP-4]  (返回值)   │
+</span></span><span class="line"><span class="cl">                  ├──────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   main 的旧 RBP            │  ← main 的 RBP
+</span></span><span class="line"><span class="cl">                  │   main 的返回地址          │  ← 由 _start 的 call 压入
+</span></span><span class="line"><span class="cl">       main 帧    ├──────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   process 的局部变量        │
+</span></span><span class="line"><span class="cl">                  │   n  = [RBP-14] (值 42)   │
+</span></span><span class="line"><span class="cl">                  │   a  = [RBP-C]  (值 84)   │
+</span></span><span class="line"><span class="cl">                  │   b  = [RBP-8]  (值 45)   │
+</span></span><span class="line"><span class="cl">                  │   c  = [RBP-4]  (返回值)   │
+</span></span><span class="line"><span class="cl">                  ├──────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   process 的旧 RBP (main的)│  ← process 的 RBP
+</span></span><span class="line"><span class="cl">                  │   process 的返回地址        │  ← main 中 `call process` 压入
+</span></span><span class="line"><span class="cl">    process 帧    ├──────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   calc 的局部变量           │
+</span></span><span class="line"><span class="cl">                  │   z = [RBP-1C] (值 42)    │
+</span></span><span class="line"><span class="cl">                  │   y = [RBP-18] (值 45)    │
+</span></span><span class="line"><span class="cl">                  │   x = [RBP-14] (值 84)    │
+</span></span><span class="line"><span class="cl">                  │   tmp=[RBP-8]  (值 3780)  │
+</span></span><span class="line"><span class="cl">                  │   res=[RBP-4]  (值 3822)  │
+</span></span><span class="line"><span class="cl">                  ├──────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   calc 的旧 RBP (process的)│  ← calc 的 RBP
+</span></span><span class="line"><span class="cl">                  │   calc 的返回地址           │  ← process 中 `call calc` 压入
+</span></span><span class="line"><span class="cl">     calc 帧      ├──────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   add 的局部变量            │
+</span></span><span class="line"><span class="cl">                  │   a = [RBP-14] (值 3780)  │
+</span></span><span class="line"><span class="cl">                  │   b = [RBP-18] (值 42)    │
+</span></span><span class="line"><span class="cl">                  │   sum=[RBP-4]  (值 3822)  │
+</span></span><span class="line"><span class="cl">                  ├──────────────────────────┤
+</span></span><span class="line"><span class="cl">                  │   add 的旧 RBP (calc的)    │  ← add 的 RBP（也是当前 RBP）
+</span></span><span class="line"><span class="cl">     add 帧       │   add 的返回地址           │  ← calc 中 `call add` 压入
+</span></span><span class="line"><span class="cl">                  └──────────────────────────┘  ← RSP（栈顶）
+</span></span><span class="line"><span class="cl">                                               ← 低地址
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>帧指针链 (RBP Chain)</strong>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">add 的 RBP ──→ [calc 帧中的旧 RBP] ──→ [process 帧中的旧 RBP] ──→ [main 帧中的旧 RBP] ──→ 0
+</span></span><span class="line"><span class="cl">     ↓                  ↓                        ↓                       ↓
+</span></span><span class="line"><span class="cl">  指向 calc 的 RBP   指向 process 的 RBP       指向 main 的 RBP        指向初始值
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="栈回溯x86-64-版本">栈回溯：x86-64 版本
+</h3><p>x86-64 的帧链遍历比 ARM64 多一个间接层：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// ARM64: FP 指向 [旧FP | 旧LR]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">prev_fp</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)(</span><span class="n">fp</span> <span class="o">+</span> <span class="mi">0</span><span class="p">);</span>    <span class="c1">// +0 是旧 FP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">prev_lr</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)(</span><span class="n">fp</span> <span class="o">+</span> <span class="mi">8</span><span class="p">);</span>    <span class="c1">// +8 是旧 LR
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// x86-64: RBP 指向 [旧RBP | 返回地址在+8]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">prev_rbp</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)(</span><span class="n">rbp</span><span class="p">);</span>       <span class="c1">// +0 是旧 RBP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">ret_addr</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)(</span><span class="n">rbp</span> <span class="o">+</span> <span class="mi">8</span><span class="p">);</span>   <span class="c1">// +8 是返回地址（由 call 压入）
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">unwind_x86</span><span class="p">(</span><span class="kt">uint64_t</span> <span class="n">rbp</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">rbp</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint64_t</span> <span class="n">prev_rbp</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">rbp</span><span class="p">;</span>         <span class="c1">// RBP+0 = 旧 RBP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="kt">uint64_t</span> <span class="n">ret_addr</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)(</span><span class="n">rbp</span> <span class="o">+</span> <span class="mi">8</span><span class="p">);</span>   <span class="c1">// RBP+8 = 返回地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;RIP = 0x%lx</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">ret_addr</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">rbp</span> <span class="o">=</span> <span class="n">prev_rbp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="leave-指令揭秘"><code>leave</code> 指令揭秘
+</h3><p>x86-64 的 <code>leave</code> 是 ARM64 中没有的指令，它等价于：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="nf">leave</span>   <span class="err">≡</span>   <span class="no">mov</span>  <span class="no">rsp</span><span class="p">,</span> <span class="no">rbp</span>      <span class="c1">// RSP = RBP（丢弃局部变量空间）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="nf">pop</span>  <span class="no">rbp</span>           <span class="c1">// RBP = [RSP], RSP += 8（恢复旧 RBP）
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>对比 ARM64：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="c1">// ARM64 尾声必须两条指令
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">ldp</span>   <span class="no">x29</span><span class="p">,</span> <span class="no">x30</span><span class="p">,</span> <span class="p">[</span><span class="no">sp</span><span class="p">],</span> <span class="c1">#48     // 同时恢复 FP、LR，释放空间
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">ret</span>                            <span class="c1">// 跳回 LR
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// x86-64 尾声也常是两条
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">leave</span>                          <span class="c1">// 恢复 RSP、RBP
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">ret</span>                            <span class="c1">// 弹出返回地址并跳转
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>但结构完全不同：</p>
+<ul>
+<li>ARM64 的 <code>ldp</code> 是<strong>加载成对寄存器 + 更新 SP</strong>（一条指令完成恢复+释放）</li>
+<li>x86-64 的 <code>leave</code> 是<strong>恢复 RSP 和 RBP</strong>，不碰返回地址</li>
+<li>x86-64 的 <code>ret</code> 负责<strong>弹出返回地址</strong></li>
+</ul>
+<h3 id="优化模式下的差异">优化模式下的差异
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>场景</th>
+          <th>ARM64</th>
+          <th>x86-64</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>-O0</code> 叶子函数</td>
+          <td>不保存 FP/LR</td>
+          <td>保存 RBP（<code>push rbp</code>）</td>
+      </tr>
+      <tr>
+          <td><code>-O2</code> 叶子函数</td>
+          <td>可能无栈操作</td>
+          <td>可能无栈操作</td>
+      </tr>
+      <tr>
+          <td><code>-fomit-frame-pointer</code></td>
+          <td>可用 <code>strip</code> 优化掉 FP</td>
+          <td>默认开启（省略 RBP）</td>
+      </tr>
+      <tr>
+          <td>无帧指针时栈回溯</td>
+          <td>依赖 <code>.eh_frame</code> (DWARF)</td>
+          <td>依赖 <code>.eh_frame</code> (DWARF)</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>关于 <code>-fomit-frame-pointer</code></strong>：</p>
+<p>现代 Linux 上 x86-64 GCC 默认开启 <code>-fomit-frame-pointer</code>（优化级别 <code>-O1</code> 及以上），此时 RBP 作为通用寄存器使用，不再作为帧指针。栈回溯完全依赖 <code>.eh_frame</code> 中的 DWARF 展开描述。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 对比有无 frame pointer 的反汇编</span>
+</span></span><span class="line"><span class="cl">$ gcc -O2 -fno-omit-frame-pointer -o with_fp demo.c
+</span></span><span class="line"><span class="cl">$ gcc -O2 -fomit-frame-pointer -o without_fp demo.c
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="总结对比">总结对比
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>特性</th>
+          <th>ARM64 (X29/X30)</th>
+          <th>x86-64 (RBP/栈)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>返回地址载体</strong></td>
+          <td>X30 寄存器</td>
+          <td><strong>栈内存</strong>（<code>call</code> 压入）</td>
+      </tr>
+      <tr>
+          <td><strong>帧指针</strong></td>
+          <td>X29（显式 <code>mov x29, sp</code>）</td>
+          <td>RBP（<code>push rbp; mov rsp, rbp</code>）</td>
+      </tr>
+      <tr>
+          <td><strong>序言原子性</strong></td>
+          <td><code>stp</code> 一条指令完成 <strong>保存+分配</strong></td>
+          <td>分开：<code>push</code> + <code>mov</code> + <code>sub</code></td>
+      </tr>
+      <tr>
+          <td><strong>返回地址保护</strong></td>
+          <td>函数序言主动保存 LR 到栈</td>
+          <td><code>call</code> 已自动压栈，天然保护</td>
+      </tr>
+      <tr>
+          <td><strong>叶子函数</strong></td>
+          <td>可完全跳过序言/尾声</td>
+          <td><code>-O0</code> 仍保留帧指针操作</td>
+      </tr>
+      <tr>
+          <td><strong>栈回溯取址</strong></td>
+          <td>帧底 +0→旧 FP，+8→旧 LR</td>
+          <td>帧底 +0→旧 RBP，+8→返回地址</td>
+      </tr>
+      <tr>
+          <td><strong>特殊指令</strong></td>
+          <td><code>stp</code> / <code>ldp</code> 成对操作</td>
+          <td><code>leave</code> 一步恢复 RSP+RBP</td>
+      </tr>
+      <tr>
+          <td><strong>设计哲学</strong></td>
+          <td><strong>寄存器优先</strong>（减少内存访问）</td>
+          <td><strong>栈优先</strong>（简化硬件设计）</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="一句话区别">一句话区别
+</h3><blockquote>
+<p><strong>ARM64 把返回地址放在寄存器 (X30/LR) 里，需要时再存到栈上；x86-64 让 <code>call</code> 指令直接把返回地址压到栈上。前者省内存但多一条保存指令，后者多一次内存写入但硬件更简单。</strong></p></blockquote>
+<hr>
+<blockquote>
+<p><strong>实践建议</strong>：当你在 x86-64 上调试崩溃时，<code>bt</code> 命令的原理就是在 RBP 链上遍历 <code>[rbp+0]</code>（上一帧指针）和 <code>[rbp+8]</code>（返回地址）。而在 ARM64 上，则是沿着 X29 链读取 <code>[fp+0]</code>（旧 FP）和 <code>[fp+8]</code>（旧 LR）。两种架构殊途同归：<strong>一个链表，遍历即得全貌。</strong></p></blockquote>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/c/">C</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/%E6%95%B0%E7%BB%84%E8%B6%8A%E7%95%8C%E4%B8%8E%E6%A0%88%E6%BA%A2%E5%87%BA/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">数组越界与栈溢出</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/c%E8%AF%AD%E8%A8%80%E5%AE%9E%E7%8E%B0%E5%A4%9A%E6%80%81%E6%A8%A1%E4%BB%BFc-%E8%99%9A%E5%87%BD%E6%95%B0%E8%A1%A8/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">C语言实现多态—模仿C&#43;&#43;虚函数表</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        right: 20px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop;
+        document.body.appendChild(btn);
+
+        
+        window.addEventListener('scroll', function() {
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        });
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+
+<style>
+     
+    .right-sidebar.toc-hidden {
+        display: none !important;
+    }
+
+     
+    #tocToggleBtn {
+        display: none;
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 99;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        padding: 6px;
+        border: none;
+        border-radius: 50%;
+        background: var(--card-background);
+        box-shadow: var(--shadow-l2);
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        transition: color 0.2s ease, background-color 0.2s ease;
+    }
+
+    #tocToggleBtn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    #tocToggleBtn svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+    }
+
+     
+    .toc-title-flex {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .toc-title-flex .section-title {
+        flex: 1;
+    }
+
+    .toc-inline-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        padding: 3px;
+        border: none;
+        background: none;
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        border-radius: 6px;
+        transition: color 0.2s ease, background-color 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .toc-inline-btn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    .toc-inline-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+</style>
+
+
+<script>
+    
+
+    function initTocToggle() {
+        let tocContent = document.querySelector('.widget--toc');
+        if (!tocContent) {
+            return;
+        }
+
+        let rightSidebar = document.querySelector('.right-sidebar');
+        if (!rightSidebar) {
+            return;
+        }
+
+        
+        let tocSection = tocContent.closest('section.widget');
+        let tocTitle = tocSection && tocSection.querySelector('.widget-title');
+
+        if (tocTitle) {
+            tocTitle.classList.add('toc-title-flex');
+
+            let inlineBtn = document.createElement('button');
+            inlineBtn.className = 'toc-inline-btn';
+            inlineBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+            let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+            updateBtnIcon(inlineBtn, isCollapsed);
+            if (isCollapsed) {
+                inlineBtn.title = '\u663e\u793a\u76ee\u5f55';
+            }
+
+            inlineBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleToc(rightSidebar);
+                
+                let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+                updateBtnIcon(inlineBtn, nowCollapsed);
+                let floatBtn = document.getElementById('tocToggleBtn');
+                if (floatBtn) {
+                    updateBtnIcon(floatBtn, nowCollapsed);
+                    floatBtn.title = inlineBtn.title;
+                }
+            });
+
+            tocTitle.appendChild(inlineBtn);
+        }
+
+        
+        let floatBtn = document.createElement('button');
+        floatBtn.id = 'tocToggleBtn';
+        floatBtn.style.display = 'flex';
+        floatBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+        let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+        updateBtnIcon(floatBtn, isCollapsed);
+        if (isCollapsed) {
+            rightSidebar.classList.add('toc-hidden');
+            floatBtn.title = '\u663e\u793a\u76ee\u5f55';
+        }
+
+        floatBtn.addEventListener('click', function () {
+            toggleToc(rightSidebar);
+            
+            let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+            updateBtnIcon(floatBtn, nowCollapsed);
+            let inlineBtns = document.querySelectorAll('.toc-inline-btn');
+            inlineBtns.forEach(function (b) {
+                updateBtnIcon(b, nowCollapsed);
+                b.title = floatBtn.title;
+            });
+        });
+
+        document.body.appendChild(floatBtn);
+    }
+
+     
+    function toggleToc(rightSidebar) {
+        rightSidebar.classList.toggle('toc-hidden');
+        let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+        localStorage.setItem('toc-collapsed', nowCollapsed);
+    }
+
+     
+    function updateBtnIcon(btn, collapsed) {
+        btn.innerHTML = collapsed ? getEyeOffSvg() : getEyeSvg();
+        btn.title = collapsed ? '\u663e\u793a\u76ee\u5f55' : '\u9690\u85cf\u76ee\u5f55';
+    }
+
+     
+    function getEyeSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+
+     
+    function getEyeOffSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    }
+
+    initTocToggle();
+</script>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
