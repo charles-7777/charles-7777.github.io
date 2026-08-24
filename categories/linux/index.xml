@@ -7,7 +7,15 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Fri, 24 Jul 2026 00:17:31 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" />
+        <lastBuildDate>Mon, 24 Aug 2026 15:14:17 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" />
+        <item>
+        <title>Overlayfs 与 docker/oci Image</title>
+        <link>https://charles-7777.github.io/p/overlayfs-%E4%B8%8E-docker/oci-image/</link>
+        <pubDate>Sun, 23 Aug 2026 21:44:39 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/overlayfs-%E4%B8%8E-docker/oci-image/</guid>
+        </item>
+        
         <item>
         <title>mmap 系统调用原理解析</title>
         <link>https://charles-7777.github.io/p/mmap-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</link>
@@ -158,14 +166,6 @@
         <pubDate>Fri, 26 Sep 2025 16:36:08 +0800</pubDate>
         
         <guid>https://charles-7777.github.io/p/linux-%E7%BD%91%E6%A1%A5/</guid>
-        </item>
-        
-        <item>
-        <title>CORE(Common Open Research Emulator)网络仿真工具</title>
-        <link>https://charles-7777.github.io/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/</link>
-        <pubDate>Mon, 18 Aug 2025 20:01:30 +0800</pubDate>
-        
-        <guid>https://charles-7777.github.io/p/corecommon-open-research-emulator%E7%BD%91%E7%BB%9C%E4%BB%BF%E7%9C%9F%E5%B7%A5%E5%85%B7/</guid>
         </item>
         
     </channel>

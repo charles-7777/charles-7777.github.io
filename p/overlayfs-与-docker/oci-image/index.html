@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="overlayfs 是什么 overlayfs（叠加文件系统）是 Linux 内核 3.18+ 原生支持的 union mount 技术。它将多个目录&quot;叠&quot;在一起，形成统一视图：\n角色 说明 lowerdir（只读层） 存放原始、不可变文件 upperdir（可写层） 存放修改和新增的文件 mountpoint（合并视图） 用户看到的统一目录树 内核自动处理同名文件优先显示上层、写操作触发 copy-up 等逻辑，对应用层完全透明。\n环境准备 &amp; 创建测试目录 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 # 1. 确认内核支持 $ grep overlay /proc/filesystems nodev overlay # ← 输出说明支持 $ uname -r # 2. 创建四件套目录（下层 + 上层 + 工作目录 + 挂载点） mkdir -p ~/overlayfs_blog/{lowerdir,upperdir,workdir,mountpoint} # 3. 在 lowerdir 放置原始文件 echo &#34;I am in lowerdir - file1&#34; &gt; lowerdir/file1.txt echo &#34;I am in lowerdir - file2&#34; &gt; lowerdir/file2.txt mkdir lowerdir/subdir &amp;&amp; echo &#34;I am in lowerdir subdir&#34; &gt; lowerdir/subdir/file3.txt # 4. 在 upperdir 预先放一些修改 echo &#34;Modified content - copied up&#34; &gt; upperdir/file1.txt echo &#34;I am created in upperdir&#34; &gt; upperdir/upper_only.txt 挂载前各目录状态：\n">
+<title>Overlayfs 与 docker/oci Image</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/overlayfs-%E4%B8%8E-docker/oci-image/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Overlayfs 与 docker/oci Image">
+<meta property='og:description' content="overlayfs 是什么 overlayfs（叠加文件系统）是 Linux 内核 3.18+ 原生支持的 union mount 技术。它将多个目录&quot;叠&quot;在一起，形成统一视图：\n角色 说明 lowerdir（只读层） 存放原始、不可变文件 upperdir（可写层） 存放修改和新增的文件 mountpoint（合并视图） 用户看到的统一目录树 内核自动处理同名文件优先显示上层、写操作触发 copy-up 等逻辑，对应用层完全透明。\n环境准备 &amp; 创建测试目录 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 # 1. 确认内核支持 $ grep overlay /proc/filesystems nodev overlay # ← 输出说明支持 $ uname -r # 2. 创建四件套目录（下层 + 上层 + 工作目录 + 挂载点） mkdir -p ~/overlayfs_blog/{lowerdir,upperdir,workdir,mountpoint} # 3. 在 lowerdir 放置原始文件 echo &#34;I am in lowerdir - file1&#34; &gt; lowerdir/file1.txt echo &#34;I am in lowerdir - file2&#34; &gt; lowerdir/file2.txt mkdir lowerdir/subdir &amp;&amp; echo &#34;I am in lowerdir subdir&#34; &gt; lowerdir/subdir/file3.txt # 4. 在 upperdir 预先放一些修改 echo &#34;Modified content - copied up&#34; &gt; upperdir/file1.txt echo &#34;I am created in upperdir&#34; &gt; upperdir/upper_only.txt 挂载前各目录状态：\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/overlayfs-%E4%B8%8E-docker/oci-image/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-08-23T21:44:39&#43;08:00'/><meta property='article:modified_time' content='2026-08-24T15:14:17&#43;08:00'/>
+<meta name="twitter:title" content="Overlayfs 与 docker/oci Image">
+<meta name="twitter:description" content="overlayfs 是什么 overlayfs（叠加文件系统）是 Linux 内核 3.18+ 原生支持的 union mount 技术。它将多个目录&quot;叠&quot;在一起，形成统一视图：\n角色 说明 lowerdir（只读层） 存放原始、不可变文件 upperdir（可写层） 存放修改和新增的文件 mountpoint（合并视图） 用户看到的统一目录树 内核自动处理同名文件优先显示上层、写操作触发 copy-up 等逻辑，对应用层完全透明。\n环境准备 &amp; 创建测试目录 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 # 1. 确认内核支持 $ grep overlay /proc/filesystems nodev overlay # ← 输出说明支持 $ uname -r # 2. 创建四件套目录（下层 + 上层 + 工作目录 + 挂载点） mkdir -p ~/overlayfs_blog/{lowerdir,upperdir,workdir,mountpoint} # 3. 在 lowerdir 放置原始文件 echo &#34;I am in lowerdir - file1&#34; &gt; lowerdir/file1.txt echo &#34;I am in lowerdir - file2&#34; &gt; lowerdir/file2.txt mkdir lowerdir/subdir &amp;&amp; echo &#34;I am in lowerdir subdir&#34; &gt; lowerdir/subdir/file3.txt # 4. 在 upperdir 预先放一些修改 echo &#34;Modified content - copied up&#34; &gt; upperdir/file1.txt echo &#34;I am created in upperdir&#34; &gt; upperdir/upper_only.txt 挂载前各目录状态：\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='/index.xml'
+                        target="_blank"
+                        title="RSS"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-rss" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="5" cy="19" r="1" />
+  <path d="M4 4a16 16 0 0 1 16 16" />
+  <path d="M4 11a9 9 0 0 1 9 9" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#overlayfs-是什么">overlayfs 是什么</a></li>
+    <li><a href="#环境准备--创建测试目录">环境准备 &amp; 创建测试目录</a></li>
+    <li><a href="#挂载--验证合并视图">挂载 &amp; 验证合并视图</a></li>
+    <li><a href="#核心机制">核心机制</a>
+      <ol>
+        <li><a href="#copy-on-write写时复制">Copy-on-Write（写时复制）</a></li>
+        <li><a href="#whiteout空洞标记-删除文件">Whiteout（空洞标记）—— 删除文件</a></li>
+        <li><a href="#新增文件">新增文件</a></li>
+        <li><a href="#workdir-的作用">workdir 的作用</a></li>
+      </ol>
+    </li>
+    <li><a href="#多-lowerdir-叠加">多 lowerdir 叠加</a></li>
+    <li><a href="#实验目录清理">实验目录清理</a></li>
+    <li><a href="#docker-镜像--oci-规范">Docker 镜像 &amp; OCI 规范</a>
+      <ol>
+        <li><a href="#什么是-dockeroci-镜像">什么是 Docker/OCI 镜像</a></li>
+        <li><a href="#磁盘布局docker-save-导出长什么样">磁盘布局：<code>docker save</code> 导出长什么样</a></li>
+        <li><a href="#核心对象的结构">核心对象的结构</a>
+          <ol>
+            <li><a href="#indexjson多架构索引">index.json（多架构索引）</a></li>
+            <li><a href="#manifest单平台清单">manifest（单平台清单）</a></li>
+            <li><a href="#config运行配置">config（运行配置）</a></li>
+          </ol>
+        </li>
+        <li><a href="#examplenginxalpine-8-层解剖">example：nginx:alpine 8 层解剖</a></li>
+        <li><a href="#运行时overlayfs-把层叠起来">运行时：overlayfs 把层叠起来</a></li>
+        <li><a href="#layer-的四大价值">Layer 的四大价值</a></li>
+      </ol>
+    </li>
+    <li><a href="#总结">总结</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/linux/" >
+                Linux
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/overlayfs-%E4%B8%8E-docker/oci-image/">Overlayfs 与 docker/oci Image</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-08-23 21:44</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-08-24 15:14</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 6 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    1135 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h2 id="overlayfs-是什么">overlayfs 是什么
+</h2><p>overlayfs（叠加文件系统）是 Linux 内核 3.18+ 原生支持的 <strong>union mount</strong> 技术。它将多个目录&quot;叠&quot;在一起，形成统一视图：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>角色</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>lowerdir</strong>（只读层）</td>
+          <td>存放原始、不可变文件</td>
+      </tr>
+      <tr>
+          <td><strong>upperdir</strong>（可写层）</td>
+          <td>存放修改和新增的文件</td>
+      </tr>
+      <tr>
+          <td><strong>mountpoint</strong>（合并视图）</td>
+          <td>用户看到的统一目录树</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>内核自动处理同名文件优先显示上层、写操作触发 copy-up 等逻辑，对应用层完全透明。</p>
+<h2 id="环境准备--创建测试目录">环境准备 &amp; 创建测试目录
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. 确认内核支持</span>
+</span></span><span class="line"><span class="cl">$ grep overlay /proc/filesystems
+</span></span><span class="line"><span class="cl">nodev    overlay          <span class="c1"># ← 输出说明支持</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ uname -r
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 2. 创建四件套目录（下层 + 上层 + 工作目录 + 挂载点）</span>
+</span></span><span class="line"><span class="cl">mkdir -p ~/overlayfs_blog/<span class="o">{</span>lowerdir,upperdir,workdir,mountpoint<span class="o">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 3. 在 lowerdir 放置原始文件</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;I am in lowerdir - file1&#34;</span> &gt; lowerdir/file1.txt
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;I am in lowerdir - file2&#34;</span> &gt; lowerdir/file2.txt
+</span></span><span class="line"><span class="cl">mkdir lowerdir/subdir <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;I am in lowerdir subdir&#34;</span> &gt; lowerdir/subdir/file3.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 4. 在 upperdir 预先放一些修改</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;Modified content - copied up&#34;</span> &gt; upperdir/file1.txt
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;I am created in upperdir&#34;</span>     &gt; upperdir/upper_only.txt
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>挂载前各目录状态：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">~/overlayfs_blog/lowerdir/
+</span></span><span class="line"><span class="cl">├── file1.txt
+</span></span><span class="line"><span class="cl">├── file2.txt
+</span></span><span class="line"><span class="cl">└── subdir/
+</span></span><span class="line"><span class="cl">    └── file3.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">~/overlayfs_blog/upperdir/
+</span></span><span class="line"><span class="cl">├── file1.txt        ← 已预先修改 file1
+</span></span><span class="line"><span class="cl">└── upper_only.txt   ← 仅在上层存在的文件
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">~/overlayfs_blog/workdir/      （系统内部使用，空白）
+</span></span><span class="line"><span class="cl">~/overlayfs_blog/mountpoint/   （挂载点，挂载后才有内容）
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h2 id="挂载--验证合并视图">挂载 &amp; 验证合并视图
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo mount -t overlay overlay <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -o <span class="nv">lowerdir</span><span class="o">=</span>/home/charles/overlayfs_blog/lowerdir,<span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>     <span class="nv">upperdir</span><span class="o">=</span>/home/charles/overlayfs_blog/upperdir,<span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>     <span class="nv">workdir</span><span class="o">=</span>/home/charles/overlayfs_blog/workdir <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  /home/charles/overlayfs_blog/mountpoint
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 合并视图可见所有文件</span>
+</span></span><span class="line"><span class="cl">$ ls /home/charles/overlayfs_blog/mountpoint/
+</span></span><span class="line"><span class="cl">file1.txt  file2.txt  subdir  upper_only.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 同名文件：upperdir 优先</span>
+</span></span><span class="line"><span class="cl">$ cat mountpoint/file1.txt
+</span></span><span class="line"><span class="cl">Modified content - copied up      <span class="c1"># ← 优先显示 upperdir 版本</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># lowerdir 独有文件正常显示</span>
+</span></span><span class="line"><span class="cl">$ cat mountpoint/file2.txt
+</span></span><span class="line"><span class="cl">I am in lowerdir - file2
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># upperdir 新增文件可见</span>
+</span></span><span class="line"><span class="cl">$ cat mountpoint/upper_only.txt
+</span></span><span class="line"><span class="cl">I am created in upperdir
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h2 id="核心机制">核心机制
+</h2><h3 id="copy-on-write写时复制">Copy-on-Write（写时复制）
+</h3><p>修改一个<strong>原本只存在于 lowerdir 的文件</strong>时，内核自动触发 copy-up：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 在挂载点修改 file2（原本只在 lowerdir 存在）</span>
+</span></span><span class="line"><span class="cl">$ <span class="nb">echo</span> <span class="s2">&#34;I was modified via overlay&#34;</span> &gt; mountpoint/file2.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># upperdir 出现 copy-up 后的副本</span>
+</span></span><span class="line"><span class="cl">$ ls /home/charles/overlayfs_blog/upperdir/
+</span></span><span class="line"><span class="cl">file1.txt  file2.txt  upper_only.txt    <span class="c1"># ← file2.txt 被 copy 上来了！</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ cat /home/charles/overlayfs_blog/upperdir/file2.txt
+</span></span><span class="line"><span class="cl">I was modified via overlay           <span class="c1"># ← upperdir 里的新版本</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ cat /home/charles/overlayfs_blog/lowerdir/file2.txt
+</span></span><span class="line"><span class="cl">I am in lowerdir - file2            <span class="c1"># ← lowerdir 原文件未动</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="whiteout空洞标记-删除文件">Whiteout（空洞标记）—— 删除文件
+</h3><p>overlayfs 中删除文件不会真删 lowerdir，而是在 upperdir 创建 <code>.wh.</code> 前缀的特殊设备文件：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ rm mountpoint/file2.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># upperdir 中出现 whiteout（字符设备 major=0, minor=0）</span>
+</span></span><span class="line"><span class="cl">$ ls -la upperdir/
+</span></span><span class="line"><span class="cl">crw------- <span class="m">1</span> root root 0, <span class="m">0</span>  ... .wh.file2    <span class="c1"># ← .wh. 前缀 = 隐藏</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># lowerdir 的 file2 完好无损，只是被 whiteout 隐藏</span>
+</span></span><span class="line"><span class="cl">$ cat lowerdir/file2.txt
+</span></span><span class="line"><span class="cl">I am in lowerdir - file2
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>删除目录同理：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ rm -rf mountpoint/subdir
+</span></span><span class="line"><span class="cl">$ ls -la upperdir/ <span class="p">|</span> grep whiteout
+</span></span><span class="line"><span class="cl">crw------- <span class="m">1</span> root root 0, <span class="m">0</span>  ... .wh.subdir    <span class="c1"># ← 隐藏整个目录</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ ls lowerdir/subdir/
+</span></span><span class="line"><span class="cl">file3.txt    <span class="c1"># ← 还在，只是被 whiteout 隐藏了</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="新增文件">新增文件
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ <span class="nb">echo</span> <span class="s2">&#34;Brand new file&#34;</span> &gt; mountpoint/new_file.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># upperdir 中出现新文件，lowerdir 无任何变化</span>
+</span></span><span class="line"><span class="cl">$ ls upperdir/
+</span></span><span class="line"><span class="cl">file1.txt  file2.txt  upper_only.txt  new_file.txt    <span class="c1"># ← 新增文件只落在 upperdir</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ ls lowerdir/
+</span></span><span class="line"><span class="cl">file1.txt  file2.txt  subdir             <span class="c1"># ← lowerdir 完全没动</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="workdir-的作用">workdir 的作用
+</h3><p>workdir 是 overlayfs 的内部工作目录，<strong>不可省略</strong>，用途：</p>
+<ul>
+<li>copy-up 操作的临时中转区</li>
+<li>实现原子性 rename（确保数据一致性）</li>
+<li>管理 whiteout 文件的创建</li>
+</ul>
+<blockquote>
+<p><strong>约束</strong>：workdir 必须与 upperdir 位于同一文件系统上。</p></blockquote>
+<h2 id="多-lowerdir-叠加">多 lowerdir 叠加
+</h2><p>overlayfs 支持用 <code>:</code> 分隔多个 lowerdir，从右到左优先级递增：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo mount -t overlay overlay <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -o <span class="nv">lowerdir</span><span class="o">=</span>/layer3:/layer2:/layer1,<span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>     <span class="nv">upperdir</span><span class="o">=</span>/upper,<span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>     <span class="nv">workdir</span><span class="o">=</span>/workdir <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  /mnt/merged
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>合并视图搜索顺序：<code>upperdir</code> → <code>layer3</code> → <code>layer2</code> → <code>layer1</code>，同名文件以优先级最高的为准.</p>
+<h2 id="实验目录清理">实验目录清理
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo umount /home/charles/overlayfs_blog/mountpoint
+</span></span><span class="line"><span class="cl">rm -rf /home/charles/overlayfs_blog
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h2 id="docker-镜像--oci-规范">Docker 镜像 &amp; OCI 规范
+</h2><p>2013 年 Docker 发布时定义了私有的镜像格式，&ldquo;Docker Image&quot;一词由此而来。随着容器生态爆发，不同厂商各自的实现互不兼容，标准化呼声日益高涨。2015 年 Docker 联合 CoreOS 等公司发起成立 <strong>Open Container Initiative（OCI）</strong>，将镜像格式、运行时规范开放为标准：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>年份</th>
+          <th>事件</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>2015</td>
+          <td>OCI 成立，推动容器标准化</td>
+      </tr>
+      <tr>
+          <td>2016</td>
+          <td>发布 <code>runtime-spec</code>（即 runc 的实现基础）</td>
+      </tr>
+      <tr>
+          <td>2017</td>
+          <td>发布 <code>image-spec</code> 1.0，统一镜像格式</td>
+      </tr>
+      <tr>
+          <td>2020</td>
+          <td>Docker Hub 停止接收旧的 schema 1 镜像</td>
+      </tr>
+      <tr>
+          <td>2023–</td>
+          <td>Docker 25+ 默认使用 containerd image store，直接以 OCI 格式存储</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>现今 <code>docker pull</code> 拉下来的、<code>docker build</code> 构建出来的，<strong>本质上都是 OCI 镜像</strong>。Docker 只是 OCI 规范最流行的实现者之一。</p>
+<h3 id="什么是-dockeroci-镜像">什么是 Docker/OCI 镜像
+</h3><p>一个镜像 = <strong>只读的分层 rootfs（layers）</strong> + <strong>描述层和运行参数的 config JSON</strong>。</p>
+<ul>
+<li>每一层是一个 <strong>gzip 压缩的 tar 包</strong>（diff，而非完整快照）</li>
+<li><code>RUN / COPY / ADD</code> 产生新层，<code>CMD / ENV / EXPOSE</code> 只写进 config 不产生层</li>
+<li>每层以 <strong>sha256 digest（内容寻址）</strong> 唯一标识——内容相同则 digest 相同，天然去重</li>
+</ul>
+<h3 id="磁盘布局docker-save-导出长什么样">磁盘布局：<code>docker save</code> 导出长什么样
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ docker save nginx:alpine -o nginx.tar <span class="o">&amp;&amp;</span> tar -xf nginx.tar
+</span></span><span class="line"><span class="cl">$ find . -maxdepth <span class="m">3</span> -type f <span class="p">|</span> sort
+</span></span><span class="line"><span class="cl">./index.json              ← 多架构索引
+</span></span><span class="line"><span class="cl">./oci-layout              ← <span class="o">{</span><span class="s2">&#34;imageLayoutVersion&#34;</span>:<span class="s2">&#34;1.0.0&#34;</span><span class="o">}</span>
+</span></span><span class="line"><span class="cl">./manifest.json           ← Docker 兼容格式（兼容旧工具）
+</span></span><span class="line"><span class="cl">./layer/                  ← 各层（压缩 tar）
+</span></span><span class="line"><span class="cl">├── ...
+</span></span><span class="line"><span class="cl">└── blobs/sha256/         ← OCI 内容寻址 blob 存储
+</span></span><span class="line"><span class="cl">    ├── afff3924...       ← image index（文件名 <span class="o">=</span> sha256）
+</span></span><span class="line"><span class="cl">    ├── 796832...         ← manifest
+</span></span><span class="line"><span class="cl">    ├── 4b0bc1...         ← config
+</span></span><span class="line"><span class="cl">    └── 3588d0...         ← layer 1（压缩 tar.gz）
+</span></span><span class="line"><span class="cl">        ...               （共 N+3 个：index + manifest + config + N 层）
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>读取链路</strong>：<code>index.json</code> → 找 manifest digest → 读 manifest → 找 config 和各层 digest → 逐层解压。blob 文件名就是它自己的 sha256——<strong>内容是地址，地址是内容</strong>。</p>
+<h3 id="核心对象的结构">核心对象的结构
+</h3><h4 id="indexjson多架构索引">index.json（多架构索引）
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;schemaVersion&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;mediaType&#34;</span><span class="p">:</span> <span class="s2">&#34;application/vnd.oci.image.index.v1+json&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;manifests&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;mediaType&#34;</span><span class="p">:</span> <span class="s2">&#34;...manifest.v1+json&#34;</span><span class="p">,</span> <span class="nt">&#34;digest&#34;</span><span class="p">:</span> <span class="s2">&#34;sha256:796832...&#34;</span><span class="p">,</span> <span class="nt">&#34;size&#34;</span><span class="p">:</span> <span class="mi">7143</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;platform&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;architecture&#34;</span><span class="p">:</span> <span class="s2">&#34;amd64&#34;</span><span class="p">,</span> <span class="nt">&#34;os&#34;</span><span class="p">:</span> <span class="s2">&#34;linux&#34;</span> <span class="p">}</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;mediaType&#34;</span><span class="p">:</span> <span class="s2">&#34;...manifest.v1+json&#34;</span><span class="p">,</span> <span class="nt">&#34;digest&#34;</span><span class="p">:</span> <span class="s2">&#34;sha256:3588d0...&#34;</span><span class="p">,</span> <span class="nt">&#34;size&#34;</span><span class="p">:</span> <span class="mi">7200</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;platform&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;architecture&#34;</span><span class="p">:</span> <span class="s2">&#34;arm64&#34;</span><span class="p">,</span>  <span class="nt">&#34;os&#34;</span><span class="p">:</span> <span class="s2">&#34;linux&#34;</span> <span class="p">}</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="manifest单平台清单">manifest（单平台清单）
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;schemaVersion&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;mediaType&#34;</span><span class="p">:</span> <span class="s2">&#34;application/vnd.oci.image.manifest.v1+json&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;config&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;mediaType&#34;</span><span class="p">:</span> <span class="s2">&#34;...config.v1+json&#34;</span><span class="p">,</span> <span class="nt">&#34;digest&#34;</span><span class="p">:</span> <span class="s2">&#34;sha256:4b0bc1...&#34;</span><span class="p">,</span> <span class="nt">&#34;size&#34;</span><span class="p">:</span> <span class="mi">12322</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;layers&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;mediaType&#34;</span><span class="p">:</span> <span class="s2">&#34;...layer.v1.tar+gzip&#34;</span><span class="p">,</span>  <span class="nt">&#34;digest&#34;</span><span class="p">:</span> <span class="s2">&#34;sha256:55afa1...&#34;</span><span class="p">,</span> <span class="nt">&#34;size&#34;</span><span class="p">:</span> <span class="mi">3846391</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;mediaType&#34;</span><span class="p">:</span> <span class="s2">&#34;...layer.v1.tar+gzip&#34;</span><span class="p">,</span>  <span class="nt">&#34;digest&#34;</span><span class="p">:</span> <span class="s2">&#34;sha256:d94291...&#34;</span><span class="p">,</span> <span class="nt">&#34;size&#34;</span><span class="p">:</span> <span class="mi">1902283</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="err">...</span>
+</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="config运行配置">config（运行配置）
+</h4><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;architecture&#34;</span><span class="p">:</span> <span class="s2">&#34;amd64&#34;</span><span class="p">,</span> <span class="nt">&#34;os&#34;</span><span class="p">:</span> <span class="s2">&#34;linux&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;config&#34;</span><span class="p">:</span>     <span class="p">{</span> <span class="nt">&#34;Cmd&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;nginx&#34;</span><span class="p">,</span> <span class="s2">&#34;-g&#34;</span><span class="p">,</span> <span class="s2">&#34;daemon off;&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">                  <span class="nt">&#34;Entrypoint&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;/docker-entrypoint.sh&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">                  <span class="nt">&#34;ExposedPorts&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;80/tcp&#34;</span><span class="p">:</span> <span class="p">{}</span> <span class="p">}</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;rootfs&#34;</span><span class="p">:</span>    <span class="p">{</span> <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;layers&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                 <span class="nt">&#34;diff_ids&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;sha256:34884a...&#34;</span><span class="p">,</span> <span class="s2">&#34;sha256:1c4d71...&#34;</span><span class="p">,</span> <span class="err">...</span><span class="p">]</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;history&#34;</span><span class="p">:</span>   <span class="p">[</span> <span class="p">{</span> <span class="nt">&#34;created_by&#34;</span><span class="p">:</span> <span class="s2">&#34;ADD alpine-minirootfs-3.24.1-x86_64.tar.gz /&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                 <span class="p">{</span> <span class="nt">&#34;created_by&#34;</span><span class="p">:</span> <span class="s2">&#34;RUN /bin/sh -c apk add nginx&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                   <span class="nt">&#34;empty_layer&#34;</span><span class="p">:</span> <span class="kc">true</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                 <span class="err">...</span> <span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>diff_ids</code> = 每层<strong>解压后</strong> tar 的 sha256（runtime 用，与 manifest 里压缩 blob 的 digest 不同）</li>
+<li><code>history</code> = Dockerfile 指令历史，对应每层的构建过程</li>
+<li><strong>ImageID</strong> = <code>sha256(canonical JSON of config)</code>，内容决定身份</li>
+</ul>
+<hr>
+<h3 id="examplenginxalpine-8-层解剖">example：nginx:alpine 8 层解剖
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ docker pull nginx:alpine
+</span></span><span class="line"><span class="cl">55afa1ecc21d: Pull <span class="nb">complete</span>   ← <span class="nv">每行</span> <span class="o">=</span> 一层
+</span></span><span class="line"><span class="cl">0ea935727878: Pull <span class="nb">complete</span>
+</span></span><span class="line"><span class="cl">d94291c26261: Pull <span class="nb">complete</span>
+</span></span><span class="line"><span class="cl">1ed8e39a7434: Pull <span class="nb">complete</span>
+</span></span><span class="line"><span class="cl">0d62d88506ba: Pull <span class="nb">complete</span>
+</span></span><span class="line"><span class="cl">8cdfe4f23778: Pull <span class="nb">complete</span>
+</span></span><span class="line"><span class="cl">da4dea1b00af: Pull <span class="nb">complete</span>
+</span></span><span class="line"><span class="cl">fb597529c916: Pull <span class="nb">complete</span>
+</span></span><span class="line"><span class="cl">Digest: sha256:db35bfc6...    <span class="c1"># ← 镜像 ID（index digest）</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ docker save nginx:alpine -o nginx.tar <span class="o">&amp;&amp;</span> tar -xf nginx.tar
+</span></span><span class="line"><span class="cl">$ ls blobs/sha256/ <span class="p">|</span> wc -l    <span class="c1"># 11 个：index + manifest + config + 8 层</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>层</th>
+          <th>大小</th>
+          <th>内容</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>L1</td>
+          <td>~3.8 MB</td>
+          <td>alpine 基础 rootfs</td>
+      </tr>
+      <tr>
+          <td>L2</td>
+          <td>~1.9 MB</td>
+          <td>建 nginx 用户/组 + apk 签名密钥</td>
+      </tr>
+      <tr>
+          <td>L3~L7</td>
+          <td>几百字节</td>
+          <td>各一个 shell 脚本</td>
+      </tr>
+      <tr>
+          <td>L8</td>
+          <td>~20 MB</td>
+          <td><code>apk add nginx</code> 二进制和配置</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>层大小差异极大——<strong>每层只存 diff，不是完整快照</strong>。</p>
+<h3 id="运行时overlayfs-把层叠起来">运行时：overlayfs 把层叠起来
+</h3><p>containerd 把每层展开为目录，再用 overlayfs 联合挂载：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ docker run --rm nginx:alpine cat /proc/self/mountinfo <span class="p">|</span> grep <span class="s1">&#39; / &#39;</span>
+</span></span><span class="line"><span class="cl">... overlay rw,
+</span></span><span class="line"><span class="cl">    <span class="nv">lowerdir</span><span class="o">=</span>.../snapshots/63/fs:.../39/fs:.../4/fs,   <span class="c1"># 8 个镜像层</span>
+</span></span><span class="line"><span class="cl">    <span class="nv">upperdir</span><span class="o">=</span>.../snapshots/64/fs,                       <span class="c1"># 容器专属可写层</span>
+</span></span><span class="line"><span class="cl">    <span class="nv">workdir</span><span class="o">=</span>.../snapshots/64/work
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><strong>lowerdir</strong>：各层目录，从左到右优先级从高到低</li>
+<li><strong>upperdir</strong>：容器可写层，删容器即消失</li>
+<li>合并视图 = 容器里看到的 <code>/</code></li>
+</ul>
+<p>覆盖与删除在层内同样表现为 diff：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-dockerfile" data-lang="dockerfile"><span class="line"><span class="cl"><span class="k">FROM</span><span class="s"> alpine:3.20</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> <span class="nb">echo</span> <span class="s2">&#34;v1&#34;</span> &gt; /app/version.txt   <span class="c1"># 层2：新建</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> <span class="nb">echo</span> <span class="s2">&#34;v2&#34;</span> &gt; /app/version.txt   <span class="c1"># 层3：同名覆盖</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> rm  /app/version.txt           <span class="c1"># 层4：写入 .wh.version.txt（whiteout）</span><span class="err">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>解包层 tar 可见：层3 有 <code>app/version.txt</code>（覆盖），层4 有 <code>app/.wh.version.txt</code>（隐藏）——这正是 overlayfs 合并语义在 OCI layer 里的表达。</p>
+<h3 id="layer-的四大价值">Layer 的四大价值
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>价值</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>省构建时间</strong></td>
+          <td>缓存：只改最后一行，前面全部命中缓存</td>
+      </tr>
+      <tr>
+          <td><strong>省磁盘</strong></td>
+          <td>去重：内容相同的层 digest 相同，全机器只存一份</td>
+      </tr>
+      <tr>
+          <td><strong>省流量</strong></td>
+          <td>增量：registry 按 blob digest 逐层校验，已有层跳过</td>
+      </tr>
+      <tr>
+          <td><strong>省心智</strong></td>
+          <td>可审计：每条指令一层，层只读不可篡改</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<h2 id="总结">总结
+</h2><p>overlayfs 通过<strong>只读下层 + 可写上层 + 统一合并视图</strong>的设计，实现了轻量级的文件叠加机制。其核心行为——<strong>Copy-on-Write 写时复制</strong>和 <strong>Whiteout 空洞标记</strong>——保证了下层数据不被破坏的同时，赋予上层灵活的读写能力。</p>
+<p>这一机制是 Docker 容器和 OCI 镜像分层架构的底层基石：每一个镜像层是一个只读的 tar 快照，容器运行时由 overlayfs 将这些层与容器的可写层联合挂载，呈现出完整的根文件系统。</p>
+<hr>
+<blockquote>
+<p><a class="link" href="https://juejin.cn/post/7026551617407156255#heading-0"  target="_blank" rel="noopener"
+    >OCI 与容器镜像构建</a><br>
+<a class="link" href="https://www.cnblogs.com/uran0sh/p/19509123"  target="_blank" rel="noopener"
+    >从 Docker OverlayFS 到 OCI镜像格式</a></p></blockquote>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/linux-perf/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux perf</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-trace--ptrace-strace-ltrace-ftrace/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">linux trace -- ptrace strace ltrace ftrace</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-network-layer-%E4%B8%8Esocket/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux network layer 与socket</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/netfilter-hooks-in-kernel/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Netfilter Hooks in Kernel</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/netlink-%E5%88%9D%E8%AF%86/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Netlink 初识</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        right: 20px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop;
+        document.body.appendChild(btn);
+
+        
+        window.addEventListener('scroll', function() {
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        });
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+
+<style>
+     
+    .right-sidebar.toc-hidden {
+        display: none !important;
+    }
+
+     
+    #tocToggleBtn {
+        display: none;
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 99;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        padding: 6px;
+        border: none;
+        border-radius: 50%;
+        background: var(--card-background);
+        box-shadow: var(--shadow-l2);
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        transition: color 0.2s ease, background-color 0.2s ease;
+    }
+
+    #tocToggleBtn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    #tocToggleBtn svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+    }
+
+     
+    .toc-title-flex {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .toc-title-flex .section-title {
+        flex: 1;
+    }
+
+    .toc-inline-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        padding: 3px;
+        border: none;
+        background: none;
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        border-radius: 6px;
+        transition: color 0.2s ease, background-color 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .toc-inline-btn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    .toc-inline-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+</style>
+
+
+<script>
+    
+
+    function initTocToggle() {
+        let tocContent = document.querySelector('.widget--toc');
+        if (!tocContent) {
+            return;
+        }
+
+        let rightSidebar = document.querySelector('.right-sidebar');
+        if (!rightSidebar) {
+            return;
+        }
+
+        
+        let tocSection = tocContent.closest('section.widget');
+        let tocTitle = tocSection && tocSection.querySelector('.widget-title');
+
+        if (tocTitle) {
+            tocTitle.classList.add('toc-title-flex');
+
+            let inlineBtn = document.createElement('button');
+            inlineBtn.className = 'toc-inline-btn';
+            inlineBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+            let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+            updateBtnIcon(inlineBtn, isCollapsed);
+            if (isCollapsed) {
+                inlineBtn.title = '\u663e\u793a\u76ee\u5f55';
+            }
+
+            inlineBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleToc(rightSidebar);
+                
+                let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+                updateBtnIcon(inlineBtn, nowCollapsed);
+                let floatBtn = document.getElementById('tocToggleBtn');
+                if (floatBtn) {
+                    updateBtnIcon(floatBtn, nowCollapsed);
+                    floatBtn.title = inlineBtn.title;
+                }
+            });
+
+            tocTitle.appendChild(inlineBtn);
+        }
+
+        
+        let floatBtn = document.createElement('button');
+        floatBtn.id = 'tocToggleBtn';
+        floatBtn.style.display = 'flex';
+        floatBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+        let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+        updateBtnIcon(floatBtn, isCollapsed);
+        if (isCollapsed) {
+            rightSidebar.classList.add('toc-hidden');
+            floatBtn.title = '\u663e\u793a\u76ee\u5f55';
+        }
+
+        floatBtn.addEventListener('click', function () {
+            toggleToc(rightSidebar);
+            
+            let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+            updateBtnIcon(floatBtn, nowCollapsed);
+            let inlineBtns = document.querySelectorAll('.toc-inline-btn');
+            inlineBtns.forEach(function (b) {
+                updateBtnIcon(b, nowCollapsed);
+                b.title = floatBtn.title;
+            });
+        });
+
+        document.body.appendChild(floatBtn);
+    }
+
+     
+    function toggleToc(rightSidebar) {
+        rightSidebar.classList.toggle('toc-hidden');
+        let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+        localStorage.setItem('toc-collapsed', nowCollapsed);
+    }
+
+     
+    function updateBtnIcon(btn, collapsed) {
+        btn.innerHTML = collapsed ? getEyeOffSvg() : getEyeSvg();
+        btn.title = collapsed ? '\u663e\u793a\u76ee\u5f55' : '\u9690\u85cf\u76ee\u5f55';
+    }
+
+     
+    function getEyeSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+
+     
+    function getEyeOffSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    }
+
+    initTocToggle();
+</script>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
