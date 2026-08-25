@@ -7,7 +7,15 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Mon, 24 Aug 2026 15:14:17 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" />
+        <lastBuildDate>Tue, 25 Aug 2026 22:36:05 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" />
+        <item>
+        <title>WSL 配置及更新kernel image、编译kernel model</title>
+        <link>https://charles-7777.github.io/p/wsl-%E9%85%8D%E7%BD%AE%E5%8F%8A%E6%9B%B4%E6%96%B0kernel-image%E7%BC%96%E8%AF%91kernel-model/</link>
+        <pubDate>Tue, 25 Aug 2026 22:13:01 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/wsl-%E9%85%8D%E7%BD%AE%E5%8F%8A%E6%9B%B4%E6%96%B0kernel-image%E7%BC%96%E8%AF%91kernel-model/</guid>
+        </item>
+        
         <item>
         <title>Overlayfs 与 docker/oci Image</title>
         <link>https://charles-7777.github.io/p/overlayfs-%E4%B8%8E-docker/oci-image/</link>
@@ -158,14 +166,6 @@
         <pubDate>Sun, 28 Sep 2025 16:37:56 +0800</pubDate>
         
         <guid>https://charles-7777.github.io/p/linux%E6%9D%82%E8%AE%B0/</guid>
-        </item>
-        
-        <item>
-        <title>Linux 网桥</title>
-        <link>https://charles-7777.github.io/p/linux-%E7%BD%91%E6%A1%A5/</link>
-        <pubDate>Fri, 26 Sep 2025 16:36:08 +0800</pubDate>
-        
-        <guid>https://charles-7777.github.io/p/linux-%E7%BD%91%E6%A1%A5/</guid>
         </item>
         
     </channel>
