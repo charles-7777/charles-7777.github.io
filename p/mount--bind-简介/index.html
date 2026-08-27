@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" https://learn.microsoft.com/zh-cn/windows/wsl/install-manual\nWSL2 Ubuntu 22.04 全攻略：安装到D盘、性能优化与GUI软件\n安装wsl 1 2 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart 1 2 wsl --update --web-download wsl --set-default-version 2 🧰 准备工作：彻底卸载旧版 Ubuntu (可选) 如果你之前折腾过WSL但把环境弄乱了，或者想节省空间重来，建议先执行清理操作。\n⚠️ 警告：此操作会删除Linux内所有文件，请提前备份重要数据！\n查看当前安装的发行版 打开 Windows PowerShell (管理员)，输入：\n1 wsl --list --verbose 你可能会看到状态为 Stopped 或 Running 的 Ubuntu-22.04。\n注销（卸载）发行版 输入以下命令，将旧系统连同其虚拟磁盘文件彻底删除：\n1 wsl --unregister Ubuntu-22.04 再次输入 wsl --list 确认已无残留。\n🚀 核心步骤：安装Ubuntu 22.04到D盘 最稳妥的&quot;安装到D盘&quot;方法是：先安装默认版 -&gt; 导出镜像 -&gt; 注销默认版 -&gt; 导入到D盘。\n">
-<title>安装WSL2 到D盘</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="mound &ndash;bind mount --bind 把一个目录（或文件）绑定到另一个位置，让两个路径指向同一份数据。它不创建副本，不产生额外存储开销，修改任意一个路径都能看到另一个路径的变化。\n1 mount --bind /源目录 /目标目录 核心特点：被挂载目录的目录项块被屏蔽，读取请求被重定向到挂载目录的 inode。对内核而言，访问目标路径等同于访问源路径。\n为什么需要 --bind？先看一个真实场景 场景：把容器数据卷挂载到指定目录 容器运行时（Docker / Podman）常用 bind mount 把宿主机目录映射进容器：\n1 2 # 把宿主机的日志目录绑定到容器内的 /app/logs docker run -v /var/log/myapp:/app/logs myimage 这个 -v 底层就是 mount --bind（或 mount --rbind）。\n示例 ls -i 列出文件的 inode 号。inode 是 Linux 文件的&quot;身份证&quot;，同一 inode = 同一个文件实体。这是验证 bind mount 最直接的方法。\n准备环境 1 2 3 # 创建两个空目录 mkdir -p ~/bind_src ~/bind_dst echo &#34;hello bind&#34; &gt; ~/bind_src/a.txt 绑定前的状态 1 2 3 4 5 $ ls -i ~/bind_src/ ~/bind_dst/ /home/user/bind_src/: 131078 a.txt /home/user/bind_dst/: # 目标目录为空 执行 bind mount 1 sudo mount --bind ~/bind_src ~/bind_dst 绑定后的状态 —— 关键证据 1 2 3 4 5 6 $ ls -i ~/bind_src/ ~/bind_dst/ /home/user/bind_src/: 131078 a.txt /home/user/bind_dst/: 131078 a.txt # ← inode 完全一样！ 两个目录下的 a.txt inode 都是 131078。这说明它们根本就是同一个文件\n">
+<title>Mount --bind 简介</title>
 
-<link rel='canonical' href='https://charles-7777.github.io/p/%E5%AE%89%E8%A3%85wsl2-%E5%88%B0d%E7%9B%98/'>
+<link rel='canonical' href='https://charles-7777.github.io/p/mount--bind-%E7%AE%80%E4%BB%8B/'>
 
-<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="安装WSL2 到D盘">
-<meta property='og:description' content=" https://learn.microsoft.com/zh-cn/windows/wsl/install-manual\nWSL2 Ubuntu 22.04 全攻略：安装到D盘、性能优化与GUI软件\n安装wsl 1 2 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart 1 2 wsl --update --web-download wsl --set-default-version 2 🧰 准备工作：彻底卸载旧版 Ubuntu (可选) 如果你之前折腾过WSL但把环境弄乱了，或者想节省空间重来，建议先执行清理操作。\n⚠️ 警告：此操作会删除Linux内所有文件，请提前备份重要数据！\n查看当前安装的发行版 打开 Windows PowerShell (管理员)，输入：\n1 wsl --list --verbose 你可能会看到状态为 Stopped 或 Running 的 Ubuntu-22.04。\n注销（卸载）发行版 输入以下命令，将旧系统连同其虚拟磁盘文件彻底删除：\n1 wsl --unregister Ubuntu-22.04 再次输入 wsl --list 确认已无残留。\n🚀 核心步骤：安装Ubuntu 22.04到D盘 最稳妥的&quot;安装到D盘&quot;方法是：先安装默认版 -&gt; 导出镜像 -&gt; 注销默认版 -&gt; 导入到D盘。\n">
-<meta property='og:url' content='https://charles-7777.github.io/p/%E5%AE%89%E8%A3%85wsl2-%E5%88%B0d%E7%9B%98/'>
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Mount --bind 简介">
+<meta property='og:description' content="mound &ndash;bind mount --bind 把一个目录（或文件）绑定到另一个位置，让两个路径指向同一份数据。它不创建副本，不产生额外存储开销，修改任意一个路径都能看到另一个路径的变化。\n1 mount --bind /源目录 /目标目录 核心特点：被挂载目录的目录项块被屏蔽，读取请求被重定向到挂载目录的 inode。对内核而言，访问目标路径等同于访问源路径。\n为什么需要 --bind？先看一个真实场景 场景：把容器数据卷挂载到指定目录 容器运行时（Docker / Podman）常用 bind mount 把宿主机目录映射进容器：\n1 2 # 把宿主机的日志目录绑定到容器内的 /app/logs docker run -v /var/log/myapp:/app/logs myimage 这个 -v 底层就是 mount --bind（或 mount --rbind）。\n示例 ls -i 列出文件的 inode 号。inode 是 Linux 文件的&quot;身份证&quot;，同一 inode = 同一个文件实体。这是验证 bind mount 最直接的方法。\n准备环境 1 2 3 # 创建两个空目录 mkdir -p ~/bind_src ~/bind_dst echo &#34;hello bind&#34; &gt; ~/bind_src/a.txt 绑定前的状态 1 2 3 4 5 $ ls -i ~/bind_src/ ~/bind_dst/ /home/user/bind_src/: 131078 a.txt /home/user/bind_dst/: # 目标目录为空 执行 bind mount 1 sudo mount --bind ~/bind_src ~/bind_dst 绑定后的状态 —— 关键证据 1 2 3 4 5 6 $ ls -i ~/bind_src/ ~/bind_dst/ /home/user/bind_src/: 131078 a.txt /home/user/bind_dst/: 131078 a.txt # ← inode 完全一样！ 两个目录下的 a.txt inode 都是 131078。这说明它们根本就是同一个文件\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/mount--bind-%E7%AE%80%E4%BB%8B/'>
 <meta property='og:site_name' content='Charles'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-05-27T23:09:09&#43;08:00'/><meta property='article:modified_time' content='2026-05-27T23:27:50&#43;08:00'/>
-<meta name="twitter:title" content="安装WSL2 到D盘">
-<meta name="twitter:description" content=" https://learn.microsoft.com/zh-cn/windows/wsl/install-manual\nWSL2 Ubuntu 22.04 全攻略：安装到D盘、性能优化与GUI软件\n安装wsl 1 2 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart 1 2 wsl --update --web-download wsl --set-default-version 2 🧰 准备工作：彻底卸载旧版 Ubuntu (可选) 如果你之前折腾过WSL但把环境弄乱了，或者想节省空间重来，建议先执行清理操作。\n⚠️ 警告：此操作会删除Linux内所有文件，请提前备份重要数据！\n查看当前安装的发行版 打开 Windows PowerShell (管理员)，输入：\n1 wsl --list --verbose 你可能会看到状态为 Stopped 或 Running 的 Ubuntu-22.04。\n注销（卸载）发行版 输入以下命令，将旧系统连同其虚拟磁盘文件彻底删除：\n1 wsl --unregister Ubuntu-22.04 再次输入 wsl --list 确认已无残留。\n🚀 核心步骤：安装Ubuntu 22.04到D盘 最稳妥的&quot;安装到D盘&quot;方法是：先安装默认版 -&gt; 导出镜像 -&gt; 注销默认版 -&gt; 导入到D盘。\n">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-08-26T17:44:10&#43;08:00'/><meta property='article:modified_time' content='2026-08-27T10:28:10&#43;08:00'/>
+<meta name="twitter:title" content="Mount --bind 简介">
+<meta name="twitter:description" content="mound &ndash;bind mount --bind 把一个目录（或文件）绑定到另一个位置，让两个路径指向同一份数据。它不创建副本，不产生额外存储开销，修改任意一个路径都能看到另一个路径的变化。\n1 mount --bind /源目录 /目标目录 核心特点：被挂载目录的目录项块被屏蔽，读取请求被重定向到挂载目录的 inode。对内核而言，访问目标路径等同于访问源路径。\n为什么需要 --bind？先看一个真实场景 场景：把容器数据卷挂载到指定目录 容器运行时（Docker / Podman）常用 bind mount 把宿主机目录映射进容器：\n1 2 # 把宿主机的日志目录绑定到容器内的 /app/logs docker run -v /var/log/myapp:/app/logs myimage 这个 -v 底层就是 mount --bind（或 mount --rbind）。\n示例 ls -i 列出文件的 inode 号。inode 是 Linux 文件的&quot;身份证&quot;，同一 inode = 同一个文件实体。这是验证 bind mount 最直接的方法。\n准备环境 1 2 3 # 创建两个空目录 mkdir -p ~/bind_src ~/bind_dst echo &#34;hello bind&#34; &gt; ~/bind_src/a.txt 绑定前的状态 1 2 3 4 5 $ ls -i ~/bind_src/ ~/bind_dst/ /home/user/bind_src/: 131078 a.txt /home/user/bind_dst/: # 目标目录为空 执行 bind mount 1 sudo mount --bind ~/bind_src ~/bind_dst 绑定后的状态 —— 关键证据 1 2 3 4 5 6 $ ls -i ~/bind_src/ ~/bind_dst/ /home/user/bind_src/: 131078 a.txt /home/user/bind_dst/: 131078 a.txt # ← inode 完全一样！ 两个目录下的 a.txt inode 都是 131078。这说明它们根本就是同一个文件\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -299,54 +299,34 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#安装wsl">安装wsl</a></li>
-    <li><a href="#-准备工作彻底卸载旧版-ubuntu-可选">🧰 准备工作：彻底卸载旧版 Ubuntu (可选)</a>
+    <li><a href="#mound-bind">mound &ndash;bind</a></li>
+    <li><a href="#为什么需要---bind先看一个真实场景">为什么需要 <code>--bind</code>？先看一个真实场景</a>
       <ol>
-        <li><a href="#查看当前安装的发行版">查看当前安装的发行版</a></li>
-        <li><a href="#注销卸载发行版">注销（卸载）发行版</a></li>
+        <li><a href="#场景把容器数据卷挂载到指定目录">场景：把容器数据卷挂载到指定目录</a></li>
       </ol>
     </li>
-    <li><a href="#-核心步骤安装ubuntu-2204到d盘">🚀 核心步骤：安装Ubuntu 22.04到D盘</a>
+    <li><a href="#示例">示例</a>
       <ol>
-        <li><a href="#初次安装与导出">初次安装与导出</a></li>
-        <li><a href="#导入到d盘-永久安家">导入到D盘 (永久安家)</a></li>
-        <li><a href="#恢复默认用户">恢复默认用户</a></li>
+        <li><a href="#准备环境">准备环境</a></li>
+        <li><a href="#绑定前的状态">绑定前的状态</a></li>
+        <li><a href="#执行-bind-mount">执行 bind mount</a></li>
+        <li><a href="#绑定后的状态--关键证据">绑定后的状态 —— 关键证据</a></li>
+        <li><a href="#双向同步验证">双向同步验证</a></li>
       </ol>
     </li>
-    <li><a href="#-基础使用与国内源加速">⚡ 基础使用与国内源加速</a>
+    <li><a href="#与符号链接的区别">与符号链接的区别</a></li>
+    <li><a href="#--rbind递归绑定整个目录树"><code>--rbind</code>：递归绑定整个目录树</a></li>
+    <li><a href="#持久化内存中的映射">持久化：内存中的映射</a></li>
+    <li><a href="#常见用法">常见用法</a>
       <ol>
-        <li><a href="#必备更换国内镜像源">必备：更换国内镜像源</a></li>
-        <li><a href="#常用操作技巧">常用操作技巧</a></li>
+        <li><a href="#让根分区空间不够时借空间">让根分区空间不够时&quot;借&quot;空间</a></li>
+        <li><a href="#只读保护">只读保护</a></li>
+        <li><a href="#迁移服务数据不中断运行">迁移服务数据不中断运行</a></li>
+        <li><a href="#安全地修改只读系统文件">安全地修改只读系统文件</a></li>
+        <li><a href="#沙箱隔离chroot-配套">沙箱隔离（chroot 配套）</a></li>
       </ol>
     </li>
-    <li><a href="#-进阶配置wslconfig-限制内存与性能">🔧 进阶配置：.wslconfig (限制内存与性能)</a>
-      <ol>
-        <li><a href="#创建配置文件">创建配置文件</a></li>
-        <li><a href="#推荐配置">推荐配置</a></li>
-        <li><a href="#生效配置">生效配置</a></li>
-      </ol>
-    </li>
-    <li><a href="#安装docker">安装docker</a></li>
-    <li><a href="#-可选下载gui软件-以火狐浏览器为例">🎨 可选：下载GUI软件 (以火狐浏览器为例)</a>
-      <ol>
-        <li><a href="#开启systemd-推荐">开启systemd (推荐)</a></li>
-        <li><a href="#安装firefox">安装Firefox</a></li>
-        <li><a href="#运行测试">运行测试</a></li>
-      </ol>
-    </li>
-    <li><a href="#-配置参数参考表">📊 配置参数参考表</a>
-      <ol>
-        <li><a href="#内存配置建议">内存配置建议</a></li>
-        <li><a href="#性能优化参数说明">性能优化参数说明</a></li>
-      </ol>
-    </li>
-    <li><a href="#-常见问题解答">❓ 常见问题解答</a>
-      <ol>
-        <li><a href="#q1-安装过程中出现权限错误怎么办">Q1: 安装过程中出现权限错误怎么办？</a></li>
-        <li><a href="#q2-wsl启动后无法连接网络">Q2: WSL启动后无法连接网络？</a></li>
-        <li><a href="#q3-如何备份和恢复wsl系统">Q3: 如何备份和恢复WSL系统？</a></li>
-      </ol>
-    </li>
+    <li><a href="#如何查看当前的-bind-mount">如何查看当前的 bind mount？</a></li>
   </ol>
 </nav>
         </div>
@@ -374,7 +354,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/%E5%AE%89%E8%A3%85wsl2-%E5%88%B0d%E7%9B%98/">安装WSL2 到D盘</a>
+            <a href="/p/mount--bind-%E7%AE%80%E4%BB%8B/">Mount --bind 简介</a>
         </h2>
     
         
@@ -396,11 +376,11 @@
   <path d="M3 11h16" />
   <path d="M18 16.496v1.504l1 1" />
 </svg>
-                <time class="article-time--published">2026-05-27 23:09</time>
+                <time class="article-time--published">2026-08-26 17:44</time>
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-05-27 23:27</time>
+            <time class="article-lastmod">2026-08-27 10:28</time>
         </div>
         
 
@@ -415,7 +395,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 3 分钟
+                    阅读时长: 4 分钟
                 </time>
             </div>
         
@@ -424,7 +404,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    487 字
+                    714 字
                 </time>
             </div>
         
@@ -444,76 +424,50 @@
     <section class="article-content">
     
     
-    <blockquote>
-<p><a class="link" href="https://learn.microsoft.com/zh-cn/windows/wsl/install-manual"  target="_blank" rel="noopener"
-    >https://learn.microsoft.com/zh-cn/windows/wsl/install-manual</a></p></blockquote>
-<blockquote>
-<p><a class="link" href="https://twj0.github.io/blog/2025/12/01/16WSL%E5%AE%89%E8%A3%85%E5%88%B0D%E7%9B%98/"  target="_blank" rel="noopener"
-    >WSL2 Ubuntu 22.04 全攻略：安装到D盘、性能优化与GUI软件</a></p></blockquote>
-<h2 id="安装wsl">安装wsl
-</h2><div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
-</span></span><span class="line"><span class="cl">dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-</span></span></code></pre></td></tr></table>
-</div>
-</div><div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="o">--</span><span class="n">update</span> <span class="o">--</span><span class="n">web</span><span class="o">-</span><span class="n">download</span>
-</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="o">--</span><span class="n">set</span><span class="o">-</span><span class="n">default</span><span class="o">-</span><span class="n">version</span> <span class="mi">2</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><h2 id="-准备工作彻底卸载旧版-ubuntu-可选">🧰 准备工作：彻底卸载旧版 Ubuntu (可选)
-</h2><p>如果你之前折腾过WSL但把环境弄乱了，或者想节省空间重来，建议先执行清理操作。</p>
-<p><strong>⚠️ 警告</strong>：此操作会删除Linux内所有文件，请提前备份重要数据！</p>
-<h3 id="查看当前安装的发行版">查看当前安装的发行版
-</h3><p>打开 <strong>Windows PowerShell (管理员)</strong>，输入：</p>
+    <h2 id="mound-bind">mound &ndash;bind
+</h2><p><code>mount --bind</code> 把一个目录（或文件）<strong>绑定</strong>到另一个位置，让两个路径指向同一份数据。它不创建副本，不产生额外存储开销，修改任意一个路径都能看到另一个路径的变化。</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-list</span> <span class="p">-</span><span class="n">-verbose</span>
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">mount --bind /源目录 /目标目录
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>你可能会看到状态为 <code>Stopped</code> 或 <code>Running</code> 的 Ubuntu-22.04。</p>
-<h3 id="注销卸载发行版">注销（卸载）发行版
-</h3><p>输入以下命令，将旧系统连同其虚拟磁盘文件彻底删除：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-unregister</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>再次输入 <code>wsl --list</code> 确认已无残留。</p>
+</div><p>核心特点：<strong>被挂载目录的目录项块被屏蔽，读取请求被重定向到挂载目录的 inode</strong>。对内核而言，访问目标路径等同于访问源路径。</p>
 <hr>
-<h2 id="-核心步骤安装ubuntu-2204到d盘">🚀 核心步骤：安装Ubuntu 22.04到D盘
-</h2><p>最稳妥的&quot;安装到D盘&quot;方法是：<strong>先安装默认版 -&gt; 导出镜像 -&gt; 注销默认版 -&gt; 导入到D盘</strong>。</p>
-<h3 id="初次安装与导出">初次安装与导出
-</h3><p>在PowerShell中执行：</p>
+<h2 id="为什么需要---bind先看一个真实场景">为什么需要 <code>--bind</code>？先看一个真实场景
+</h2><h3 id="场景把容器数据卷挂载到指定目录">场景：把容器数据卷挂载到指定目录
+</h3><p>容器运行时（Docker / Podman）常用 bind mount 把宿主机目录映射进容器：</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
 </span><span class="lnt">2
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="c"># 安装Ubuntu 22.04 (默认在C盘)</span>
-</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-install</span> <span class="n">-d</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span>
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 把宿主机的日志目录绑定到容器内的 /app/logs</span>
+</span></span><span class="line"><span class="cl">docker run -v /var/log/myapp:/app/logs myimage
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>安装完成后，系统会自动弹出终端窗口，请按提示设置<strong>用户名</strong>和<strong>密码</strong>。设置完成后关闭该窗口。</p>
-<p>接着，导出系统镜像到D盘（作为搬家中转）：</p>
-<div class="highlight"><div class="chroma">
+</div><p>这个 <code>-v</code> 底层就是 <code>mount --bind</code>（或 <code>mount --rbind</code>）。</p>
+<hr>
+<h2 id="示例">示例
+</h2><p><code>ls -i</code> 列出文件的 inode 号。<strong>inode 是 Linux 文件的&quot;身份证&quot;</strong>，同一 inode = 同一个文件实体。这是验证 bind mount 最直接的方法。</p>
+<h3 id="准备环境">准备环境
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 创建两个空目录</span>
+</span></span><span class="line"><span class="cl">mkdir -p ~/bind_src ~/bind_dst
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;hello bind&#34;</span> &gt; ~/bind_src/a.txt
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="绑定前的状态">绑定前的状态
+</h3><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
 </span><span class="lnt">2
@@ -522,15 +476,86 @@
 </span><span class="lnt">5
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="c"># 导出镜像 (文件名任意，不要有中文路径)</span>
-</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-export</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span> <span class="n">d:</span><span class="p">\</span><span class="n">ubuntu_backup</span><span class="p">.</span><span class="py">tar</span>
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ ls -i ~/bind_src/ ~/bind_dst/
+</span></span><span class="line"><span class="cl">/home/user/bind_src/:
+</span></span><span class="line"><span class="cl"><span class="m">131078</span> a.txt
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># 注销原C盘系统</span>
-</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-unregister</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span>
+</span></span><span class="line"><span class="cl">/home/user/bind_dst/:   <span class="c1"># 目标目录为空</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><h3 id="导入到d盘-永久安家">导入到D盘 (永久安家)
-</h3><p>假设我们要安装在 <code>D:\WSL\Ubuntu2204</code>：</p>
+</div><h3 id="执行-bind-mount">执行 bind mount
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo mount --bind ~/bind_src ~/bind_dst
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="绑定后的状态--关键证据">绑定后的状态 —— 关键证据
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ ls -i ~/bind_src/ ~/bind_dst/
+</span></span><span class="line"><span class="cl">/home/user/bind_src/:
+</span></span><span class="line"><span class="cl"><span class="m">131078</span> a.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">/home/user/bind_dst/:
+</span></span><span class="line"><span class="cl"><span class="m">131078</span> a.txt      <span class="c1"># ← inode 完全一样！</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>两个目录下的 <code>a.txt</code> inode 都是 <code>131078</code></strong>。这说明它们根本就是同一个文件</p>
+<h3 id="双向同步验证">双向同步验证
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 通过目标路径写文件</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;from dst&#34;</span> &gt; ~/bind_dst/b.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 在源路径立刻能看到</span>
+</span></span><span class="line"><span class="cl">$ ls -i ~/bind_src/
+</span></span><span class="line"><span class="cl"><span class="m">131078</span> a.txt
+</span></span><span class="line"><span class="cl"><span class="m">131085</span> b.txt    <span class="c1"># ← 刚才写入的文件，两个路径都能看到</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 通过源路径修改文件</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;modified&#34;</span> &gt; ~/bind_src/a.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 从目标路径读取</span>
+</span></span><span class="line"><span class="cl">$ cat ~/bind_dst/a.txt
+</span></span><span class="line"><span class="cl">modified        <span class="c1"># ← 立即生效</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="与符号链接的区别">与符号链接的区别
+</h2><p><code>mount --bind</code> 并非简单地在两个路径之间建立链接，而是通过 Linux VFS（虚拟文件系统）层实现的一种<strong>重定向</strong>。以 <code>mount --bind test1 test2</code> 为例：</p>
+<p>当 mount &ndash;bind 命令执行后，Linux 将会把被挂载目录的目录项（也就是该目录文件的 block，记录了下级目录的信息）屏蔽，即 test2 的下级路径被隐藏起来了（注意，只是隐藏不是删除，数据都没有改变，只是访问不到了）。同时，内核将挂载目录（test1）的目录项提取出来，在 mount 命令执行时，VFS 会创建一个 vfsmount 对象，这个对象里包含了本次挂载的相关信息，包括源目录（test1）和目标挂载点（test2）的目录项指针。随后，内核会把这个 vfsmount 对象挂载到全局的挂载树中，并在 test2 的目录项上做一个“此处有挂载”的标记。路径解析时，VFS 通过这个标记跳转到对应的 vfsmount 对象，从而实现从 /test2/xxx 到 /test1/xxx 的访问重定向。容。</p>
+<p>简言之：<strong>访问 /test2 = 内核暗中读取 /test1</strong>，整个过程对用户空间完全透明。</p>
+<p>之前提到 bind mount 屏蔽的是 test2 的目录项数据块，那目录本身的 inode 呢？来看实例：</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
@@ -541,28 +566,181 @@
 </span><span class="lnt">6
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="c"># 创建目录</span>
-</span></span><span class="line"><span class="cl"><span class="n">mkdir</span> <span class="n">D:</span><span class="p">\</span><span class="n">WSL</span><span class="p">\</span><span class="n">Ubuntu2204</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># 导入系统 </span>
-</span></span><span class="line"><span class="cl"><span class="c"># 格式: wsl --import &lt;名称&gt; &lt;安装路径&gt; &lt;tar包路径&gt;</span>
-</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-import</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span> <span class="n">D:</span><span class="p">\</span><span class="n">WSL</span><span class="p">\</span><span class="n">Ubuntu2204</span> <span class="n">d:</span><span class="p">\</span><span class="n">ubuntu_backup</span><span class="p">.</span><span class="py">tar</span>
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ mkdir -p ~/bind_src/sub ~/bind_dst/sub
+</span></span><span class="line"><span class="cl">$ ls -id ~/bind_src ~/bind_src/sub ~/bind_dst ~/bind_dst/sub
+</span></span><span class="line"><span class="cl"><span class="m">131070</span> /home/user/bind_src         <span class="c1"># 源目录</span>
+</span></span><span class="line"><span class="cl"><span class="m">131072</span> /home/user/bind_src/sub     <span class="c1"># 源子目录</span>
+</span></span><span class="line"><span class="cl"><span class="m">131071</span> /home/user/bind_dst         <span class="c1"># 绑定前：目标目录 inode 不同</span>
+</span></span><span class="line"><span class="cl"><span class="m">131073</span> /home/user/bind_dst/sub     <span class="c1"># 绑定前：目标子目录 inode 不同</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><h3 id="恢复默认用户">恢复默认用户
-</h3><p>使用 <code>import</code> 导入的系统默认会以 <strong>root</strong> 身份登录，我们需要改回你的普通用户。</p>
-<ol>
-<li>启动Ubuntu：在PowerShell输入 <code>wsl -d Ubuntu-22.04</code></li>
-<li>编辑配置文件：</li>
-<li>写入以下内容（<strong>将 <strong><code>**your_username**</code></strong> 替换为你刚才设置的用户名</strong>）：</li>
-<li>保存退出（Ctrl+O -&gt; 回车 -&gt; Ctrl+X）</li>
-<li>重启WSL生效：在PowerShell输入 <code>wsl --shutdown</code></li>
-</ol>
-<hr>
-<h2 id="-基础使用与国内源加速">⚡ 基础使用与国内源加速
-</h2><h3 id="必备更换国内镜像源">必备：更换国内镜像源
-</h3><p>Ubuntu默认源在国外，速度极慢。进入Ubuntu终端，执行以下命令一键替换为清华源（适用于22.04）：</p>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo mount --bind ~/bind_src ~/bind_dst
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ ls -id ~/bind_src ~/bind_src/sub ~/bind_dst ~/bind_dst/sub
+</span></span><span class="line"><span class="cl"><span class="m">131070</span> /home/user/bind_src         <span class="c1"># 源目录</span>
+</span></span><span class="line"><span class="cl"><span class="m">131072</span> /home/user/bind_src/sub     <span class="c1"># 源子目录</span>
+</span></span><span class="line"><span class="cl"><span class="m">131070</span> /home/user/bind_dst         <span class="c1"># ← 绑定后：目录 inode 也一致了！</span>
+</span></span><span class="line"><span class="cl"><span class="m">131072</span> /home/user/bind_dst/sub     <span class="c1"># ← 子目录同样一致</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>绑定前后对比：</strong></p>
 <div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">          绑定前各自行其是          绑定后全部统一
+</span></span><span class="line"><span class="cl">  bind_src  → 131070      bind_src → 131070
+</span></span><span class="line"><span class="cl">  bind_dst  → 131071  →   bind_dst → 131070     # ← 关键变化
+</span></span><span class="line"><span class="cl">  sub(src)  → 131072      sub(src) → 131072
+</span></span><span class="line"><span class="cl">  sub(dst)  → 131073  →   sub(dst) → 131072     # ← 连同子目录一起重定向
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这直观地印证了前面的机制描述：bind mount 屏蔽的是 test2 整个目录树的数据块，内核在路径查找时，对 test2 的访问被整体重定向到 test1，<strong>文件 inode、目录 inode 无一例外</strong>。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>特性</th>
+          <th><code>ln -s</code> 软链接</th>
+          <th><code>mount --bind</code></th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>inode 关系</td>
+          <td>不同 inode</td>
+          <td>相同 inode</td>
+      </tr>
+      <tr>
+          <td>对进程透明</td>
+          <td>部分程序会跟随链接</td>
+          <td><strong>完全透明</strong>，进程无感知</td>
+      </tr>
+      <tr>
+          <td>跨文件系统</td>
+          <td>支持</td>
+          <td>支持（但源和目标可以是不同文件系统）</td>
+      </tr>
+      <tr>
+          <td>权限模型</td>
+          <td>仍走源路径的权限</td>
+          <td>走目标路径挂载点的权限上下文</td>
+      </tr>
+  </tbody>
+</table></div>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ln -s ~/bind_src/a.txt ~/soft_link_a.txt
+</span></span><span class="line"><span class="cl">$ ls -i ~/bind_src/a.txt ~/soft_link_a.txt
+</span></span><span class="line"><span class="cl"><span class="m">131078</span> /home/user/bind_src/a.txt
+</span></span><span class="line"><span class="cl"><span class="m">200055</span> /home/user/soft_link_a.txt   <span class="c1"># ← inode 不同，这就是软链接</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="--rbind递归绑定整个目录树"><code>--rbind</code>：递归绑定整个目录树
+</h2><p><code>--bind</code> 只绑定目录本身，目录内的子挂载点不会被带入。如果目录里有子目录也做了挂载（比如 <code>/data</code> 下有一个独立的 <code>/data/logs</code> 挂载点），只绑定 <code>/data</code> 时这些子挂载不会出现在目标路径下。</p>
+<p><code>--rbind</code>（recursive bind）会<strong>连带所有子挂载一起绑定</strong>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 假设 /data/logs 是一个独立挂载点</span>
+</span></span><span class="line"><span class="cl">sudo mount --rbind /data ~/bind_dst
+</span></span><span class="line"><span class="cl"><span class="c1"># ~/bind_dst/logs 会保留原有的挂载属性</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 解除递归绑定时，需先解除~/bind_dst的子挂载，或使用 --recursive 选项</span>
+</span></span><span class="line"><span class="cl">umount --recursive ~/bind_dst
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>递归绑定可能导致挂载点嵌套，需谨慎使用</p>
+<h2 id="持久化内存中的映射">持久化：内存中的映射
+</h2><p><strong>两个目录的对应关系只存在于内存里，一旦系统重启，挂载关系即消失。</strong></p>
+<p>如果需要开机自动挂载，需写入 <code>/etc/fstab</code>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">/home/user/bind_src  /home/user/bind_dst  none  bind  0  0
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="常见用法">常见用法
+</h2><h3 id="让根分区空间不够时借空间">让根分区空间不够时&quot;借&quot;空间
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 把另一个盘上的大目录 bind 到 /var 下空间紧张的位置</span>
+</span></span><span class="line"><span class="cl">sudo mkdir -p /bigdisk/var-lib
+</span></span><span class="line"><span class="cl">sudo rsync -av /var/lib/ /bigdisk/var-lib/
+</span></span><span class="line"><span class="cl">sudo mount --bind /bigdisk/var-lib /var/lib
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>可写入 <code>/etc/fstab</code> 持久化：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="o">/</span><span class="n">bigdisk</span><span class="o">/</span><span class="k">var</span><span class="o">-</span><span class="n">lib</span>  <span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="n">lib</span>  <span class="n">none</span>  <span class="n">bind</span>  <span class="mi">0</span>  <span class="mi">0</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="只读保护">只读保护
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. 绑定源路径到目标路径</span>
+</span></span><span class="line"><span class="cl">sudo mount --bind ~/src ~/dst
+</span></span><span class="line"><span class="cl"><span class="c1"># 2. 将目标路径重挂载为只读</span>
+</span></span><span class="line"><span class="cl">sudo mount -o remount,ro,bind ~/dst
+</span></span><span class="line"><span class="cl"><span class="c1"># 3. 验证：目标路径无法写入</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;test&#34;</span> &gt; ~/dst/1111  <span class="c1"># 报错：Permission denied</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这样通过 <code>~/dst</code> 访问时是只读的，但 <code>~/src</code> 依然可写。适合安全审计场景。</p>
+<h3 id="迁移服务数据不中断运行">迁移服务数据不中断运行
+</h3><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
 </span><span class="lnt">2
@@ -575,31 +753,71 @@
 </span><span class="lnt">9
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 备份原文件</span>
-</span></span><span class="line"><span class="cl">sudo cp /etc/apt/sources.list /etc/apt/sources.list.bak
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. 在新盘准备好目录</span>
+</span></span><span class="line"><span class="cl">sudo rsync -av /var/lib/mysql/ /bigdisk/mysql/
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># 替换源地址</span>
-</span></span><span class="line"><span class="cl">sudo sed -i <span class="s1">&#39;s@//.*archive.ubuntu.com@//mirrors.tuna.tsinghua.edu.cn@g&#39;</span> /etc/apt/sources.list
-</span></span><span class="line"><span class="cl">sudo sed -i <span class="s1">&#39;s@//.*security.ubuntu.com@//mirrors.tuna.tsinghua.edu.cn@g&#39;</span> /etc/apt/sources.list
+</span></span><span class="line"><span class="cl"><span class="c1"># 2. bind mount 过去（服务进程无感知）</span>
+</span></span><span class="line"><span class="cl">sudo mount --bind /bigdisk/mysql /var/lib/mysql
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># 更新系统</span>
-</span></span><span class="line"><span class="cl">sudo apt update <span class="o">&amp;&amp;</span> sudo apt upgrade -y
+</span></span><span class="line"><span class="cl"><span class="c1"># 3. 确认无误后，卸载旧数据目录，fstab 写入新配置</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 4. 重启服务（可选，因为 bind 已经生效）</span>
+</span></span><span class="line"><span class="cl">sudo systemctl restart mysql
 </span></span></code></pre></td></tr></table>
 </div>
-</div><h3 id="常用操作技巧">常用操作技巧
-</h3><ul>
-<li><strong>访问Windows文件</strong>：Windows的磁盘挂载在 <code>/mnt</code> 下。例如D盘就是 <code>/mnt/d</code>。</li>
-<li><strong>打开Windows文件夹</strong>：在Ubuntu当前目录下输入：</li>
-</ul>
-<hr>
-<h2 id="-进阶配置wslconfig-限制内存与性能">🔧 进阶配置：.wslconfig (限制内存与性能)
-</h2><p>默认情况下，WSL2会占用宿主机50%或更多的内存，且释放不及时，容易导致Windows变卡。我们需要通过 <code>.wslconfig</code> 文件来约束它。</p>
-<h3 id="创建配置文件">创建配置文件
-</h3><p>在Windows中，按下 <code>Win + R</code>，输入 <code>%UserProfile%</code> 打开用户主目录。在此目录下新建一个文件，命名为 <code>.wslconfig</code>（注意前面有点，没有后缀）。</p>
-<h3 id="推荐配置">推荐配置
-</h3><p>用记事本打开它，填入以下推荐配置：</p>
-<p><strong>个人使用配置示例：</strong></p>
+</div><h3 id="安全地修改只读系统文件">安全地修改只读系统文件
+</h3><p>固件开发中常遇到这种情况：需要修改某个系统文件来测试新功能，但该系统位于只读文件系统上（总不能为了一次小测试就重刷固件），或者虽然文件可写，但不敢直接修改。此时 <code>mount --bind</code> 可以派上用场。</p>
+<p>以修改 <code>/etc/hosts</code> 为例：</p>
 <div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. 准备新的 hosts 文件</span>
+</span></span><span class="line"><span class="cl">cp /etc/hosts /tmp/hosts.new
+</span></span><span class="line"><span class="cl"><span class="c1"># 编辑 /tmp/hosts.new，加入测试所需的条目</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 2. bind mount（用修改版覆盖 /etc/hosts）</span>
+</span></span><span class="line"><span class="cl">sudo mount --bind /tmp/hosts.new /etc/hosts
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 3. 此时 /etc/hosts 已&#34;变成&#34;修改后的版本，可以放心测试</span>
+</span></span><span class="line"><span class="cl">cat /etc/hosts
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 4. 测试完毕后，卸载绑定，恢复原貌</span>
+</span></span><span class="line"><span class="cl">sudo umount /etc/hosts
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>整个过程不触碰原始文件，测试完 <code>umount</code> 即可完全还原。</p>
+<h3 id="沙箱隔离chroot-配套">沙箱隔离（chroot 配套）
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 为 chroot 环境提供必要的系统目录</span>
+</span></span><span class="line"><span class="cl">sudo mount --bind /dev /mychroot/dev
+</span></span><span class="line"><span class="cl">sudo mount --bind /proc /mychroot/proc
+</span></span><span class="line"><span class="cl">sudo mount --bind /sys /mychroot/sys
+</span></span><span class="line"><span class="cl">sudo chroot /mychroot /bin/bash
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h2 id="如何查看当前的-bind-mount">如何查看当前的 bind mount？
+</h2><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt"> 1
 </span><span class="lnt"> 2
@@ -615,220 +833,25 @@
 </span><span class="lnt">12
 </span><span class="lnt">13
 </span><span class="lnt">14
-</span><span class="lnt">15
-</span><span class="lnt">16
-</span><span class="lnt">17
-</span><span class="lnt">18
-</span><span class="lnt">19
-</span><span class="lnt">20
-</span><span class="lnt">21
-</span><span class="lnt">22
-</span><span class="lnt">23
-</span><span class="lnt">24
-</span><span class="lnt">25
-</span><span class="lnt">26
-</span><span class="lnt">27
-</span><span class="lnt">28
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-ini" data-lang="ini"><span class="line"><span class="cl"><span class="c1"># Settings apply across all Linux distros running on WSL 2</span>
-</span></span><span class="line"><span class="cl"><span class="k">[wsl2]</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Allocate 8GB of memory to WSL (adjust as needed)</span>
-</span></span><span class="line"><span class="cl"><span class="na">memory</span><span class="o">=</span><span class="s">8GB</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Use 4 logical processors (adjust based on your CPU core count)</span>
-</span></span><span class="line"><span class="cl"><span class="na">processors</span><span class="o">=</span><span class="s">4</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Set the swap file to 4GB and store it on the D drive</span>
-</span></span><span class="line"><span class="cl"><span class="na">swap</span><span class="o">=</span><span class="s">4GB</span>
-</span></span><span class="line"><span class="cl"><span class="na">swapfile</span><span class="o">=</span><span class="s">D:\\wsl\\swap.vhdx</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Enable localhost forwarding (for development/debugging)</span>
-</span></span><span class="line"><span class="cl"><span class="na">localhostForwarding</span><span class="o">=</span><span class="s">true</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Enable GUI application support (WSLg)</span>
-</span></span><span class="line"><span class="cl"><span class="na">guiApplications</span><span class="o">=</span><span class="s">true</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Disable nested virtualization (unless you need to run virtual machines)</span>
-</span></span><span class="line"><span class="cl"><span class="na">nestedVirtualization</span><span class="o">=</span><span class="s">true</span>
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 方法一：findmnt 最直观</span>
+</span></span><span class="line"><span class="cl">$ findmnt -t <span class="nb">bind</span>
+</span></span><span class="line"><span class="cl">TARGET    SOURCE         FSTYPE OPTIONS
+</span></span><span class="line"><span class="cl">/home/user/bind_dst  /home/user/bind_src  ext4  <span class="nb">bind</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">[experimental]</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># 开启空闲内存自动回收 (强烈推荐)</span>
-</span></span><span class="line"><span class="cl"><span class="na">autoMemoryReclaim</span><span class="o">=</span><span class="s">gradual</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># 开启镜像网络 (解决 VPN 和 局域网问题)</span>
-</span></span><span class="line"><span class="cl"><span class="na">networkingMode</span><span class="o">=</span><span class="s">mirrored</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># 开启 DNS 隧道 (提升网络稳定性)</span>
-</span></span><span class="line"><span class="cl"><span class="na">dnsTunneling</span><span class="o">=</span><span class="s">true</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># 开启防火墙同步</span>
-</span></span><span class="line"><span class="cl"><span class="na">firewall</span><span class="o">=</span><span class="s">true</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># 自动回收磁盘空间</span>
-</span></span><span class="line"><span class="cl"><span class="na">sparseVhd</span><span class="o">=</span><span class="s">true</span>
-</span></span><span class="line"><span class="cl"><span class="na">autoProxy</span><span class="o">=</span><span class="s">true</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><h3 id="生效配置">生效配置
-</h3><p>保存文件后，在PowerShell中彻底重启WSL：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-shutdown</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><hr>
-<h2 id="安装docker">安装docker
-</h2><div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span><span class="lnt">5
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">curl -fsSL https://get.docker.com -o get-docker.sh
-</span></span><span class="line"><span class="cl">sudo get-docker.sh
-</span></span><span class="line"><span class="cl">sudo usermod -aG docker $USER
-</span></span><span class="line"><span class="cl">newgrp docker
-</span></span><span class="line"><span class="cl">sudo service docker status
-</span></span></code></pre></td></tr></table>
-</div>
-</div><h2 id="-可选下载gui软件-以火狐浏览器为例">🎨 可选：下载GUI软件 (以火狐浏览器为例)
-</h2><p>Windows 10 (高版本)和Windows 11已经原生支持 <strong>WSLg</strong>，这意味着你可以在WSL里直接运行Linux的图形界面程序，它会直接以窗口形式显示在Windows桌面上。</p>
-<h3 id="开启systemd-推荐">开启systemd (推荐)
-</h3><p>Firefox在Ubuntu 22.04中通常以Snap包形式安装，需要systemd支持。
-检查 <code>/etc/wsl.conf</code>，确保有以下内容：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-ini" data-lang="ini"><span class="line"><span class="cl"><span class="k">[boot]</span>
-</span></span><span class="line"><span class="cl"><span class="na">systemd</span><span class="o">=</span><span class="s">true</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>如果有修改，记得 <code>wsl --shutdown</code> 重启。</p>
-<h3 id="安装firefox">安装Firefox
-</h3><p>在Ubuntu终端输入：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo apt update
-</span></span><span class="line"><span class="cl">sudo apt install firefox
-</span></span></code></pre></td></tr></table>
-</div>
-</div><h3 id="运行测试">运行测试
-</h3><p>直接在终端输入：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">firefox
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>稍等片刻，一个Linux版的火狐浏览器窗口就会出现在你的Windows桌面上！你可以用它来测试Linux环境下的网页开发效果。</p>
-<hr>
-<h2 id="-配置参数参考表">📊 配置参数参考表
-</h2><h3 id="内存配置建议">内存配置建议
-</h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>物理内存</th>
-          <th>推荐WSL内存</th>
-          <th>交换空间</th>
-          <th>处理器核心数</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>8GB</td>
-          <td>4GB</td>
-          <td>2GB</td>
-          <td>2</td>
-      </tr>
-      <tr>
-          <td>16GB</td>
-          <td>8GB</td>
-          <td>4GB</td>
-          <td>4</td>
-      </tr>
-      <tr>
-          <td>32GB</td>
-          <td>16GB</td>
-          <td>8GB</td>
-          <td>6</td>
-      </tr>
-  </tbody>
-</table></div>
-<h3 id="性能优化参数说明">性能优化参数说明
-</h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>参数</th>
-          <th>推荐值</th>
-          <th>作用</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>memory</code></td>
-          <td>根据物理内存调整</td>
-          <td>限制WSL最大内存使用</td>
-      </tr>
-      <tr>
-          <td><code>processors</code></td>
-          <td>CPU核心数-2</td>
-          <td>限制WSL使用的CPU核心</td>
-      </tr>
-      <tr>
-          <td><code>swap</code></td>
-          <td>内存的50%</td>
-          <td>设置交换空间大小</td>
-      </tr>
-      <tr>
-          <td><code>autoMemoryReclaim</code></td>
-          <td>gradual</td>
-          <td>自动回收空闲内存</td>
-      </tr>
-  </tbody>
-</table></div>
-<hr>
-<h2 id="-常见问题解答">❓ 常见问题解答
-</h2><h3 id="q1-安装过程中出现权限错误怎么办">Q1: 安装过程中出现权限错误怎么办？
-</h3><p><strong>A:</strong> 确保以管理员身份运行PowerShell，并检查D盘是否有写入权限。</p>
-<h3 id="q2-wsl启动后无法连接网络">Q2: WSL启动后无法连接网络？
-</h3><p><strong>A:</strong> 检查Windows防火墙设置，或尝试重置网络配置：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-shutdown</span>
-</span></span><span class="line"><span class="cl"><span class="n">netsh</span> <span class="n">winsock</span> <span class="n">reset</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><h3 id="q3-如何备份和恢复wsl系统">Q3: 如何备份和恢复WSL系统？
-</h3><p><strong>A:</strong> 使用导出导入功能：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span><span class="lnt">5
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="c"># 备份</span>
-</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-export</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span> <span class="n">d:</span><span class="p">\</span><span class="n">backup</span><span class="p">.</span><span class="py">tar</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 方法二：cat /proc/mounts</span>
+</span></span><span class="line"><span class="cl">$ grep <span class="nb">bind</span> /proc/mounts
+</span></span><span class="line"><span class="cl">/home/user/bind_src /home/user/bind_dst ext4 rw,bind <span class="m">0</span> <span class="m">0</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># 恢复</span>
-</span></span><span class="line"><span class="cl"><span class="n">wsl</span> <span class="p">-</span><span class="n">-import</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="mf">22.04</span> <span class="n">D:</span><span class="p">\</span><span class="n">WSL</span><span class="p">\</span><span class="n">Ubuntu2204</span> <span class="n">d:</span><span class="p">\</span><span class="n">backup</span><span class="p">.</span><span class="py">tar</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 方法三：df 也能看到（绑定后大小与源一致）</span>
+</span></span><span class="line"><span class="cl">$ df -h ~/bind_src ~/bind_dst
+</span></span><span class="line"><span class="cl">Filesystem      Size  Used Avail Use% Mounted on
+</span></span><span class="line"><span class="cl">/dev/sda1       100G   30G   70G  30% /home/user/bind_src
+</span></span><span class="line"><span class="cl">/dev/sda1       100G   30G   70G  30% /home/user/bind_dst  <span class="c1"># ← 相同设备，印证同一份数据</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><hr>
-
+</div>
 </section>
 
 
@@ -886,19 +909,6 @@
             
                 
 <article class="">
-    <a href="/p/mount--bind-%E7%AE%80%E4%BB%8B/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">Mount --bind 简介</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
     <a href="/p/wsl-%E9%85%8D%E7%BD%AE%E5%8F%8A%E6%9B%B4%E6%96%B0kernel-image%E7%BC%96%E8%AF%91kernel-model/">
         
         
@@ -931,6 +941,19 @@
 
         <div class="article-details">
             <h2 class="article-title">Linux perf</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-trace--ptrace-strace-ltrace-ftrace/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">linux trace -- ptrace strace ltrace ftrace</h2>
         </div>
     </a>
 </article>
