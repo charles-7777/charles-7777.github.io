@@ -10,7 +10,7 @@
 <meta property='og:description' content="WSL 安装 启用 Windows 功能 以管理员身份打开 PowerShell 或 CMD，依次执行：\n1 2 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart 执行完毕后重启电脑。\n异常：VirtualMachinePlatform 卡住 参考：Microsoft Q&amp;A - Windows Win11 25H2\n如果启用 VirtualMachinePlatform 时卡住，可以尝试系统自带的修复： 开始设置 → 设置 → 系统 → 恢复 → 使用 Windows 更新修复问题 → 立即重新安装\n更新 WSL 内核 1 2 wsl -v wsl --update --web-download 默认从 Microsoft Store 下载，--web-download 则从 GitHub 下载。GitHub 下载可能较慢，建议开启代理\n设置默认版本 1 wsl --set-default-version 2 WSL 配置文件 .wslconfig 在 Windows 用户目录（C:\\Users\\&lt;用户名&gt;\\）下新建 .wslconfig 文件：\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/wsl-%E9%85%8D%E7%BD%AE%E5%8F%8A%E6%9B%B4%E6%96%B0kernel-image%E7%BC%96%E8%AF%91kernel-model/'>
 <meta property='og:site_name' content='Charles'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-08-25T22:13:01&#43;08:00'/><meta property='article:modified_time' content='2026-08-25T22:36:05&#43;08:00'/>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-08-25T22:13:01&#43;08:00'/><meta property='article:modified_time' content='2026-08-29T15:00:25&#43;08:00'/>
 <meta name="twitter:title" content="WSL 配置及更新kernel image、编译kernel model">
 <meta name="twitter:description" content="WSL 安装 启用 Windows 功能 以管理员身份打开 PowerShell 或 CMD，依次执行：\n1 2 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart 执行完毕后重启电脑。\n异常：VirtualMachinePlatform 卡住 参考：Microsoft Q&amp;A - Windows Win11 25H2\n如果启用 VirtualMachinePlatform 时卡住，可以尝试系统自带的修复： 开始设置 → 设置 → 系统 → 恢复 → 使用 Windows 更新修复问题 → 立即重新安装\n更新 WSL 内核 1 2 wsl -v wsl --update --web-download 默认从 Microsoft Store 下载，--web-download 则从 GitHub 下载。GitHub 下载可能较慢，建议开启代理\n设置默认版本 1 wsl --set-default-version 2 WSL 配置文件 .wslconfig 在 Windows 用户目录（C:\\Users\\&lt;用户名&gt;\\）下新建 .wslconfig 文件：\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
@@ -327,6 +327,7 @@
             <li><a href="#配置-wslconfig-指向新内核">配置 .wslconfig 指向新内核</a></li>
             <li><a href="#验证内核版本">验证内核版本</a></li>
             <li><a href="#保留内核头文件供模块编译使用">保留内核头文件（供模块编译使用）</a></li>
+            <li><a href="#docker-依赖的kernel-module">docker 依赖的kernel module</a></li>
           </ol>
         </li>
         <li><a href="#编译可加载内核模块helloko">编译可加载内核模块（hello.ko）</a></li>
@@ -388,7 +389,7 @@
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-08-25 22:36</time>
+            <time class="article-lastmod">2026-08-29 15:00</time>
         </div>
         
 
@@ -403,7 +404,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 4 分钟
+                    阅读时长: 5 分钟
                 </time>
             </div>
         
@@ -412,7 +413,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    815 字
+                    855 字
                 </time>
             </div>
         
@@ -535,30 +536,7 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><h3 id="ubuntu-2404">Ubuntu 24.04
-</h3><p>24.04 起 apt 源改用新的 <code>ubuntu.sources</code> 格式：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span><span class="lnt">5
-</span><span class="lnt">6
-</span><span class="lnt">7
-</span><span class="lnt">8
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. 备份原始配置文件</span>
-</span></span><span class="line"><span class="cl">sudo cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># 2. 替换为清华源</span>
-</span></span><span class="line"><span class="cl">sudo sed -i <span class="s1">&#39;s|URIs: http://.*/ubuntu/|URIs: http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|&#39;</span> /etc/apt/sources.list.d/ubuntu.sources
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># 3. 更新软件包列表</span>
-</span></span><span class="line"><span class="cl">sudo apt update
-</span></span></code></pre></td></tr></table>
-</div>
-</div><hr>
+</h3><hr>
 <h2 id="编译-wsl2-自定义内核">编译 WSL2 自定义内核
 </h2><h3 id="安装编译依赖">安装编译依赖
 </h3><div class="highlight"><div class="chroma">
@@ -652,9 +630,11 @@
 </h3><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
 </span></code></pre></td>
 <td class="lntd">
 <pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make -j<span class="k">$(</span>nproc<span class="k">)</span>
+</span></span><span class="line"><span class="cl">du -sh
 </span></span></code></pre></td></tr></table>
 </div>
 </div><blockquote>
@@ -783,18 +763,70 @@
 </div><h4 id="保留内核头文件供模块编译使用">保留内核头文件（供模块编译使用）
 </h4><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span><span class="lnt">5
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 清理编译中间产物（保留源码与 .config）</span>
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 备份kernel image</span>
+</span></span><span class="line"><span class="cl">cp arch/x86/boot/bzImage  /mnt/d/WSL/ubuntu2404/
+</span></span><span class="line"><span class="cl"><span class="c1"># 把编译好的所有模块复制到 /lib/modules/$(uname -r)/</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 有些模块是config_xxx=m,动态加载的，把这些备份，将来可以用</span>
+</span></span><span class="line"><span class="cl">sudo make modules_install
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 清理编译中间产物（保留源码与 .config</span>
 </span></span><span class="line"><span class="cl">make clean
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># 将内核源码移动到标准位置，供外部模块编译引用</span>
 </span></span><span class="line"><span class="cl">sudo mv ~/kernel-build/WSL2-Linux-Kernel-linux-msft-wsl-6.18.33.2 /lib/modules/6.18.33.2-microsoft-standard-WSL2/build
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="docker-依赖的kernel-module">docker 依赖的kernel module
+</h4><p>由于docker会使用 nft / iptables-legacy 来进行相关网络配置
+但是一些kernel module 在kernel config 中配置为m ,动态加载的
+需要额外配置一下</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo tee /etc/modules-load.d/docker-network.conf &gt; /dev/null <span class="s">&lt;&lt;EOF
+</span></span></span><span class="line"><span class="cl"><span class="s">bridge
+</span></span></span><span class="line"><span class="cl"><span class="s">br_netfilter
+</span></span></span><span class="line"><span class="cl"><span class="s">nft_fib
+</span></span></span><span class="line"><span class="cl"><span class="s">nft_fib_ipv4
+</span></span></span><span class="line"><span class="cl"><span class="s">nft_fib_ipv6
+</span></span></span><span class="line"><span class="cl"><span class="s">nft_ct
+</span></span></span><span class="line"><span class="cl"><span class="s">EOF</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">sudo tee /etc/sysctl.d/99-docker.conf &gt; /dev/null <span class="s">&lt;&lt;EOF
+</span></span></span><span class="line"><span class="cl"><span class="s">net.ipv4.ip_forward=1
+</span></span></span><span class="line"><span class="cl"><span class="s">net.ipv6.conf.all.forwarding=1
+</span></span></span><span class="line"><span class="cl"><span class="s">EOF</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">后面重启一下wsl
 </span></span></code></pre></td></tr></table>
 </div>
 </div><h3 id="编译可加载内核模块helloko">编译可加载内核模块（hello.ko）
