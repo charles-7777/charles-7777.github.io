@@ -7,7 +7,15 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Sat, 29 Aug 2026 15:00:25 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/linux/index.xml" rel="self" type="application/rss+xml" />
+        <lastBuildDate>Sun, 30 Aug 2026 23:55:56 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/tags/linux/index.xml" rel="self" type="application/rss+xml" />
+        <item>
+        <title>Linux 虚拟文件系统VFS</title>
+        <link>https://charles-7777.github.io/p/linux-%E8%99%9A%E6%8B%9F%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9Fvfs/</link>
+        <pubDate>Sun, 30 Aug 2026 22:11:41 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/linux-%E8%99%9A%E6%8B%9F%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9Fvfs/</guid>
+        </item>
+        
         <item>
         <title>Linux execve系统调用流程解析</title>
         <link>https://charles-7777.github.io/p/linux-execve%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E6%B5%81%E7%A8%8B%E8%A7%A3%E6%9E%90/</link>
@@ -158,14 +166,6 @@
         <pubDate>Mon, 19 Jan 2026 17:42:15 +0800</pubDate>
         
         <guid>https://charles-7777.github.io/p/nf_conntrack-%E7%9A%84-ctstate/</guid>
-        </item>
-        
-        <item>
-        <title>Socket I/O</title>
-        <link>https://charles-7777.github.io/p/socket-i/o/</link>
-        <pubDate>Thu, 08 Jan 2026 15:51:28 +0800</pubDate>
-        
-        <guid>https://charles-7777.github.io/p/socket-i/o/</guid>
         </item>
         
     </channel>
