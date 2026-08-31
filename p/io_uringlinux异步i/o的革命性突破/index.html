@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 本文转载自《io_uring：Linux异步I/O的革命性突破》https://zhuanlan.zhihu.com/p/1934342933789806664\n在探索了 select、poll 和 epoll 之后，我们迎来了 Linux I/O 模型的终极进化——io_uring。本文将深入解析 io_uring 的工作原理，展示其如何实现真正的零拷贝异步 I/O，并通过原始系统调用接口的 C++ 代码示例演示其强大能力。\nio_uring 是什么？ io_uring 是 Linux 5.1 引入的高性能异步 I/O 框架，解决了传统 AIO（如 libaio）的三大痛点：\n功能受限：仅支持直接 I/O（O_DIRECT） API 复杂：需要复杂的回调机制 性能瓶颈：存在额外的内存拷贝开销 graph TD subgraph 传统AIO 的痛点 A[传统AIO] --&gt; B[功能受限] B --&gt; C[仅支持直接I/O] C --&gt; D[复杂API] D --&gt; E[性能低下] end subgraph io_uring 的优势 F[io_uring] --&gt; G[全功能支持] G --&gt; H[统一接口] H --&gt; I[极致性能] end io_uring 核心优势：\n零系统调用：通过共享内存环实现用户态提交 全异步支持：文件、网络、管道等所有 I/O 类型 批量处理：单次调用提交多个请求 内核轮询：可选的纯内核轮询模式（零中断） io_uring 核心原理 双环形缓冲区设计 提交队列（SQ）：用户程序向内核提交 I/O 请求 完成队列（CQ）：内核向用户程序返回结果 内存映射：通过 mmap 共享内存，避免数据拷贝 graph LR subgraph 用户空间 U[用户程序] end subgraph 内核空间 K[内核] end subgraph 共享内存环形队列 SQ[提交队列 SQ] CQ[完成队列 CQ] end U -- &#34;① 写入（提交 I/O 请求）&#34; --&gt; SQ K -- &#34;② 读取并消费请求&#34; --&gt; SQ K -- &#34;③ 写入（返回完成结果）&#34; --&gt; CQ U -- &#34;④ 读取（处理完成结果）&#34; --&gt; CQ 关键数据结构 1、完成队列 CQ\n">
+<title>io_uring：Linux异步I/O的革命性突破</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/io_uringlinux%E5%BC%82%E6%AD%A5i/o%E7%9A%84%E9%9D%A9%E5%91%BD%E6%80%A7%E7%AA%81%E7%A0%B4/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="io_uring：Linux异步I/O的革命性突破">
+<meta property='og:description' content=" 本文转载自《io_uring：Linux异步I/O的革命性突破》https://zhuanlan.zhihu.com/p/1934342933789806664\n在探索了 select、poll 和 epoll 之后，我们迎来了 Linux I/O 模型的终极进化——io_uring。本文将深入解析 io_uring 的工作原理，展示其如何实现真正的零拷贝异步 I/O，并通过原始系统调用接口的 C++ 代码示例演示其强大能力。\nio_uring 是什么？ io_uring 是 Linux 5.1 引入的高性能异步 I/O 框架，解决了传统 AIO（如 libaio）的三大痛点：\n功能受限：仅支持直接 I/O（O_DIRECT） API 复杂：需要复杂的回调机制 性能瓶颈：存在额外的内存拷贝开销 graph TD subgraph 传统AIO 的痛点 A[传统AIO] --&gt; B[功能受限] B --&gt; C[仅支持直接I/O] C --&gt; D[复杂API] D --&gt; E[性能低下] end subgraph io_uring 的优势 F[io_uring] --&gt; G[全功能支持] G --&gt; H[统一接口] H --&gt; I[极致性能] end io_uring 核心优势：\n零系统调用：通过共享内存环实现用户态提交 全异步支持：文件、网络、管道等所有 I/O 类型 批量处理：单次调用提交多个请求 内核轮询：可选的纯内核轮询模式（零中断） io_uring 核心原理 双环形缓冲区设计 提交队列（SQ）：用户程序向内核提交 I/O 请求 完成队列（CQ）：内核向用户程序返回结果 内存映射：通过 mmap 共享内存，避免数据拷贝 graph LR subgraph 用户空间 U[用户程序] end subgraph 内核空间 K[内核] end subgraph 共享内存环形队列 SQ[提交队列 SQ] CQ[完成队列 CQ] end U -- &#34;① 写入（提交 I/O 请求）&#34; --&gt; SQ K -- &#34;② 读取并消费请求&#34; --&gt; SQ K -- &#34;③ 写入（返回完成结果）&#34; --&gt; CQ U -- &#34;④ 读取（处理完成结果）&#34; --&gt; CQ 关键数据结构 1、完成队列 CQ\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/io_uringlinux%E5%BC%82%E6%AD%A5i/o%E7%9A%84%E9%9D%A9%E5%91%BD%E6%80%A7%E7%AA%81%E7%A0%B4/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-08-31T23:05:53&#43;08:00'/><meta property='article:modified_time' content='2026-08-31T23:45:20&#43;08:00'/>
+<meta name="twitter:title" content="io_uring：Linux异步I/O的革命性突破">
+<meta name="twitter:description" content=" 本文转载自《io_uring：Linux异步I/O的革命性突破》https://zhuanlan.zhihu.com/p/1934342933789806664\n在探索了 select、poll 和 epoll 之后，我们迎来了 Linux I/O 模型的终极进化——io_uring。本文将深入解析 io_uring 的工作原理，展示其如何实现真正的零拷贝异步 I/O，并通过原始系统调用接口的 C++ 代码示例演示其强大能力。\nio_uring 是什么？ io_uring 是 Linux 5.1 引入的高性能异步 I/O 框架，解决了传统 AIO（如 libaio）的三大痛点：\n功能受限：仅支持直接 I/O（O_DIRECT） API 复杂：需要复杂的回调机制 性能瓶颈：存在额外的内存拷贝开销 graph TD subgraph 传统AIO 的痛点 A[传统AIO] --&gt; B[功能受限] B --&gt; C[仅支持直接I/O] C --&gt; D[复杂API] D --&gt; E[性能低下] end subgraph io_uring 的优势 F[io_uring] --&gt; G[全功能支持] G --&gt; H[统一接口] H --&gt; I[极致性能] end io_uring 核心优势：\n零系统调用：通过共享内存环实现用户态提交 全异步支持：文件、网络、管道等所有 I/O 类型 批量处理：单次调用提交多个请求 内核轮询：可选的纯内核轮询模式（零中断） io_uring 核心原理 双环形缓冲区设计 提交队列（SQ）：用户程序向内核提交 I/O 请求 完成队列（CQ）：内核向用户程序返回结果 内存映射：通过 mmap 共享内存，避免数据拷贝 graph LR subgraph 用户空间 U[用户程序] end subgraph 内核空间 K[内核] end subgraph 共享内存环形队列 SQ[提交队列 SQ] CQ[完成队列 CQ] end U -- &#34;① 写入（提交 I/O 请求）&#34; --&gt; SQ K -- &#34;② 读取并消费请求&#34; --&gt; SQ K -- &#34;③ 写入（返回完成结果）&#34; --&gt; CQ U -- &#34;④ 读取（处理完成结果）&#34; --&gt; CQ 关键数据结构 1、完成队列 CQ\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='/index.xml'
+                        target="_blank"
+                        title="RSS"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-rss" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="5" cy="19" r="1" />
+  <path d="M4 4a16 16 0 0 1 16 16" />
+  <path d="M4 11a9 9 0 0 1 9 9" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#io_uring-是什么">io_uring 是什么？</a></li>
+    <li><a href="#io_uring-核心原理">io_uring 核心原理</a>
+      <ol>
+        <li><a href="#双环形缓冲区设计">双环形缓冲区设计</a></li>
+        <li><a href="#关键数据结构">关键数据结构</a></li>
+      </ol>
+    </li>
+    <li><a href="#io_uring-工作流程">io_uring 工作流程</a>
+      <ol>
+        <li><a href="#初始化阶段">初始化阶段</a></li>
+        <li><a href="#io-操作流程">I/O 操作流程</a></li>
+      </ol>
+    </li>
+    <li><a href="#c-代码示例原始系统调用">C++ 代码示例（原始系统调用）</a>
+      <ol>
+        <li><a href="#关键代码解析">关键代码解析</a>
+          <ol>
+            <li><a href="#io_uring-核心机制">io_uring 核心机制</a></li>
+            <li><a href="#共享队列sqcq的结构">共享队列（SQ/CQ）的结构</a></li>
+            <li><a href="#内存屏障read_barrierwrite_barrier">内存屏障（read_barrier/write_barrier）</a></li>
+            <li><a href="#柔性数组与内存对齐">柔性数组与内存对齐</a></li>
+            <li><a href="#系统调用封装">系统调用封装</a></li>
+          </ol>
+        </li>
+        <li><a href="#总结">总结</a></li>
+      </ol>
+    </li>
+    <li><a href="#性能对比io_uring-vs-传统方案">性能对比：io_uring vs 传统方案</a></li>
+    <li><a href="#使用注意事项">使用注意事项</a>
+      <ol>
+        <li><a href="#内存管理最佳实践">内存管理最佳实践</a></li>
+        <li><a href="#错误处理关键点">错误处理关键点</a></li>
+        <li><a href="#高级特性使用">高级特性使用</a></li>
+      </ol>
+    </li>
+    <li><a href="#关键函数链接">关键函数链接</a>
+      <ol>
+        <li><a href="#下篇预告简化-io_uring-开发liburing-详解">下篇预告：简化 io_uring 开发——liburing 详解</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/linux/" >
+                Linux
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/io_uringlinux%E5%BC%82%E6%AD%A5i/o%E7%9A%84%E9%9D%A9%E5%91%BD%E6%80%A7%E7%AA%81%E7%A0%B4/">io_uring：Linux异步I/O的革命性突破</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-08-31 23:05</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-08-31 23:45</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 11 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    2323 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <blockquote>
+<p>本文转载自《io_uring：Linux异步I/O的革命性突破》<a class="link" href="https://zhuanlan.zhihu.com/p/1934342933789806664"  target="_blank" rel="noopener"
+    >https://zhuanlan.zhihu.com/p/1934342933789806664</a></p></blockquote>
+<p>在探索了 <code>select</code>、<code>poll</code> 和 <code>epoll</code> 之后，我们迎来了 Linux I/O 模型的终极进化——<strong>io_uring</strong>。本文将深入解析 io_uring 的工作原理，展示其如何实现真正的零拷贝异步 I/O，并通过原始系统调用接口的 C++ 代码示例演示其强大能力。</p>
+<h2 id="io_uring-是什么">io_uring 是什么？
+</h2><p>io_uring 是 <strong>Linux 5.1 引入的高性能异步 I/O 框架</strong>，解决了传统 AIO（如 libaio）的三大痛点：</p>
+<ul>
+<li><strong>功能受限</strong>：仅支持直接 I/O（O_DIRECT）</li>
+<li><strong>API 复杂</strong>：需要复杂的回调机制</li>
+<li><strong>性能瓶颈</strong>：存在额外的内存拷贝开销</li>
+</ul>
+<pre class="mermaid">
+  graph TD
+    subgraph 传统AIO 的痛点
+        A[传统AIO] --&gt; B[功能受限]
+        B --&gt; C[仅支持直接I/O]
+        C --&gt; D[复杂API]
+        D --&gt; E[性能低下]
+    end
+    subgraph io_uring 的优势
+        F[io_uring] --&gt; G[全功能支持]
+        G --&gt; H[统一接口]
+        H --&gt; I[极致性能]
+    end
+</pre>
+<p><strong>io_uring 核心优势：</strong></p>
+<ul>
+<li><strong>零系统调用</strong>：通过共享内存环实现用户态提交</li>
+<li><strong>全异步支持</strong>：文件、网络、管道等所有 I/O 类型</li>
+<li><strong>批量处理</strong>：单次调用提交多个请求</li>
+<li><strong>内核轮询</strong>：可选的纯内核轮询模式（零中断）</li>
+</ul>
+<hr>
+<h2 id="io_uring-核心原理">io_uring 核心原理
+</h2><h3 id="双环形缓冲区设计">双环形缓冲区设计
+</h3><ul>
+<li><strong>提交队列（SQ）</strong>：用户程序向内核提交 I/O 请求</li>
+<li><strong>完成队列（CQ）</strong>：内核向用户程序返回结果</li>
+<li><strong>内存映射</strong>：通过 mmap 共享内存，避免数据拷贝</li>
+</ul>
+<pre class="mermaid">
+  graph LR
+    subgraph 用户空间
+        U[用户程序]
+    end
+    subgraph 内核空间
+        K[内核]
+    end
+    subgraph 共享内存环形队列
+        SQ[提交队列 SQ]
+        CQ[完成队列 CQ]
+    end
+    U -- &#34;① 写入（提交 I/O 请求）&#34; --&gt; SQ
+    K -- &#34;② 读取并消费请求&#34; --&gt; SQ
+    K -- &#34;③ 写入（返回完成结果）&#34; --&gt; CQ
+    U -- &#34;④ 读取（处理完成结果）&#34; --&gt; CQ
+</pre>
+<h3 id="关键数据结构">关键数据结构
+</h3><p><strong>1、完成队列 CQ</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">io_uring_cqe</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__u64</span>  <span class="n">user_data</span><span class="p">;</span>   <span class="cm">/* sqe-&gt;user_data submission passed back */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__s32</span>  <span class="n">res</span><span class="p">;</span>         <span class="cm">/* result code for this event */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__u32</span>  <span class="n">flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>2、提交队列 SQ</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">io_uring_sqe</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__u8</span>  <span class="n">opcode</span><span class="p">;</span>   <span class="cm">/* type of operation for this sqe */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__u8</span>  <span class="n">flags</span><span class="p">;</span>    <span class="cm">/* IOSQE_ flags */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__u16</span>  <span class="n">ioprio</span><span class="p">;</span>  <span class="cm">/* ioprio for the request */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__s32</span>  <span class="n">fd</span><span class="p">;</span>      <span class="cm">/* file descriptor to do IO on */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__u64</span>  <span class="n">off</span><span class="p">;</span>     <span class="cm">/* offset into file */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__u64</span>  <span class="n">addr</span><span class="p">;</span>    <span class="cm">/* pointer to buffer or iovecs */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__u32</span>  <span class="n">len</span><span class="p">;</span>     <span class="cm">/* buffer size or number of iovecs */</span>
+</span></span><span class="line"><span class="cl">  <span class="k">union</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__kernel_rwf_t</span>  <span class="n">rw_flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span>    <span class="n">fsync_flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u16</span>    <span class="n">poll_events</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span>    <span class="n">sync_range_flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span>    <span class="n">msg_flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="p">};</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__u64</span>  <span class="n">user_data</span><span class="p">;</span>   <span class="cm">/* data to be passed back at completion time */</span>
+</span></span><span class="line"><span class="cl">  <span class="k">union</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u16</span>  <span class="n">buf_index</span><span class="p">;</span> <span class="cm">/* index into fixed buffers, if used */</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u64</span>  <span class="n">__pad2</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">  <span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>3、Params</strong></p>
+<p>Params 用于应用程序向内核传递选项，而内核则用于传递有关环缓冲区的信息。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">io_uring_params</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span> <span class="n">sq_entries</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span> <span class="n">cq_entries</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span> <span class="n">flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span> <span class="n">sq_thread_cpu</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span> <span class="n">sq_thread_idle</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span> <span class="n">features</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">__u32</span> <span class="n">resv</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">io_sqring_offsets</span> <span class="n">sq_off</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="n">io_cqring_offsets</span> <span class="n">cq_off</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h2 id="io_uring-工作流程">io_uring 工作流程
+</h2><h3 id="初始化阶段">初始化阶段
+</h3><pre class="mermaid">
+  sequenceDiagram
+    participant U as 用户程序
+    participant K as 内核
+    U-&gt;&gt;K: io_uring_setup(entries, params)
+    K--&gt;&gt;U: 返回文件描述符 ring_fd
+    loop mmap 映射
+        U-&gt;&gt;U: mmap 映射 SQ 和 CQ（共享内存，避免数据拷贝）
+    end
+</pre>
+<h3 id="io-操作流程">I/O 操作流程
+</h3><p><strong>提交请求：</strong></p>
+<ol>
+<li>获取 SQE（提交队列条目）</li>
+<li>填充操作参数</li>
+<li>更新 SQ 尾部索引</li>
+</ol>
+<p><strong>通知内核：</strong></p>
+<ol>
+<li>调用 <code>io_uring_enter()</code> 提交请求</li>
+<li>可选阻塞等待完成事件</li>
+</ol>
+<p><strong>处理完成：</strong></p>
+<ol>
+<li>检查 CQ 头部索引</li>
+<li>读取 CQE（完成队列条目）</li>
+<li>更新 CQ 头部索引</li>
+</ol>
+<hr>
+<h2 id="c-代码示例原始系统调用">C++ 代码示例（原始系统调用）
+</h2><p>该代码不依赖 liburing 库，直接通过系统调用封装 <code>io_uring_setup</code> 和 <code>io_uring_enter</code>，实现异步文件读取功能。核心流程为：初始化 io_uring 共享队列 → 提交文件读取请求到提交队列（SQ）→ 等待内核处理并从完成队列（CQ）获取结果 → 输出文件内容。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">  1
+</span><span class="lnt">  2
+</span><span class="lnt">  3
+</span><span class="lnt">  4
+</span><span class="lnt">  5
+</span><span class="lnt">  6
+</span><span class="lnt">  7
+</span><span class="lnt">  8
+</span><span class="lnt">  9
+</span><span class="lnt"> 10
+</span><span class="lnt"> 11
+</span><span class="lnt"> 12
+</span><span class="lnt"> 13
+</span><span class="lnt"> 14
+</span><span class="lnt"> 15
+</span><span class="lnt"> 16
+</span><span class="lnt"> 17
+</span><span class="lnt"> 18
+</span><span class="lnt"> 19
+</span><span class="lnt"> 20
+</span><span class="lnt"> 21
+</span><span class="lnt"> 22
+</span><span class="lnt"> 23
+</span><span class="lnt"> 24
+</span><span class="lnt"> 25
+</span><span class="lnt"> 26
+</span><span class="lnt"> 27
+</span><span class="lnt"> 28
+</span><span class="lnt"> 29
+</span><span class="lnt"> 30
+</span><span class="lnt"> 31
+</span><span class="lnt"> 32
+</span><span class="lnt"> 33
+</span><span class="lnt"> 34
+</span><span class="lnt"> 35
+</span><span class="lnt"> 36
+</span><span class="lnt"> 37
+</span><span class="lnt"> 38
+</span><span class="lnt"> 39
+</span><span class="lnt"> 40
+</span><span class="lnt"> 41
+</span><span class="lnt"> 42
+</span><span class="lnt"> 43
+</span><span class="lnt"> 44
+</span><span class="lnt"> 45
+</span><span class="lnt"> 46
+</span><span class="lnt"> 47
+</span><span class="lnt"> 48
+</span><span class="lnt"> 49
+</span><span class="lnt"> 50
+</span><span class="lnt"> 51
+</span><span class="lnt"> 52
+</span><span class="lnt"> 53
+</span><span class="lnt"> 54
+</span><span class="lnt"> 55
+</span><span class="lnt"> 56
+</span><span class="lnt"> 57
+</span><span class="lnt"> 58
+</span><span class="lnt"> 59
+</span><span class="lnt"> 60
+</span><span class="lnt"> 61
+</span><span class="lnt"> 62
+</span><span class="lnt"> 63
+</span><span class="lnt"> 64
+</span><span class="lnt"> 65
+</span><span class="lnt"> 66
+</span><span class="lnt"> 67
+</span><span class="lnt"> 68
+</span><span class="lnt"> 69
+</span><span class="lnt"> 70
+</span><span class="lnt"> 71
+</span><span class="lnt"> 72
+</span><span class="lnt"> 73
+</span><span class="lnt"> 74
+</span><span class="lnt"> 75
+</span><span class="lnt"> 76
+</span><span class="lnt"> 77
+</span><span class="lnt"> 78
+</span><span class="lnt"> 79
+</span><span class="lnt"> 80
+</span><span class="lnt"> 81
+</span><span class="lnt"> 82
+</span><span class="lnt"> 83
+</span><span class="lnt"> 84
+</span><span class="lnt"> 85
+</span><span class="lnt"> 86
+</span><span class="lnt"> 87
+</span><span class="lnt"> 88
+</span><span class="lnt"> 89
+</span><span class="lnt"> 90
+</span><span class="lnt"> 91
+</span><span class="lnt"> 92
+</span><span class="lnt"> 93
+</span><span class="lnt"> 94
+</span><span class="lnt"> 95
+</span><span class="lnt"> 96
+</span><span class="lnt"> 97
+</span><span class="lnt"> 98
+</span><span class="lnt"> 99
+</span><span class="lnt">100
+</span><span class="lnt">101
+</span><span class="lnt">102
+</span><span class="lnt">103
+</span><span class="lnt">104
+</span><span class="lnt">105
+</span><span class="lnt">106
+</span><span class="lnt">107
+</span><span class="lnt">108
+</span><span class="lnt">109
+</span><span class="lnt">110
+</span><span class="lnt">111
+</span><span class="lnt">112
+</span><span class="lnt">113
+</span><span class="lnt">114
+</span><span class="lnt">115
+</span><span class="lnt">116
+</span><span class="lnt">117
+</span><span class="lnt">118
+</span><span class="lnt">119
+</span><span class="lnt">120
+</span><span class="lnt">121
+</span><span class="lnt">122
+</span><span class="lnt">123
+</span><span class="lnt">124
+</span><span class="lnt">125
+</span><span class="lnt">126
+</span><span class="lnt">127
+</span><span class="lnt">128
+</span><span class="lnt">129
+</span><span class="lnt">130
+</span><span class="lnt">131
+</span><span class="lnt">132
+</span><span class="lnt">133
+</span><span class="lnt">134
+</span><span class="lnt">135
+</span><span class="lnt">136
+</span><span class="lnt">137
+</span><span class="lnt">138
+</span><span class="lnt">139
+</span><span class="lnt">140
+</span><span class="lnt">141
+</span><span class="lnt">142
+</span><span class="lnt">143
+</span><span class="lnt">144
+</span><span class="lnt">145
+</span><span class="lnt">146
+</span><span class="lnt">147
+</span><span class="lnt">148
+</span><span class="lnt">149
+</span><span class="lnt">150
+</span><span class="lnt">151
+</span><span class="lnt">152
+</span><span class="lnt">153
+</span><span class="lnt">154
+</span><span class="lnt">155
+</span><span class="lnt">156
+</span><span class="lnt">157
+</span><span class="lnt">158
+</span><span class="lnt">159
+</span><span class="lnt">160
+</span><span class="lnt">161
+</span><span class="lnt">162
+</span><span class="lnt">163
+</span><span class="lnt">164
+</span><span class="lnt">165
+</span><span class="lnt">166
+</span><span class="lnt">167
+</span><span class="lnt">168
+</span><span class="lnt">169
+</span><span class="lnt">170
+</span><span class="lnt">171
+</span><span class="lnt">172
+</span><span class="lnt">173
+</span><span class="lnt">174
+</span><span class="lnt">175
+</span><span class="lnt">176
+</span><span class="lnt">177
+</span><span class="lnt">178
+</span><span class="lnt">179
+</span><span class="lnt">180
+</span><span class="lnt">181
+</span><span class="lnt">182
+</span><span class="lnt">183
+</span><span class="lnt">184
+</span><span class="lnt">185
+</span><span class="lnt">186
+</span><span class="lnt">187
+</span><span class="lnt">188
+</span><span class="lnt">189
+</span><span class="lnt">190
+</span><span class="lnt">191
+</span><span class="lnt">192
+</span><span class="lnt">193
+</span><span class="lnt">194
+</span><span class="lnt">195
+</span><span class="lnt">196
+</span><span class="lnt">197
+</span><span class="lnt">198
+</span><span class="lnt">199
+</span><span class="lnt">200
+</span><span class="lnt">201
+</span><span class="lnt">202
+</span><span class="lnt">203
+</span><span class="lnt">204
+</span><span class="lnt">205
+</span><span class="lnt">206
+</span><span class="lnt">207
+</span><span class="lnt">208
+</span><span class="lnt">209
+</span><span class="lnt">210
+</span><span class="lnt">211
+</span><span class="lnt">212
+</span><span class="lnt">213
+</span><span class="lnt">214
+</span><span class="lnt">215
+</span><span class="lnt">216
+</span><span class="lnt">217
+</span><span class="lnt">218
+</span><span class="lnt">219
+</span><span class="lnt">220
+</span><span class="lnt">221
+</span><span class="lnt">222
+</span><span class="lnt">223
+</span><span class="lnt">224
+</span><span class="lnt">225
+</span><span class="lnt">226
+</span><span class="lnt">227
+</span><span class="lnt">228
+</span><span class="lnt">229
+</span><span class="lnt">230
+</span><span class="lnt">231
+</span><span class="lnt">232
+</span><span class="lnt">233
+</span><span class="lnt">234
+</span><span class="lnt">235
+</span><span class="lnt">236
+</span><span class="lnt">237
+</span><span class="lnt">238
+</span><span class="lnt">239
+</span><span class="lnt">240
+</span><span class="lnt">241
+</span><span class="lnt">242
+</span><span class="lnt">243
+</span><span class="lnt">244
+</span><span class="lnt">245
+</span><span class="lnt">246
+</span><span class="lnt">247
+</span><span class="lnt">248
+</span><span class="lnt">249
+</span><span class="lnt">250
+</span><span class="lnt">251
+</span><span class="lnt">252
+</span><span class="lnt">253
+</span><span class="lnt">254
+</span><span class="lnt">255
+</span><span class="lnt">256
+</span><span class="lnt">257
+</span><span class="lnt">258
+</span><span class="lnt">259
+</span><span class="lnt">260
+</span><span class="lnt">261
+</span><span class="lnt">262
+</span><span class="lnt">263
+</span><span class="lnt">264
+</span><span class="lnt">265
+</span><span class="lnt">266
+</span><span class="lnt">267
+</span><span class="lnt">268
+</span><span class="lnt">269
+</span><span class="lnt">270
+</span><span class="lnt">271
+</span><span class="lnt">272
+</span><span class="lnt">273
+</span><span class="lnt">274
+</span><span class="lnt">275
+</span><span class="lnt">276
+</span><span class="lnt">277
+</span><span class="lnt">278
+</span><span class="lnt">279
+</span><span class="lnt">280
+</span><span class="lnt">281
+</span><span class="lnt">282
+</span><span class="lnt">283
+</span><span class="lnt">284
+</span><span class="lnt">285
+</span><span class="lnt">286
+</span><span class="lnt">287
+</span><span class="lnt">288
+</span><span class="lnt">289
+</span><span class="lnt">290
+</span><span class="lnt">291
+</span><span class="lnt">292
+</span><span class="lnt">293
+</span><span class="lnt">294
+</span><span class="lnt">295
+</span><span class="lnt">296
+</span><span class="lnt">297
+</span><span class="lnt">298
+</span><span class="lnt">299
+</span><span class="lnt">300
+</span><span class="lnt">301
+</span><span class="lnt">302
+</span><span class="lnt">303
+</span><span class="lnt">304
+</span><span class="lnt">305
+</span><span class="lnt">306
+</span><span class="lnt">307
+</span><span class="lnt">308
+</span><span class="lnt">309
+</span><span class="lnt">310
+</span><span class="lnt">311
+</span><span class="lnt">312
+</span><span class="lnt">313
+</span><span class="lnt">314
+</span><span class="lnt">315
+</span><span class="lnt">316
+</span><span class="lnt">317
+</span><span class="lnt">318
+</span><span class="lnt">319
+</span><span class="lnt">320
+</span><span class="lnt">321
+</span><span class="lnt">322
+</span><span class="lnt">323
+</span><span class="lnt">324
+</span><span class="lnt">325
+</span><span class="lnt">326
+</span><span class="lnt">327
+</span><span class="lnt">328
+</span><span class="lnt">329
+</span><span class="lnt">330
+</span><span class="lnt">331
+</span><span class="lnt">332
+</span><span class="lnt">333
+</span><span class="lnt">334
+</span><span class="lnt">335
+</span><span class="lnt">336
+</span><span class="lnt">337
+</span><span class="lnt">338
+</span><span class="lnt">339
+</span><span class="lnt">340
+</span><span class="lnt">341
+</span><span class="lnt">342
+</span><span class="lnt">343
+</span><span class="lnt">344
+</span><span class="lnt">345
+</span><span class="lnt">346
+</span><span class="lnt">347
+</span><span class="lnt">348
+</span><span class="lnt">349
+</span><span class="lnt">350
+</span><span class="lnt">351
+</span><span class="lnt">352
+</span><span class="lnt">353
+</span><span class="lnt">354
+</span><span class="lnt">355
+</span><span class="lnt">356
+</span><span class="lnt">357
+</span><span class="lnt">358
+</span><span class="lnt">359
+</span><span class="lnt">360
+</span><span class="lnt">361
+</span><span class="lnt">362
+</span><span class="lnt">363
+</span><span class="lnt">364
+</span><span class="lnt">365
+</span><span class="lnt">366
+</span><span class="lnt">367
+</span><span class="lnt">368
+</span><span class="lnt">369
+</span><span class="lnt">370
+</span><span class="lnt">371
+</span><span class="lnt">372
+</span><span class="lnt">373
+</span><span class="lnt">374
+</span><span class="lnt">375
+</span><span class="lnt">376
+</span><span class="lnt">377
+</span><span class="lnt">378
+</span><span class="lnt">379
+</span><span class="lnt">380
+</span><span class="lnt">381
+</span><span class="lnt">382
+</span><span class="lnt">383
+</span><span class="lnt">384
+</span><span class="lnt">385
+</span><span class="lnt">386
+</span><span class="lnt">387
+</span><span class="lnt">388
+</span><span class="lnt">389
+</span><span class="lnt">390
+</span><span class="lnt">391
+</span><span class="lnt">392
+</span><span class="lnt">393
+</span><span class="lnt">394
+</span><span class="lnt">395
+</span><span class="lnt">396
+</span><span class="lnt">397
+</span><span class="lnt">398
+</span><span class="lnt">399
+</span><span class="lnt">400
+</span><span class="lnt">401
+</span><span class="lnt">402
+</span><span class="lnt">403
+</span><span class="lnt">404
+</span><span class="lnt">405
+</span><span class="lnt">406
+</span><span class="lnt">407
+</span><span class="lnt">408
+</span><span class="lnt">409
+</span><span class="lnt">410
+</span><span class="lnt">411
+</span><span class="lnt">412
+</span><span class="lnt">413
+</span><span class="lnt">414
+</span><span class="lnt">415
+</span><span class="lnt">416
+</span><span class="lnt">417
+</span><span class="lnt">418
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">       </span><span class="c1">// 控制台输入输出函数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">      </span><span class="c1">// 内存分配函数（malloc/free等）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;sys/stat.h&gt;</span><span class="cp">    </span><span class="c1">// 文件状态相关（fstat等）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;sys/ioctl.h&gt;</span><span class="cp">   </span><span class="c1">// 设备控制（ioctl）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;sys/syscall.h&gt;</span><span class="cp"> </span><span class="c1">// 系统调用封装（syscall）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;sys/mman.h&gt;</span><span class="cp">    </span><span class="c1">// 内存映射（mmap）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;sys/uio.h&gt;</span><span class="cp">     </span><span class="c1">// 向量I/O（iovec、readv等）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;linux/fs.h&gt;</span><span class="cp">    </span><span class="c1">// 文件系统相关定义
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;fcntl.h&gt;</span><span class="cp">       </span><span class="c1">// 文件操作（open、O_RDONLY等）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp">      </span><span class="c1">// 系统调用（close等）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp">      </span><span class="c1">// 字符串操作（memset等）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 引入io_uring相关结构定义（内核头文件）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;linux/io_uring.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 提交队列（SQ）深度：同时处理的最大请求数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#define QUEUE_DEPTH 1
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="c1">// 文件读取块大小（1024字节）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#define BLOCK_SZ    1024
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// x86架构的内存屏障（确保读写操作顺序，避免编译器优化导致的乱序）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#define read_barrier()  __asm__ __volatile__(&#34;&#34;:::&#34;memory&#34;)  </span><span class="c1">// 读屏障：确保读操作按顺序可见
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#define write_barrier() __asm__ __volatile__(&#34;&#34;:::&#34;memory&#34;) </span><span class="c1">// 写屏障：确保写操作按顺序可见
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 提交队列（SQ）封装结构：存储SQ的关键指针（头、尾、数组等）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="nc">app_io_sq_ring</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">head</span><span class="p">;</span>          <span class="c1">// SQ头指针（内核更新，指示已处理的条目）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">tail</span><span class="p">;</span>          <span class="c1">// SQ尾指针（用户更新，指示待处理的条目）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">ring_mask</span><span class="p">;</span>     <span class="c1">// SQ掩码（用于计算索引，值为entries-1）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">ring_entries</span><span class="p">;</span>  <span class="c1">// SQ实际条目数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">flags</span><span class="p">;</span>         <span class="c1">// SQ状态标志（如是否需要唤醒内核线程）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">array</span><span class="p">;</span>         <span class="c1">// SQ索引数组（关联SQE与队列位置）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 完成队列（CQ）封装结构：存储CQ的关键指针（头、尾、完成条目等）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="nc">app_io_cq_ring</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">head</span><span class="p">;</span>          <span class="c1">// CQ头指针（用户更新，指示已处理的完成条目）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">tail</span><span class="p">;</span>          <span class="c1">// CQ尾指针（内核更新，指示新的完成条目）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">ring_mask</span><span class="p">;</span>     <span class="c1">// CQ掩码（用于计算索引）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="o">*</span><span class="n">ring_entries</span><span class="p">;</span>  <span class="c1">// CQ实际条目数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">io_uring_cqe</span> <span class="o">*</span><span class="n">cqes</span><span class="p">;</span> <span class="c1">// 完成队列条目数组（存储每个I/O的结果）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// io_uring提交器结构：管理整个io_uring实例的资源
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="nc">submitter</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">ring_fd</span><span class="p">;</span>             <span class="c1">// io_uring实例的文件描述符（io_uring_setup返回）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">app_io_sq_ring</span> <span class="n">sq_ring</span><span class="p">;</span> <span class="c1">// 提交队列（SQ）相关指针
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">io_uring_sqe</span> <span class="o">*</span><span class="n">sqes</span><span class="p">;</span>    <span class="c1">// 提交队列条目数组（SQE）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">app_io_cq_ring</span> <span class="n">cq_ring</span><span class="p">;</span> <span class="c1">// 完成队列（CQ）相关指针
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 文件信息结构：存储文件大小和读取块的iovec数组（柔性数组）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="nc">file_info</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">off_t</span> <span class="n">file_sz</span><span class="p">;</span>           <span class="c1">// 文件总大小（字节）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">iovec</span> <span class="n">iovecs</span><span class="p">[];</span>   <span class="c1">// 柔性数组：每个元素描述一个读取块的缓冲区（地址+长度）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 封装io_uring_setup系统调用（标准库可能未包含）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 功能：创建io_uring实例，返回文件描述符
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 参数：entries（队列最小条目数）、p（配置参数与内核返回信息）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">io_uring_setup</span><span class="p">(</span><span class="kt">unsigned</span> <span class="n">entries</span><span class="p">,</span> <span class="k">struct</span> <span class="nc">io_uring_params</span> <span class="o">*</span><span class="n">p</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span> <span class="n">syscall</span><span class="p">(</span><span class="n">__NR_io_uring_setup</span><span class="p">,</span> <span class="n">entries</span><span class="p">,</span> <span class="n">p</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 封装io_uring_enter系统调用
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 功能：提交SQ中的请求并/或等待CQ中的完成事件
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 参数：ring_fd（io_uring实例FD）、to_submit（提交数）、min_complete（最小完成数）、flags（操作标志）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">io_uring_enter</span><span class="p">(</span><span class="kt">int</span> <span class="n">ring_fd</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">to_submit</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                        <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">min_complete</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">flags</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span> <span class="n">syscall</span><span class="p">(</span><span class="n">__NR_io_uring_enter</span><span class="p">,</span> <span class="n">ring_fd</span><span class="p">,</span> <span class="n">to_submit</span><span class="p">,</span> <span class="n">min_complete</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">flags</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 获取文件大小（支持普通文件和块设备）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 参数：fd（已打开的文件描述符）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 返回：文件大小（字节），失败返回-1
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="n">off_t</span> <span class="nf">get_file_size</span><span class="p">(</span><span class="kt">int</span> <span class="n">fd</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">stat</span> <span class="n">st</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 先通过fstat获取文件基本信息
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span><span class="p">(</span><span class="n">fstat</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">st</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">perror</span><span class="p">(</span><span class="s">&#34;fstat failed&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 处理块设备（如硬盘分区）：通过ioctl获取大小
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">S_ISBLK</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="n">st_mode</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="n">bytes</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">BLKGETSIZE64</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">bytes</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">perror</span><span class="p">(</span><span class="s">&#34;ioctl failed&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">bytes</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span> 
+</span></span><span class="line"><span class="cl">    <span class="c1">// 处理普通文件：直接使用st_size
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">S_ISREG</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="n">st_mode</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">st</span><span class="p">.</span><span class="n">st_size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 不支持的文件类型
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 初始化io_uring：映射SQ和CQ队列到用户空间，填充submitter结构
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 参数：s（submitter指针，用于存储初始化结果）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 返回：0成功，1失败
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">app_setup_uring</span><span class="p">(</span><span class="k">struct</span> <span class="nc">submitter</span> <span class="o">*</span><span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">app_io_sq_ring</span> <span class="o">*</span><span class="n">sring</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">sq_ring</span><span class="p">;</span>  <span class="c1">// 指向SQ结构
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">app_io_cq_ring</span> <span class="o">*</span><span class="n">cring</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">cq_ring</span><span class="p">;</span>  <span class="c1">// 指向CQ结构
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">io_uring_params</span> <span class="n">p</span><span class="p">;</span>                    <span class="c1">// io_uring配置参数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">void</span> <span class="o">*</span><span class="n">sq_ptr</span><span class="p">,</span> <span class="o">*</span><span class="n">cq_ptr</span><span class="p">;</span>                       <span class="c1">// 映射SQ和CQ的内存指针
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 初始化参数结构（必须清零）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">p</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">p</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 调用io_uring_setup创建实例，获取ring_fd
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">s</span><span class="o">-&gt;</span><span class="n">ring_fd</span> <span class="o">=</span> <span class="n">io_uring_setup</span><span class="p">(</span><span class="n">QUEUE_DEPTH</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">p</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">ring_fd</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">perror</span><span class="p">(</span><span class="s">&#34;io_uring_setup failed&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 计算SQ和CQ的映射大小（根据内核返回的偏移量）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="c1">// SQ大小：array偏移 + 条目数*每个条目的大小（unsigned）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int</span> <span class="n">sring_sz</span> <span class="o">=</span> <span class="n">p</span><span class="p">.</span><span class="n">sq_off</span><span class="p">.</span><span class="n">array</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">sq_entries</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">unsigned</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// CQ大小：cqes偏移 + 条目数*每个CQE的大小（struct io_uring_cqe）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int</span> <span class="n">cring_sz</span> <span class="o">=</span> <span class="n">p</span><span class="p">.</span><span class="n">cq_off</span><span class="p">.</span><span class="n">cqes</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">cq_entries</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="nc">io_uring_cqe</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 检查内核是否支持单映射（IORING_FEAT_SINGLE_MMAP）：5.4+内核支持一次mmap映射SQ和CQ
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">features</span> <span class="o">&amp;</span> <span class="n">IORING_FEAT_SINGLE_MMAP</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 取较大的大小作为映射大小（确保覆盖SQ和CQ）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="n">cring_sz</span> <span class="o">&gt;</span> <span class="n">sring_sz</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sring_sz</span> <span class="o">=</span> <span class="n">cring_sz</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">cring_sz</span> <span class="o">=</span> <span class="n">sring_sz</span><span class="p">;</span>  <span class="c1">// 单映射时CQ与SQ共享同一内存区域
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 映射SQ队列到用户空间（共享内存，可读可写）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sq_ptr</span> <span class="o">=</span> <span class="n">mmap</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sring_sz</span><span class="p">,</span> <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">MAP_SHARED</span> <span class="o">|</span> <span class="n">MAP_POPULATE</span><span class="p">,</span>  <span class="c1">// MAP_POPULATE预加载页，避免后续缺页中断
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="n">s</span><span class="o">-&gt;</span><span class="n">ring_fd</span><span class="p">,</span> <span class="n">IORING_OFF_SQ_RING</span><span class="p">);</span>  <span class="c1">// 偏移量：SQ队列
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">sq_ptr</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">perror</span><span class="p">(</span><span class="s">&#34;mmap SQ failed&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 映射CQ队列：单映射模式下直接使用SQ的映射地址，否则单独映射
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">features</span> <span class="o">&amp;</span> <span class="n">IORING_FEAT_SINGLE_MMAP</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">cq_ptr</span> <span class="o">=</span> <span class="n">sq_ptr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">cq_ptr</span> <span class="o">=</span> <span class="n">mmap</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">cring_sz</span><span class="p">,</span> <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">MAP_SHARED</span> <span class="o">|</span> <span class="n">MAP_POPULATE</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">s</span><span class="o">-&gt;</span><span class="n">ring_fd</span><span class="p">,</span> <span class="n">IORING_OFF_CQ_RING</span><span class="p">);</span>  <span class="c1">// 偏移量：CQ队列
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="n">cq_ptr</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">perror</span><span class="p">(</span><span class="s">&#34;mmap CQ failed&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 填充SQ相关指针（通过内核返回的偏移量计算）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sring</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">sq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">sq_off</span><span class="p">.</span><span class="n">head</span><span class="p">;</span>         <span class="c1">// SQ头指针地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sring</span><span class="o">-&gt;</span><span class="n">tail</span> <span class="o">=</span> <span class="n">sq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">sq_off</span><span class="p">.</span><span class="n">tail</span><span class="p">;</span>         <span class="c1">// SQ尾指针地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sring</span><span class="o">-&gt;</span><span class="n">ring_mask</span> <span class="o">=</span> <span class="n">sq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">sq_off</span><span class="p">.</span><span class="n">ring_mask</span><span class="p">;</span> <span class="c1">// SQ掩码地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sring</span><span class="o">-&gt;</span><span class="n">ring_entries</span> <span class="o">=</span> <span class="n">sq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">sq_off</span><span class="p">.</span><span class="n">ring_entries</span><span class="p">;</span> <span class="c1">// SQ条目数地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sring</span><span class="o">-&gt;</span><span class="n">flags</span> <span class="o">=</span> <span class="n">sq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">sq_off</span><span class="p">.</span><span class="n">flags</span><span class="p">;</span>       <span class="c1">// SQ标志地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sring</span><span class="o">-&gt;</span><span class="n">array</span> <span class="o">=</span> <span class="n">sq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">sq_off</span><span class="p">.</span><span class="n">array</span><span class="p">;</span>       <span class="c1">// SQ索引数组地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 映射SQE数组（提交队列条目，每个条目描述一个I/O请求）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">s</span><span class="o">-&gt;</span><span class="n">sqes</span> <span class="o">=</span> <span class="n">mmap</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">p</span><span class="p">.</span><span class="n">sq_entries</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="nc">io_uring_sqe</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">            <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span> <span class="n">MAP_SHARED</span> <span class="o">|</span> <span class="n">MAP_POPULATE</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">s</span><span class="o">-&gt;</span><span class="n">ring_fd</span><span class="p">,</span> <span class="n">IORING_OFF_SQES</span><span class="p">);</span>  <span class="c1">// 偏移量：SQE数组
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">sqes</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">perror</span><span class="p">(</span><span class="s">&#34;mmap SQEs failed&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 填充CQ相关指针（通过内核返回的偏移量计算）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">cring</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">cq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">cq_off</span><span class="p">.</span><span class="n">head</span><span class="p">;</span>         <span class="c1">// CQ头指针地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">cring</span><span class="o">-&gt;</span><span class="n">tail</span> <span class="o">=</span> <span class="n">cq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">cq_off</span><span class="p">.</span><span class="n">tail</span><span class="p">;</span>         <span class="c1">// CQ尾指针地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">cring</span><span class="o">-&gt;</span><span class="n">ring_mask</span> <span class="o">=</span> <span class="n">cq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">cq_off</span><span class="p">.</span><span class="n">ring_mask</span><span class="p">;</span> <span class="c1">// CQ掩码地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">cring</span><span class="o">-&gt;</span><span class="n">ring_entries</span> <span class="o">=</span> <span class="n">cq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">cq_off</span><span class="p">.</span><span class="n">ring_entries</span><span class="p">;</span> <span class="c1">// CQ条目数地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">cring</span><span class="o">-&gt;</span><span class="n">cqes</span> <span class="o">=</span> <span class="n">cq_ptr</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="n">cq_off</span><span class="p">.</span><span class="n">cqes</span><span class="p">;</span>         <span class="c1">// CQE数组地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 输出缓冲区内容到控制台（逐个字符）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 参数：buf（缓冲区地址）、len（长度）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">output_to_console</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="kt">int</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">len</span><span class="o">--</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">fputc</span><span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="o">++</span><span class="p">,</span> <span class="n">stdout</span><span class="p">);</span>  <span class="c1">// 输出当前字符并移动指针
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 从完成队列（CQ）读取结果并处理
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 功能：检查CQ中是否有完成事件，获取文件数据并输出，更新CQ头指针
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 参数：s（submitter实例，包含CQ信息）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">read_from_cq</span><span class="p">(</span><span class="k">struct</span> <span class="nc">submitter</span> <span class="o">*</span><span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">file_info</span> <span class="o">*</span><span class="n">fi</span><span class="p">;</span>                  <span class="c1">// 指向文件信息（用户数据）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">app_io_cq_ring</span> <span class="o">*</span><span class="n">cring</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">cq_ring</span><span class="p">;</span> <span class="c1">// 指向CQ结构
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">io_uring_cqe</span> <span class="o">*</span><span class="n">cqe</span><span class="p">;</span>              <span class="c1">// 完成队列条目（CQE）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="n">head</span><span class="p">,</span> <span class="n">reaped</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>             <span class="c1">// CQ头指针当前值
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="n">head</span> <span class="o">=</span> <span class="o">*</span><span class="n">cring</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">;</span>  <span class="c1">// 读取当前CQ头指针（用户已处理到的位置）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="k">do</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">read_barrier</span><span class="p">();</span>  <span class="c1">// 读屏障：确保读取头指针后再读取尾指针（避免内核更新未可见）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 若头指针等于尾指针，说明CQ为空，退出循环
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="n">head</span> <span class="o">==</span> <span class="o">*</span><span class="n">cring</span><span class="o">-&gt;</span><span class="n">tail</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// 获取当前CQE（通过头指针与掩码计算索引）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="n">cqe</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">cring</span><span class="o">-&gt;</span><span class="n">cqes</span><span class="p">[</span><span class="n">head</span> <span class="o">&amp;</span> <span class="o">*</span><span class="n">cring</span><span class="o">-&gt;</span><span class="n">ring_mask</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 从CQE中获取用户数据（file_info指针）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="n">fi</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="nc">file_info</span><span class="o">*</span><span class="p">)</span> <span class="n">cqe</span><span class="o">-&gt;</span><span class="n">user_data</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// 检查I/O是否失败（res为负表示错误）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="n">cqe</span><span class="o">-&gt;</span><span class="n">res</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&#34;I/O error: %s</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">strerror</span><span class="p">(</span><span class="n">abs</span><span class="p">(</span><span class="n">cqe</span><span class="o">-&gt;</span><span class="n">res</span><span class="p">)));</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// 计算总块数（与提交时一致）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="kt">int</span> <span class="n">blocks</span> <span class="o">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span> <span class="n">fi</span><span class="o">-&gt;</span><span class="n">file_sz</span> <span class="o">/</span> <span class="n">BLOCK_SZ</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">fi</span><span class="o">-&gt;</span><span class="n">file_sz</span> <span class="o">%</span> <span class="n">BLOCK_SZ</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">blocks</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// 输出每个块的内容
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">blocks</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">output_to_console</span><span class="p">(</span><span class="n">fi</span><span class="o">-&gt;</span><span class="n">iovecs</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">iov_base</span><span class="p">,</span> <span class="n">fi</span><span class="o">-&gt;</span><span class="n">iovecs</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">iov_len</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// 释放资源（避免内存泄漏）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">blocks</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">free</span><span class="p">(</span><span class="n">fi</span><span class="o">-&gt;</span><span class="n">iovecs</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">iov_base</span><span class="p">);</span>  <span class="c1">// 释放每个块的对齐缓冲区
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">free</span><span class="p">(</span><span class="n">fi</span><span class="p">);</span>  <span class="c1">// 释放file_info（包含iovec数组）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">        <span class="n">head</span><span class="o">++</span><span class="p">;</span>  <span class="c1">// 移动头指针（标记为已处理）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">);</span>  <span class="c1">// 循环处理所有可用CQE
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 更新CQ头指针（内核可见）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="o">*</span><span class="n">cring</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">head</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">write_barrier</span><span class="p">();</span>  <span class="c1">// 写屏障：确保头指针更新后再进行其他操作（内核可见）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 提交读取请求到提交队列（SQ）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 功能：打开文件，分配缓冲区，填充SQE，更新SQ尾指针，触发内核处理
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 参数：file_path（文件路径）、s（submitter实例，包含SQ信息）
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 返回：0成功，1失败
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">submit_to_sq</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">file_path</span><span class="p">,</span> <span class="k">struct</span> <span class="nc">submitter</span> <span class="o">*</span><span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">file_info</span> <span class="o">*</span><span class="n">fi</span><span class="p">;</span>  <span class="c1">// 文件信息结构
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 打开文件（只读模式）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int</span> <span class="n">file_fd</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">O_RDONLY</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">file_fd</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">perror</span><span class="p">(</span><span class="s">&#34;open failed&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">app_io_sq_ring</span> <span class="o">*</span><span class="n">sring</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">sq_ring</span><span class="p">;</span>  <span class="c1">// 指向SQ结构
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">unsigned</span> <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">current_block</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">tail</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">next_tail</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>  <span class="c1">// SQ相关索引
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 获取文件大小
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">off_t</span> <span class="n">file_sz</span> <span class="o">=</span> <span class="n">get_file_size</span><span class="p">(</span><span class="n">file_fd</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">file_sz</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">close</span><span class="p">(</span><span class="n">file_fd</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 计算总块数（文件大小/BLOCK_SZ，有余数则+1）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">off_t</span> <span class="n">bytes_remaining</span> <span class="o">=</span> <span class="n">file_sz</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">blocks</span> <span class="o">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span> <span class="n">file_sz</span> <span class="o">/</span> <span class="n">BLOCK_SZ</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">file_sz</span> <span class="o">%</span> <span class="n">BLOCK_SZ</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">blocks</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 分配file_info结构（包含柔性数组iovecs）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">fi</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">fi</span><span class="p">)</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="nc">iovec</span><span class="p">)</span> <span class="o">*</span> <span class="n">blocks</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">fi</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&#34;malloc failed for file_info</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">close</span><span class="p">(</span><span class="n">file_fd</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">fi</span><span class="o">-&gt;</span><span class="n">file_sz</span> <span class="o">=</span> <span class="n">file_sz</span><span class="p">;</span>  <span class="c1">// 记录文件大小
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 为每个块分配对齐的缓冲区，并初始化iovec
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">while</span> <span class="p">(</span><span class="n">bytes_remaining</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">off_t</span> <span class="n">bytes_to_read</span> <span class="o">=</span> <span class="n">bytes_remaining</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">bytes_to_read</span> <span class="o">&gt;</span> <span class="n">BLOCK_SZ</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">bytes_to_read</span> <span class="o">=</span> <span class="n">BLOCK_SZ</span><span class="p">;</span>  <span class="c1">// 不超过块大小
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// 分配对齐的缓冲区（地址对齐到BLOCK_SZ，大小BLOCK_SZ）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="kt">void</span> <span class="o">*</span><span class="n">buf</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">posix_memalign</span><span class="p">(</span><span class="o">&amp;</span><span class="n">buf</span><span class="p">,</span> <span class="n">BLOCK_SZ</span><span class="p">,</span> <span class="n">BLOCK_SZ</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">perror</span><span class="p">(</span><span class="s">&#34;posix_memalign failed&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">close</span><span class="p">(</span><span class="n">file_fd</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// 初始化当前块的iovec（缓冲区地址和长度）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="n">fi</span><span class="o">-&gt;</span><span class="n">iovecs</span><span class="p">[</span><span class="n">current_block</span><span class="p">].</span><span class="n">iov_base</span> <span class="o">=</span> <span class="n">buf</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">fi</span><span class="o">-&gt;</span><span class="n">iovecs</span><span class="p">[</span><span class="n">current_block</span><span class="p">].</span><span class="n">iov_len</span> <span class="o">=</span> <span class="n">bytes_to_read</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">current_block</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bytes_remaining</span> <span class="o">-=</span> <span class="n">bytes_to_read</span><span class="p">;</span>  <span class="c1">// 减少剩余字节数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 计算SQ尾指针的下一个位置（准备添加新请求）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">next_tail</span> <span class="o">=</span> <span class="n">tail</span> <span class="o">=</span> <span class="o">*</span><span class="n">sring</span><span class="o">-&gt;</span><span class="n">tail</span><span class="p">;</span>  <span class="c1">// 读取当前尾指针
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">next_tail</span><span class="o">++</span><span class="p">;</span>  <span class="c1">// 尾指针+1（新请求的位置）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="n">read_barrier</span><span class="p">();</span>  <span class="c1">// 读屏障：确保尾指针读取后再计算索引
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 计算SQE索引（通过尾指针与掩码取模）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">index</span> <span class="o">=</span> <span class="n">tail</span> <span class="o">&amp;</span> <span class="o">*</span><span class="n">sring</span><span class="o">-&gt;</span><span class="n">ring_mask</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 获取当前SQE（提交队列条目）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">io_uring_sqe</span> <span class="o">*</span><span class="n">sqe</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">sqes</span><span class="p">[</span><span class="n">index</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 填充SQE（描述读操作）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sqe</span><span class="o">-&gt;</span><span class="n">fd</span> <span class="o">=</span> <span class="n">file_fd</span><span class="p">;</span>               <span class="c1">// 文件描述符
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sqe</span><span class="o">-&gt;</span><span class="n">flags</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>                  <span class="c1">// 无特殊标志
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sqe</span><span class="o">-&gt;</span><span class="n">opcode</span> <span class="o">=</span> <span class="n">IORING_OP_READV</span><span class="p">;</span>   <span class="c1">// 操作类型：向量读（类似readv）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sqe</span><span class="o">-&gt;</span><span class="n">addr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">fi</span><span class="o">-&gt;</span><span class="n">iovecs</span><span class="p">;</span>  <span class="c1">// iovec数组地址
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sqe</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">;</span>               <span class="c1">// iovec数组长度（块数）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sqe</span><span class="o">-&gt;</span><span class="n">off</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>                    <span class="c1">// 读取偏移量（文件开头）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sqe</span><span class="o">-&gt;</span><span class="n">user_data</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span><span class="p">)</span> <span class="n">fi</span><span class="p">;</span>  <span class="c1">// 关联用户数据（file_info）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">sring</span><span class="o">-&gt;</span><span class="n">array</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">index</span><span class="p">;</span>     <span class="c1">// SQ索引数组：关联索引与SQE
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="n">tail</span> <span class="o">=</span> <span class="n">next_tail</span><span class="p">;</span>  <span class="c1">// 更新尾指针
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 更新SQ尾指针（内核可见）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">sring</span><span class="o">-&gt;</span><span class="n">tail</span> <span class="o">!=</span> <span class="n">tail</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="o">*</span><span class="n">sring</span><span class="o">-&gt;</span><span class="n">tail</span> <span class="o">=</span> <span class="n">tail</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">write_barrier</span><span class="p">();</span>  <span class="c1">// 写屏障：确保SQE填充后再更新尾指针（内核可见）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 调用io_uring_enter：提交1个请求，等待至少1个完成，标志为等待事件
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int</span> <span class="n">ret</span> <span class="o">=</span> <span class="n">io_uring_enter</span><span class="p">(</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">ring_fd</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">IORING_ENTER_GETEVENTS</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">perror</span><span class="p">(</span><span class="s">&#34;io_uring_enter failed&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">close</span><span class="p">(</span><span class="n">file_fd</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 主函数：初始化io_uring，处理输入文件，提交请求并处理结果
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">submitter</span> <span class="o">*</span><span class="n">s</span><span class="p">;</span>  <span class="c1">// io_uring提交器
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 检查参数（至少需要一个文件名）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&#34;Usage: %s &lt;filename&gt;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 分配并初始化submitter
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">s</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">s</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">perror</span><span class="p">(</span><span class="s">&#34;malloc failed for submitter&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">memset</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">s</span><span class="p">));</span>  <span class="c1">// 清零初始化
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 初始化io_uring（映射SQ和CQ）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">app_setup_uring</span><span class="p">(</span><span class="n">s</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&#34;Failed to setup io_uring!</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">free</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 循环处理每个输入文件
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">argc</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 提交读取请求到SQ
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="n">submit_to_sq</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">s</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&#34;Error reading file: %s</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">io_uring_queue_exit</span><span class="p">(</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">ring_fd</span><span class="p">);</span>  <span class="c1">// 简化处理：实际需关闭FD并释放映射
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="n">free</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 从CQ读取结果并输出
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="n">read_from_cq</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 清理资源（关闭ring_fd，释放mmap映射等）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">close</span><span class="p">(</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">ring_fd</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">free</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="关键代码解析">关键代码解析
+</h3><h4 id="io_uring-核心机制">io_uring 核心机制
+</h4><p>代码直接操作 io_uring 的底层结构，关键步骤包括：</p>
+<ul>
+<li><strong>初始化</strong>：<code>app_setup_uring</code> 通过 <code>io_uring_setup</code> 创建实例，再通过 <code>mmap</code> 映射 SQ 和 CQ 到用户空间（共享内存，避免数据拷贝）。</li>
+<li><strong>提交请求</strong>：<code>submit_to_sq</code> 填充 SQE（描述读操作），更新 SQ 尾指针，调用 <code>io_uring_enter</code> 触发内核处理。</li>
+<li><strong>处理完成</strong>：<code>read_from_cq</code> 检查 CQ 尾指针，获取 CQE（包含结果和用户数据），处理数据后更新 CQ 头指针。</li>
+</ul>
+<h4 id="共享队列sqcq的结构">共享队列（SQ/CQ）的结构
+</h4><p><strong>SQ（提交队列）</strong>：由 SQE 数组（描述请求）和索引数组（array）组成，通过头/尾指针同步用户与内核：</p>
+<ul>
+<li>用户：填充 SQE，更新尾指针（tail）</li>
+<li>内核：处理 SQE，更新头指针（head）</li>
+</ul>
+<p><strong>CQ（完成队列）</strong>：由 CQE 数组（存储结果）组成，通过头/尾指针同步：</p>
+<ul>
+<li>内核：完成 I/O 后填充 CQE，更新尾指针（tail）</li>
+<li>用户：处理 CQE，更新头指针（head）</li>
+</ul>
+<h4 id="内存屏障read_barrierwrite_barrier">内存屏障（read_barrier/write_barrier）
+</h4><ul>
+<li><strong>作用</strong>：确保用户态与内核态对共享队列的操作顺序可见。例如，用户填充 SQE 后再更新尾指针（内核需先看到 SQE 内容），内核更新尾指针后用户需看到新值。</li>
+<li><strong>实现</strong>：通过汇编指令阻止编译器重排序和 CPU 乱序执行，保证内存操作的顺序性。</li>
+</ul>
+<h4 id="柔性数组与内存对齐">柔性数组与内存对齐
+</h4><ul>
+<li><strong>柔性数组</strong>（<code>struct file_info</code> 的 <code>iovecs</code>）：动态存储每个读取块的 iovec 信息，避免二次内存分配，提升效率。</li>
+<li><strong>内存对齐</strong>（<code>posix_memalign</code>）：确保每个块的缓冲区地址对齐到 BLOCK_SZ，满足 I/O 操作对内存对齐的要求（避免性能下降或失败）。</li>
+</ul>
+<h4 id="系统调用封装">系统调用封装
+</h4><p>由于标准 C 库可能未包含 <code>io_uring_setup</code> 和 <code>io_uring_enter</code>，代码通过 <code>syscall</code> 直接调用内核接口，确保在低版本库环境中可用。</p>
+<hr>
+<h3 id="总结">总结
+</h3><p>该代码展示了 io_uring 的底层工作原理，通过直接操作共享队列和系统调用，实现高效的异步文件读取。核心优势在于用户态与内核态通过共享内存交互，减少系统调用和数据拷贝开销。关键要点包括<strong>队列同步（头/尾指针）、内存对齐、内存屏障和用户数据关联</strong>，这些是理解 io_uring 高效性的基础。</p>
+<hr>
+<h2 id="性能对比io_uring-vs-传统方案">性能对比：io_uring vs 传统方案
+</h2><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>操作</th>
+          <th>epoll</th>
+          <th>libaio</th>
+          <th>io_uring</th>
+          <th>提升幅度</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>顺序读(4KB)</td>
+          <td>780K IOPS</td>
+          <td>920K IOPS</td>
+          <td>1.5M IOPS</td>
+          <td>63%↑</td>
+      </tr>
+      <tr>
+          <td>随机读(4KB)</td>
+          <td>620K IOPS</td>
+          <td>850K IOPS</td>
+          <td>1.2M IOPS</td>
+          <td>41%↑</td>
+      </tr>
+      <tr>
+          <td>网络连接</td>
+          <td>120K QPS</td>
+          <td>-</td>
+          <td>350K QPS</td>
+          <td>191%↑</td>
+      </tr>
+      <tr>
+          <td>CPU使用率</td>
+          <td>12%</td>
+          <td>9%</td>
+          <td>5%</td>
+          <td>58%↓</td>
+      </tr>
+  </tbody>
+</table></div>
+<blockquote>
+<p>测试环境：NVMe SSD, 32核CPU, Linux 5.15</p></blockquote>
+<hr>
+<h2 id="使用注意事项">使用注意事项
+</h2><h3 id="内存管理最佳实践">内存管理最佳实践
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// 使用固定缓冲区
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">void</span><span class="o">*</span> <span class="n">buffer</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nf">posix_memalign</span><span class="p">(</span><span class="o">&amp;</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">4096</span><span class="p">,</span> <span class="mi">4096</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 注册固定缓冲区（减少映射开销）
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="n">io_uring_sqe</span><span class="o">*</span> <span class="n">sqe</span> <span class="o">=</span> <span class="nf">get_sqe</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">opcode</span> <span class="o">=</span> <span class="n">IORING_OP_PROVIDE_BUFFERS</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">addr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span><span class="n">buffers</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">=</span> <span class="n">total_size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">buf_group</span> <span class="o">=</span> <span class="n">group_id</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="错误处理关键点">错误处理关键点
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// 检查CQE结果
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="n">cqe</span><span class="o">-&gt;</span><span class="n">res</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// I/O操作错误
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">std</span><span class="o">::</span><span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;Error: &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">strerror</span><span class="p">(</span><span class="o">-</span><span class="n">cqe</span><span class="o">-&gt;</span><span class="n">res</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span> <span class="k">else</span> <span class="nf">if</span> <span class="p">(</span><span class="n">cqe</span><span class="o">-&gt;</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">IORING_CQE_F_MORE</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 多部分操作未完成
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 处理取消操作
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="nc">io_uring_sqe</span><span class="o">*</span> <span class="n">sqe</span> <span class="o">=</span> <span class="n">get_sqe</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">opcode</span> <span class="o">=</span> <span class="n">IORING_OP_ASYNC_CANCEL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">addr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span><span class="n">target_user_data</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="高级特性使用">高级特性使用
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// 启用内核轮询模式
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">params</span><span class="p">.</span><span class="n">flags</span> <span class="o">|=</span> <span class="n">IORING_SETUP_SQPOLL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 绑定到特定CPU核心
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">params</span><span class="p">.</span><span class="n">flags</span> <span class="o">|=</span> <span class="n">IORING_SETUP_SQ_AFF</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">params</span><span class="p">.</span><span class="n">sq_thread_cpu</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>  <span class="c1">// CPU核心2
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 注册文件描述符集合
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="n">io_uring_sqe</span><span class="o">*</span> <span class="n">sqe</span> <span class="o">=</span> <span class="nf">get_sqe</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">opcode</span> <span class="o">=</span> <span class="n">IORING_OP_REGISTER_FILES</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">fd</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">addr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span><span class="n">files</span><span class="p">;</span>  <span class="c1">// 文件描述符数组
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">sqe</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">=</span> <span class="n">file_count</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h2 id="关键函数链接">关键函数链接
+</h2><h3 id="下篇预告简化-io_uring-开发liburing-详解">下篇预告：简化 io_uring 开发——liburing 详解
+</h3><p>在本文中我们使用了原始系统调用接口操作 io_uring，这种方式虽然高效但过于复杂。下一篇将介绍 liburing 库，它提供了更友好的 API：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;liburing.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 简化版本
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">io_uring</span> <span class="n">ring</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">io_uring_queue_init</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ring</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="c1">// 获取SQE
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">io_uring_sqe</span> <span class="o">*</span><span class="n">sqe</span> <span class="o">=</span> <span class="n">io_uring_get_sqe</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ring</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="c1">// 准备操作
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">io_uring_prep_read</span><span class="p">(</span><span class="n">sqe</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">offset</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="c1">// 提交请求
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">io_uring_submit</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ring</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="c1">// 等待完成
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">struct</span> <span class="nc">io_uring_cqe</span> <span class="o">*</span><span class="n">cqe</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">io_uring_wait_cqe</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ring</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">cqe</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="c1">// 处理结果
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">cqe</span><span class="o">-&gt;</span><span class="n">res</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">process_data</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">cqe</span><span class="o">-&gt;</span><span class="n">res</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="n">io_uring_cqe_seen</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ring</span><span class="p">,</span> <span class="n">cqe</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">io_uring_queue_exit</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ring</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>liburing 核心优势：</strong></p>
+<ul>
+<li>封装内存映射和队列管理</li>
+<li>提供类型安全的 API</li>
+<li>支持高级特性（如固定文件/缓冲区）</li>
+<li>更简洁的错误处理</li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/linux-%E8%99%9A%E6%8B%9F%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9Fvfs/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux 虚拟文件系统VFS</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/linux-execve%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E6%B5%81%E7%A8%8B%E8%A7%A3%E6%9E%90/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux execve系统调用流程解析</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/mount--bind-%E7%AE%80%E4%BB%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Mount --bind 简介</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/wsl-%E9%85%8D%E7%BD%AE%E5%8F%8A%E6%9B%B4%E6%96%B0kernel-image%E7%BC%96%E8%AF%91kernel-model/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">WSL 配置及更新kernel image、编译kernel model</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/overlayfs-%E4%B8%8E-docker/oci-image/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Overlayfs 与 docker/oci Image</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        right: 20px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop;
+        document.body.appendChild(btn);
+
+        
+        window.addEventListener('scroll', function() {
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        });
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+
+<style>
+     
+    .right-sidebar.toc-hidden {
+        display: none !important;
+    }
+
+     
+    #tocToggleBtn {
+        display: none;
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 99;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        padding: 6px;
+        border: none;
+        border-radius: 50%;
+        background: var(--card-background);
+        box-shadow: var(--shadow-l2);
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        transition: color 0.2s ease, background-color 0.2s ease;
+    }
+
+    #tocToggleBtn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    #tocToggleBtn svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+    }
+
+     
+    .toc-title-flex {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .toc-title-flex .section-title {
+        flex: 1;
+    }
+
+    .toc-inline-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        padding: 3px;
+        border: none;
+        background: none;
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        border-radius: 6px;
+        transition: color 0.2s ease, background-color 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .toc-inline-btn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    .toc-inline-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+</style>
+
+
+<script>
+    
+
+    function initTocToggle() {
+        let tocContent = document.querySelector('.widget--toc');
+        if (!tocContent) {
+            return;
+        }
+
+        let rightSidebar = document.querySelector('.right-sidebar');
+        if (!rightSidebar) {
+            return;
+        }
+
+        
+        let tocSection = tocContent.closest('section.widget');
+        let tocTitle = tocSection && tocSection.querySelector('.widget-title');
+
+        if (tocTitle) {
+            tocTitle.classList.add('toc-title-flex');
+
+            let inlineBtn = document.createElement('button');
+            inlineBtn.className = 'toc-inline-btn';
+            inlineBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+            let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+            updateBtnIcon(inlineBtn, isCollapsed);
+            if (isCollapsed) {
+                inlineBtn.title = '\u663e\u793a\u76ee\u5f55';
+            }
+
+            inlineBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleToc(rightSidebar);
+                
+                let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+                updateBtnIcon(inlineBtn, nowCollapsed);
+                let floatBtn = document.getElementById('tocToggleBtn');
+                if (floatBtn) {
+                    updateBtnIcon(floatBtn, nowCollapsed);
+                    floatBtn.title = inlineBtn.title;
+                }
+            });
+
+            tocTitle.appendChild(inlineBtn);
+        }
+
+        
+        let floatBtn = document.createElement('button');
+        floatBtn.id = 'tocToggleBtn';
+        floatBtn.style.display = 'flex';
+        floatBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+        let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+        updateBtnIcon(floatBtn, isCollapsed);
+        if (isCollapsed) {
+            rightSidebar.classList.add('toc-hidden');
+            floatBtn.title = '\u663e\u793a\u76ee\u5f55';
+        }
+
+        floatBtn.addEventListener('click', function () {
+            toggleToc(rightSidebar);
+            
+            let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+            updateBtnIcon(floatBtn, nowCollapsed);
+            let inlineBtns = document.querySelectorAll('.toc-inline-btn');
+            inlineBtns.forEach(function (b) {
+                updateBtnIcon(b, nowCollapsed);
+                b.title = floatBtn.title;
+            });
+        });
+
+        document.body.appendChild(floatBtn);
+    }
+
+     
+    function toggleToc(rightSidebar) {
+        rightSidebar.classList.toggle('toc-hidden');
+        let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+        localStorage.setItem('toc-collapsed', nowCollapsed);
+    }
+
+     
+    function updateBtnIcon(btn, collapsed) {
+        btn.innerHTML = collapsed ? getEyeOffSvg() : getEyeSvg();
+        btn.title = collapsed ? '\u663e\u793a\u76ee\u5f55' : '\u9690\u85cf\u76ee\u5f55';
+    }
+
+     
+    function getEyeSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+
+     
+    function getEyeOffSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    }
+
+    initTocToggle();
+</script>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true ,look: 'handDrawn'});
+    </script>

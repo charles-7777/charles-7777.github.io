@@ -7,7 +7,15 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright>
-        <lastBuildDate>Mon, 31 Aug 2026 10:54:11 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+        <lastBuildDate>Mon, 31 Aug 2026 23:45:20 +0800</lastBuildDate><atom:link href="https://charles-7777.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+        <item>
+        <title>io_uring：Linux异步I/O的革命性突破</title>
+        <link>https://charles-7777.github.io/p/io_uringlinux%E5%BC%82%E6%AD%A5i/o%E7%9A%84%E9%9D%A9%E5%91%BD%E6%80%A7%E7%AA%81%E7%A0%B4/</link>
+        <pubDate>Mon, 31 Aug 2026 23:05:53 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/io_uringlinux%E5%BC%82%E6%AD%A5i/o%E7%9A%84%E9%9D%A9%E5%91%BD%E6%80%A7%E7%AA%81%E7%A0%B4/</guid>
+        </item>
+        
         <item>
         <title>Linux 虚拟文件系统VFS</title>
         <link>https://charles-7777.github.io/p/linux-%E8%99%9A%E6%8B%9F%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9Fvfs/</link>
@@ -158,14 +166,6 @@
         <pubDate>Wed, 10 Jun 2026 19:11:14 +0800</pubDate>
         
         <guid>https://charles-7777.github.io/p/cookiesessiontokenjwt-%E4%B8%8E-oauth2-%E7%9A%84%E5%8C%BA%E5%88%AB/</guid>
-        </item>
-        
-        <item>
-        <title>Reasonix--专为DeepSeek设计的终端编程Agent</title>
-        <link>https://charles-7777.github.io/p/reasonix--%E4%B8%93%E4%B8%BAdeepseek%E8%AE%BE%E8%AE%A1%E7%9A%84%E7%BB%88%E7%AB%AF%E7%BC%96%E7%A8%8Bagent/</link>
-        <pubDate>Wed, 03 Jun 2026 22:09:00 +0800</pubDate>
-        
-        <guid>https://charles-7777.github.io/p/reasonix--%E4%B8%93%E4%B8%BAdeepseek%E8%AE%BE%E8%AE%A1%E7%9A%84%E7%BB%88%E7%AB%AF%E7%BC%96%E7%A8%8Bagent/</guid>
         </item>
         
     </channel>
