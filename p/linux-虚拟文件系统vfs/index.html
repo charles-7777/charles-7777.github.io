@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 本文基于 ~/6.18.33.2-microsoft-standard-WSL2 内核源码, 在WSL ubuntu24.04 上试验\n涉及的核心文件：include/linux/fs.h、include/linux/dcache.h、include/linux/path.h、include/linux/mount.h、 fs/mount.h、include/linux/nsproxy.h、include/linux/fs_struct.h、include/linux/fdtable.h、 include/linux/sched.h、include/linux/buffer_head.h、fs/namei.c、fs/namespace.c、fs/dcache.c、fs/inode.c、 fs/read_write.c、mm/filemap.c、fs/ext4/ext4.h、fs/ext4/inode.c、fs/ext4/super.c、fs/ext4/readpage.c。\n全景图：VFS 四大对象与两座&quot;桥&quot; Linux 的虚拟文件系统（VFS）用四个核心结构体把&quot;一个文件&quot;拆成四个不同维度：\n结构体 定义位置 它回答的问题 struct super_block include/linux/fs.h:1446 这个文件系统实例是谁？块大小、挂载在哪个设备？ struct inode include/linux/fs.h:793 这个文件本身是谁？大小、权限、数据块在哪？ struct dentry include/linux/dcache.h:92 这个路径名是什么？/a/b/c 的层级与缓存？ struct file include/linux/fs.h:1211 这个打开会话是什么？当前读写偏移、操作函数表？ 它们之间的关系可以浓缩成一句话：\n1 2 3 4 5 6 file ──(f_path.dentry)──▶ dentry ──(d_inode)──▶ inode ──(i_sb)──▶ super_block └──(f_inode)───────────────┘ │(i_mapping) │(s_bdev) ▼ ▼ address_space block_device │ │ 页缓存(folio) ◀──▶ 磁盘 Block 而这一切要能&quot;动起来&quot;，还需要另外两个维度把它们挂到进程上：\n进程 → 文件：task_struct-&gt;files（files_struct 文件描述符表）→ struct file； 进程 → 命名空间：task_struct-&gt;nsproxy（nsproxy）→ mnt_namespace（挂载命名空间）→ mount 树 → super_block； 进程 → 当前路径：task_struct-&gt;fs（fs_struct 的 root/pwd）决定相对路径、根目录从哪开始解析。 这两座&quot;桥&quot;——磁盘桥（inode ↔ block）和进程桥（进程 ↔ namespace）——正是本文「关键一问」与「进程视角」两章的主题。\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 本文基于 ~/6.18.33.2-microsoft-standard-WSL2 内核源码, 在WSL ubuntu24.04 上试验\n涉及的核心文件：include/linux/fs.h、include/linux/dcache.h、include/linux/path.h、include/linux/mount.h、 fs/mount.h、include/linux/nsproxy.h、include/linux/fs_struct.h、include/linux/fdtable.h、 include/linux/sched.h、include/linux/buffer_head.h、fs/namei.c、fs/namespace.c、fs/dcache.c、fs/inode.c、 fs/read_write.c、mm/filemap.c、fs/ext4/ext4.h、fs/ext4/inode.c、fs/ext4/super.c、fs/ext4/readpage.c。\n全景图：VFS 四大对象与两座&quot;桥&quot; Linux 的虚拟文件系统（VFS）用四个核心结构体把&quot;一个文件&quot;拆成四个不同维度：\n结构体 定义位置 它回答的问题 struct super_block include/linux/fs.h:1446 这个文件系统实例是谁？块大小、挂载在哪个设备？ struct inode include/linux/fs.h:793 这个文件本身是谁？大小、权限、数据块在哪？ struct dentry include/linux/dcache.h:92 这个路径名是什么？/a/b/c 的层级与缓存？ struct file include/linux/fs.h:1211 这个打开会话是什么？当前读写偏移、操作函数表？ 它们之间的关系可以浓缩成一句话：\n1 2 3 4 5 6 file ──(f_path.dentry)──▶ dentry ──(d_inode)──▶ inode ──(i_sb)──▶ super_block └──(f_inode)───────────────┘ │(i_mapping) │(s_bdev) ▼ ▼ address_space block_device │ │ 页缓存(folio) ◀──▶ 磁盘 Block 而这一切要能&quot;动起来&quot;，还需要另外两个维度把它们挂到进程上：\n进程 → 文件：task_struct-&gt;files（files_struct 文件描述符表）→ struct file； 进程 → 命名空间：task_struct-&gt;nsproxy（nsproxy）→ mnt_namespace（挂载命名空间）→ mount 树 → super_block； 进程 → 当前路径：task_struct-&gt;fs（fs_struct 的 root/pwd）决定相对路径、根目录从哪开始解析。 这两座&quot;桥&quot;——磁盘桥（inode ↔ block）和进程桥（进程 ↔ namespace）。\n">
 <title>Linux 虚拟文件系统VFS</title>
 
 <link rel='canonical' href='https://charles-7777.github.io/p/linux-%E8%99%9A%E6%8B%9F%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9Fvfs/'>
 
 <link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="Linux 虚拟文件系统VFS">
-<meta property='og:description' content=" 本文基于 ~/6.18.33.2-microsoft-standard-WSL2 内核源码, 在WSL ubuntu24.04 上试验\n涉及的核心文件：include/linux/fs.h、include/linux/dcache.h、include/linux/path.h、include/linux/mount.h、 fs/mount.h、include/linux/nsproxy.h、include/linux/fs_struct.h、include/linux/fdtable.h、 include/linux/sched.h、include/linux/buffer_head.h、fs/namei.c、fs/namespace.c、fs/dcache.c、fs/inode.c、 fs/read_write.c、mm/filemap.c、fs/ext4/ext4.h、fs/ext4/inode.c、fs/ext4/super.c、fs/ext4/readpage.c。\n全景图：VFS 四大对象与两座&quot;桥&quot; Linux 的虚拟文件系统（VFS）用四个核心结构体把&quot;一个文件&quot;拆成四个不同维度：\n结构体 定义位置 它回答的问题 struct super_block include/linux/fs.h:1446 这个文件系统实例是谁？块大小、挂载在哪个设备？ struct inode include/linux/fs.h:793 这个文件本身是谁？大小、权限、数据块在哪？ struct dentry include/linux/dcache.h:92 这个路径名是什么？/a/b/c 的层级与缓存？ struct file include/linux/fs.h:1211 这个打开会话是什么？当前读写偏移、操作函数表？ 它们之间的关系可以浓缩成一句话：\n1 2 3 4 5 6 file ──(f_path.dentry)──▶ dentry ──(d_inode)──▶ inode ──(i_sb)──▶ super_block └──(f_inode)───────────────┘ │(i_mapping) │(s_bdev) ▼ ▼ address_space block_device │ │ 页缓存(folio) ◀──▶ 磁盘 Block 而这一切要能&quot;动起来&quot;，还需要另外两个维度把它们挂到进程上：\n进程 → 文件：task_struct-&gt;files（files_struct 文件描述符表）→ struct file； 进程 → 命名空间：task_struct-&gt;nsproxy（nsproxy）→ mnt_namespace（挂载命名空间）→ mount 树 → super_block； 进程 → 当前路径：task_struct-&gt;fs（fs_struct 的 root/pwd）决定相对路径、根目录从哪开始解析。 这两座&quot;桥&quot;——磁盘桥（inode ↔ block）和进程桥（进程 ↔ namespace）——正是本文「关键一问」与「进程视角」两章的主题。\n">
+<meta property='og:description' content=" 本文基于 ~/6.18.33.2-microsoft-standard-WSL2 内核源码, 在WSL ubuntu24.04 上试验\n涉及的核心文件：include/linux/fs.h、include/linux/dcache.h、include/linux/path.h、include/linux/mount.h、 fs/mount.h、include/linux/nsproxy.h、include/linux/fs_struct.h、include/linux/fdtable.h、 include/linux/sched.h、include/linux/buffer_head.h、fs/namei.c、fs/namespace.c、fs/dcache.c、fs/inode.c、 fs/read_write.c、mm/filemap.c、fs/ext4/ext4.h、fs/ext4/inode.c、fs/ext4/super.c、fs/ext4/readpage.c。\n全景图：VFS 四大对象与两座&quot;桥&quot; Linux 的虚拟文件系统（VFS）用四个核心结构体把&quot;一个文件&quot;拆成四个不同维度：\n结构体 定义位置 它回答的问题 struct super_block include/linux/fs.h:1446 这个文件系统实例是谁？块大小、挂载在哪个设备？ struct inode include/linux/fs.h:793 这个文件本身是谁？大小、权限、数据块在哪？ struct dentry include/linux/dcache.h:92 这个路径名是什么？/a/b/c 的层级与缓存？ struct file include/linux/fs.h:1211 这个打开会话是什么？当前读写偏移、操作函数表？ 它们之间的关系可以浓缩成一句话：\n1 2 3 4 5 6 file ──(f_path.dentry)──▶ dentry ──(d_inode)──▶ inode ──(i_sb)──▶ super_block └──(f_inode)───────────────┘ │(i_mapping) │(s_bdev) ▼ ▼ address_space block_device │ │ 页缓存(folio) ◀──▶ 磁盘 Block 而这一切要能&quot;动起来&quot;，还需要另外两个维度把它们挂到进程上：\n进程 → 文件：task_struct-&gt;files（files_struct 文件描述符表）→ struct file； 进程 → 命名空间：task_struct-&gt;nsproxy（nsproxy）→ mnt_namespace（挂载命名空间）→ mount 树 → super_block； 进程 → 当前路径：task_struct-&gt;fs（fs_struct 的 root/pwd）决定相对路径、根目录从哪开始解析。 这两座&quot;桥&quot;——磁盘桥（inode ↔ block）和进程桥（进程 ↔ namespace）。\n">
 <meta property='og:url' content='https://charles-7777.github.io/p/linux-%E8%99%9A%E6%8B%9F%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9Fvfs/'>
 <meta property='og:site_name' content='Charles'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-08-30T22:11:41&#43;08:00'/><meta property='article:modified_time' content='2026-08-30T23:55:56&#43;08:00'/>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='linux' /><meta property='article:published_time' content='2026-08-30T22:11:41&#43;08:00'/><meta property='article:modified_time' content='2026-08-31T10:54:11&#43;08:00'/>
 <meta name="twitter:title" content="Linux 虚拟文件系统VFS">
-<meta name="twitter:description" content=" 本文基于 ~/6.18.33.2-microsoft-standard-WSL2 内核源码, 在WSL ubuntu24.04 上试验\n涉及的核心文件：include/linux/fs.h、include/linux/dcache.h、include/linux/path.h、include/linux/mount.h、 fs/mount.h、include/linux/nsproxy.h、include/linux/fs_struct.h、include/linux/fdtable.h、 include/linux/sched.h、include/linux/buffer_head.h、fs/namei.c、fs/namespace.c、fs/dcache.c、fs/inode.c、 fs/read_write.c、mm/filemap.c、fs/ext4/ext4.h、fs/ext4/inode.c、fs/ext4/super.c、fs/ext4/readpage.c。\n全景图：VFS 四大对象与两座&quot;桥&quot; Linux 的虚拟文件系统（VFS）用四个核心结构体把&quot;一个文件&quot;拆成四个不同维度：\n结构体 定义位置 它回答的问题 struct super_block include/linux/fs.h:1446 这个文件系统实例是谁？块大小、挂载在哪个设备？ struct inode include/linux/fs.h:793 这个文件本身是谁？大小、权限、数据块在哪？ struct dentry include/linux/dcache.h:92 这个路径名是什么？/a/b/c 的层级与缓存？ struct file include/linux/fs.h:1211 这个打开会话是什么？当前读写偏移、操作函数表？ 它们之间的关系可以浓缩成一句话：\n1 2 3 4 5 6 file ──(f_path.dentry)──▶ dentry ──(d_inode)──▶ inode ──(i_sb)──▶ super_block └──(f_inode)───────────────┘ │(i_mapping) │(s_bdev) ▼ ▼ address_space block_device │ │ 页缓存(folio) ◀──▶ 磁盘 Block 而这一切要能&quot;动起来&quot;，还需要另外两个维度把它们挂到进程上：\n进程 → 文件：task_struct-&gt;files（files_struct 文件描述符表）→ struct file； 进程 → 命名空间：task_struct-&gt;nsproxy（nsproxy）→ mnt_namespace（挂载命名空间）→ mount 树 → super_block； 进程 → 当前路径：task_struct-&gt;fs（fs_struct 的 root/pwd）决定相对路径、根目录从哪开始解析。 这两座&quot;桥&quot;——磁盘桥（inode ↔ block）和进程桥（进程 ↔ namespace）——正是本文「关键一问」与「进程视角」两章的主题。\n">
+<meta name="twitter:description" content=" 本文基于 ~/6.18.33.2-microsoft-standard-WSL2 内核源码, 在WSL ubuntu24.04 上试验\n涉及的核心文件：include/linux/fs.h、include/linux/dcache.h、include/linux/path.h、include/linux/mount.h、 fs/mount.h、include/linux/nsproxy.h、include/linux/fs_struct.h、include/linux/fdtable.h、 include/linux/sched.h、include/linux/buffer_head.h、fs/namei.c、fs/namespace.c、fs/dcache.c、fs/inode.c、 fs/read_write.c、mm/filemap.c、fs/ext4/ext4.h、fs/ext4/inode.c、fs/ext4/super.c、fs/ext4/readpage.c。\n全景图：VFS 四大对象与两座&quot;桥&quot; Linux 的虚拟文件系统（VFS）用四个核心结构体把&quot;一个文件&quot;拆成四个不同维度：\n结构体 定义位置 它回答的问题 struct super_block include/linux/fs.h:1446 这个文件系统实例是谁？块大小、挂载在哪个设备？ struct inode include/linux/fs.h:793 这个文件本身是谁？大小、权限、数据块在哪？ struct dentry include/linux/dcache.h:92 这个路径名是什么？/a/b/c 的层级与缓存？ struct file include/linux/fs.h:1211 这个打开会话是什么？当前读写偏移、操作函数表？ 它们之间的关系可以浓缩成一句话：\n1 2 3 4 5 6 file ──(f_path.dentry)──▶ dentry ──(d_inode)──▶ inode ──(i_sb)──▶ super_block └──(f_inode)───────────────┘ │(i_mapping) │(s_bdev) ▼ ▼ address_space block_device │ │ 页缓存(folio) ◀──▶ 磁盘 Block 而这一切要能&quot;动起来&quot;，还需要另外两个维度把它们挂到进程上：\n进程 → 文件：task_struct-&gt;files（files_struct 文件描述符表）→ struct file； 进程 → 命名空间：task_struct-&gt;nsproxy（nsproxy）→ mnt_namespace（挂载命名空间）→ mount 树 → super_block； 进程 → 当前路径：task_struct-&gt;fs（fs_struct 的 root/pwd）决定相对路径、根目录从哪开始解析。 这两座&quot;桥&quot;——磁盘桥（inode ↔ block）和进程桥（进程 ↔ namespace）。\n">
     <link rel="shortcut icon" href="/favicon2.ico" />
 
     </head>
@@ -331,7 +331,7 @@
       <ol>
         <li><a href="#结构体精读">结构体精读</a></li>
         <li><a href="#进程--filefdtable">进程 ↔ file：fdtable</a></li>
-        <li><a href="#open-的完整路径含路径解析">open 的完整路径（含路径解析）</a></li>
+        <li><a href="#open-的完整路径">open 的完整路径</a></li>
       </ol>
     </li>
     <li><a href="#inodedentryfile-如何关联到磁盘-block">inode/dentry/file 如何关联到磁盘 Block</a>
@@ -428,7 +428,7 @@
             </div>
         <div>
             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
-            <time class="article-lastmod">2026-08-30 23:55</time>
+            <time class="article-lastmod">2026-08-31 10:54</time>
         </div>
         
 
@@ -452,7 +452,7 @@
             <div>
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
                 <time class="article-words">
-                    8784 字
+                    8782 字
                 </time>
             </div>
         
@@ -536,7 +536,7 @@
 <li><strong>进程 → 命名空间</strong>：<code>task_struct-&gt;nsproxy</code>（<code>nsproxy</code>）→ <code>mnt_namespace</code>（挂载命名空间）→ <code>mount</code> 树 → <code>super_block</code>；</li>
 <li><strong>进程 → 当前路径</strong>：<code>task_struct-&gt;fs</code>（<code>fs_struct</code> 的 <code>root</code>/<code>pwd</code>）决定相对路径、根目录从哪开始解析。</li>
 </ul>
-<p>这两座&quot;桥&quot;——<strong>磁盘桥</strong>（inode ↔ block）和<strong>进程桥</strong>（进程 ↔ namespace）——正是本文「关键一问」与「进程视角」两章的主题。</p>
+<p>这两座&quot;桥&quot;——<strong>磁盘桥</strong>（inode ↔ block）和<strong>进程桥</strong>（进程 ↔ namespace）。</p>
 <blockquote>
 <p>内核注释里对这四个对象的经典描述（<code>include/linux/fs.h</code> 附近）：
 VFS 把&quot;文件名→文件内容&quot;的解析拆成 dentry（名字）与 inode（内容/元数据）两层，
@@ -893,7 +893,7 @@ VFS 把&quot;文件名→文件内容&quot;的解析拆成 dentry（名字）与
 </span></span><span class="line"><span class="cl"><span class="p">};</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>关键字段 <code>i_block[EXT4_N_BLOCKS]</code>（15 个 32 位槽）：传统间接块模式下它是指向数据块的指针数组；extent 模式下它承载<strong>扩展树（extent tree）的根节点</strong>。<strong>inode 与数据块的关联，全部藏在这 15 个字里</strong>（详见「关键一问」一章）。</p>
+</div><p>关键字段 <code>i_block[EXT4_N_BLOCKS]</code>（15 个 32 位槽）：传统间接块模式下它是指向数据块的指针数组；extent 模式下它承载<strong>扩展树（extent tree）的根节点</strong>。<strong>inode 与数据块的关联，全部藏在这 15 个字里</strong>。</p>
 <p>内存里，<code>struct ext4_inode_info</code>（<code>fs/ext4/ext4.h:1023</code>）第一行就复制了它：</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
@@ -1451,7 +1451,7 @@ VFS 把&quot;文件名→文件内容&quot;的解析拆成 dentry（名字）与
 </span></span><span class="line"><span class="cl">	<span class="k">struct</span> <span class="n">nsproxy</span>			<span class="o">*</span><span class="n">nsproxy</span><span class="p">;</span>	<span class="cm">/* 各类命名空间 */</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><h3 id="open-的完整路径含路径解析">open 的完整路径（含路径解析）
+</div><h3 id="open-的完整路径">open 的完整路径
 </h3><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt"> 1
@@ -1493,7 +1493,7 @@ VFS 把&quot;文件名→文件内容&quot;的解析拆成 dentry（名字）与
 </div><p><code>f_op</code> 一经绑定，后续 <code>read()</code> 就直接调 <code>file-&gt;f_op-&gt;read_iter</code>（ext4 是 <code>ext4_file_read_iter</code>），中间不再经过路径解析。</p>
 <hr>
 <h2 id="inodedentryfile-如何关联到磁盘-block">inode/dentry/file 如何关联到磁盘 Block
-</h2><p>这是全文最核心的一章。磁盘关联分<strong>四层</strong>：</p>
+</h2><p>磁盘关联分<strong>四层</strong>：</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
@@ -2438,8 +2438,7 @@ VFS 把&quot;文件名→文件内容&quot;的解析拆成 dentry（名字）与
 </span></span><span class="line"><span class="cl">      │                            └───────────────────────────┘
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>图上四条关键指针链，背下来就掌握了 VFS：</p>
-<ol>
+</div><ol>
 <li><strong>file → path → dentry → inode → sb</strong>（打开文件会话）</li>
 <li><strong>inode → i_mapping/i_data → address_space → folio → bio → 磁盘</strong>（数据通道）</li>
 <li><strong>inode → i_sb → sb → s_bdev / s_fs_info(ext4_sb_info)</strong>（设备与私有数据）</li>
