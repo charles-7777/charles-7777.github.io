@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="DNS的层次结构 domain name system 呈树状结构\ngraph TD\r%% 自定义节点样式，使其看起来更像原图\rclassDef rootNode fill:#f9f9f9,stroke:#333,stroke-width:2px,font-weight:bold;\rclassDef level1 fill:#e1f5fe,stroke:#01579b;\rclassDef level2 fill:#fff3e0,stroke:#e65100;\rclassDef level3 fill:#e8f5e9,stroke:#1b5e20;\rclassDef level4 fill:#f3e5f5,stroke:#4a148c;\r%% 根节点\rRoot((根 .)):::rootNode\r%% 第一层：顶级域名\rRoot --&gt; T_aero(aero):::level1\rRoot --&gt; T_com(com):::level1\rRoot --&gt; T_net(net):::level1\rRoot --&gt; T_org(org):::level1\rRoot --&gt; T_edu(edu):::level1\rRoot --&gt; T_gov(gov):::level1\rRoot --&gt; T_cn(cn):::level1\rRoot --&gt; T_uk(uk):::level1\r%% 第二层：com 分支\rT_com --&gt; S_baidu(baidu):::level2\rT_com --&gt; S_cctv(cctv):::level2\rT_com --&gt; S_google(google):::level2\r%% 第三层：cskaoyan 分支\rS_baidu --&gt; L_map(map):::level3\rS_baidu--&gt; L_www(www):::level3\r%% 第二层：cn 分支\rT_cn --&gt; S_bj(bj):::level2\rT_cn --&gt; S_edu(edu):::level2\rT_cn --&gt; S_com(com):::level2\r%% 第三层：cn -&gt; edu 分支\rS_edu --&gt; L_hust(hust):::level3\rS_edu --&gt; L_tsinghua(tsinghua):::level3\r%% 第四层：hust 分支\rL_hust --&gt; F_mail(mail):::level4\rL_hust --&gt; F_www(www):::level4 根域 根域（.）\n">
+<title>DNS简介</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/dns%E7%AE%80%E4%BB%8B/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="DNS简介">
+<meta property='og:description' content="DNS的层次结构 domain name system 呈树状结构\ngraph TD\r%% 自定义节点样式，使其看起来更像原图\rclassDef rootNode fill:#f9f9f9,stroke:#333,stroke-width:2px,font-weight:bold;\rclassDef level1 fill:#e1f5fe,stroke:#01579b;\rclassDef level2 fill:#fff3e0,stroke:#e65100;\rclassDef level3 fill:#e8f5e9,stroke:#1b5e20;\rclassDef level4 fill:#f3e5f5,stroke:#4a148c;\r%% 根节点\rRoot((根 .)):::rootNode\r%% 第一层：顶级域名\rRoot --&gt; T_aero(aero):::level1\rRoot --&gt; T_com(com):::level1\rRoot --&gt; T_net(net):::level1\rRoot --&gt; T_org(org):::level1\rRoot --&gt; T_edu(edu):::level1\rRoot --&gt; T_gov(gov):::level1\rRoot --&gt; T_cn(cn):::level1\rRoot --&gt; T_uk(uk):::level1\r%% 第二层：com 分支\rT_com --&gt; S_baidu(baidu):::level2\rT_com --&gt; S_cctv(cctv):::level2\rT_com --&gt; S_google(google):::level2\r%% 第三层：cskaoyan 分支\rS_baidu --&gt; L_map(map):::level3\rS_baidu--&gt; L_www(www):::level3\r%% 第二层：cn 分支\rT_cn --&gt; S_bj(bj):::level2\rT_cn --&gt; S_edu(edu):::level2\rT_cn --&gt; S_com(com):::level2\r%% 第三层：cn -&gt; edu 分支\rS_edu --&gt; L_hust(hust):::level3\rS_edu --&gt; L_tsinghua(tsinghua):::level3\r%% 第四层：hust 分支\rL_hust --&gt; F_mail(mail):::level4\rL_hust --&gt; F_www(www):::level4 根域 根域（.）\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/dns%E7%AE%80%E4%BB%8B/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='dns' /><meta property='article:published_time' content='2026-09-22T19:00:24&#43;08:00'/><meta property='article:modified_time' content='2026-09-23T16:09:15&#43;08:00'/>
+<meta name="twitter:title" content="DNS简介">
+<meta name="twitter:description" content="DNS的层次结构 domain name system 呈树状结构\ngraph TD\r%% 自定义节点样式，使其看起来更像原图\rclassDef rootNode fill:#f9f9f9,stroke:#333,stroke-width:2px,font-weight:bold;\rclassDef level1 fill:#e1f5fe,stroke:#01579b;\rclassDef level2 fill:#fff3e0,stroke:#e65100;\rclassDef level3 fill:#e8f5e9,stroke:#1b5e20;\rclassDef level4 fill:#f3e5f5,stroke:#4a148c;\r%% 根节点\rRoot((根 .)):::rootNode\r%% 第一层：顶级域名\rRoot --&gt; T_aero(aero):::level1\rRoot --&gt; T_com(com):::level1\rRoot --&gt; T_net(net):::level1\rRoot --&gt; T_org(org):::level1\rRoot --&gt; T_edu(edu):::level1\rRoot --&gt; T_gov(gov):::level1\rRoot --&gt; T_cn(cn):::level1\rRoot --&gt; T_uk(uk):::level1\r%% 第二层：com 分支\rT_com --&gt; S_baidu(baidu):::level2\rT_com --&gt; S_cctv(cctv):::level2\rT_com --&gt; S_google(google):::level2\r%% 第三层：cskaoyan 分支\rS_baidu --&gt; L_map(map):::level3\rS_baidu--&gt; L_www(www):::level3\r%% 第二层：cn 分支\rT_cn --&gt; S_bj(bj):::level2\rT_cn --&gt; S_edu(edu):::level2\rT_cn --&gt; S_com(com):::level2\r%% 第三层：cn -&gt; edu 分支\rS_edu --&gt; L_hust(hust):::level3\rS_edu --&gt; L_tsinghua(tsinghua):::level3\r%% 第四层：hust 分支\rL_hust --&gt; F_mail(mail):::level4\rL_hust --&gt; F_www(www):::level4 根域 根域（.）\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='/index.xml'
+                        target="_blank"
+                        title="RSS"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-rss" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="5" cy="19" r="1" />
+  <path d="M4 4a16 16 0 0 1 16 16" />
+  <path d="M4 11a9 9 0 0 1 9 9" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#dns的层次结构">DNS的层次结构</a>
+      <ol>
+        <li><a href="#根域">根域</a></li>
+        <li><a href="#etld">eTLD</a></li>
+        <li><a href="#fqdn">FQDN</a></li>
+      </ol>
+    </li>
+    <li><a href="#dns-解析过程">DNS 解析过程</a></li>
+    <li><a href="#dns-报文长度">DNS 报文长度</a>
+      <ol>
+        <li><a href="#truncated-flag">Truncated flag</a></li>
+        <li><a href="#edns0">EDNS0</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/network/" >
+                Network
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/dns%E7%AE%80%E4%BB%8B/">DNS简介</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-09-22 19:00</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-09-23 16:09</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 3 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    630 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h2 id="dns的层次结构">DNS的层次结构
+</h2><p>domain name system 呈树状结构</p>
+<pre class="mermaid">
+  graph TD
+    %% 自定义节点样式，使其看起来更像原图
+    classDef rootNode fill:#f9f9f9,stroke:#333,stroke-width:2px,font-weight:bold;
+    classDef level1 fill:#e1f5fe,stroke:#01579b;
+    classDef level2 fill:#fff3e0,stroke:#e65100;
+    classDef level3 fill:#e8f5e9,stroke:#1b5e20;
+    classDef level4 fill:#f3e5f5,stroke:#4a148c;
+
+    %% 根节点
+    Root((根 .)):::rootNode
+
+    %% 第一层：顶级域名
+    Root --&gt; T_aero(aero):::level1
+    Root --&gt; T_com(com):::level1
+    Root --&gt; T_net(net):::level1
+    Root --&gt; T_org(org):::level1
+    Root --&gt; T_edu(edu):::level1
+    Root --&gt; T_gov(gov):::level1
+    Root --&gt; T_cn(cn):::level1
+    Root --&gt; T_uk(uk):::level1
+
+    %% 第二层：com 分支
+    T_com --&gt; S_baidu(baidu):::level2
+    T_com --&gt; S_cctv(cctv):::level2
+    T_com --&gt; S_google(google):::level2
+
+    %% 第三层：cskaoyan 分支
+    S_baidu --&gt; L_map(map):::level3
+    S_baidu--&gt; L_www(www):::level3
+
+    %% 第二层：cn 分支
+    T_cn --&gt; S_bj(bj):::level2
+    T_cn --&gt; S_edu(edu):::level2
+    T_cn --&gt; S_com(com):::level2
+
+    %% 第三层：cn -&gt; edu 分支
+    S_edu --&gt; L_hust(hust):::level3
+    S_edu --&gt; L_tsinghua(tsinghua):::level3
+
+    %% 第四层：hust 分支
+    L_hust --&gt; F_mail(mail):::level4
+    L_hust --&gt; F_www(www):::level4
+</pre>
+<h3 id="根域">根域
+</h3><ul>
+<li>
+<p>根域（.）</p>
+<p>根域即“.”，是最高级别的域名。</p>
+<p>域名在DNS系统中的完整格式为“example.com.”。当我们在浏览器中输入域名时，通常会省略最后的“.”，输入“example.com”，DNS系统会默认将域名转换为完整格式。</p>
+<p>“.”对应根域名服务器，是最高级别的DNS服务器，保存顶级域DNS服务器地址。</p>
+</li>
+<li>
+<p>顶级域（.com）</p>
+<p>顶级域根据域名后缀进行区分，主要包括两大类：</p>
+<ul>
+<li>通用顶级域，如.com，.net，.org，.top等。</li>
+<li>国家顶级域，如.cn，.uk，.de等。</li>
+</ul>
+<p>顶级域对应顶级域名服务器，保存顶级域对应一级域DNS服务器地址。例如，.com顶级域对应的顶级域名服务器保存后缀为.com的一级域名的DNS服务器地址。</p>
+</li>
+<li>
+<p>二级域（example.com）</p>
+<p>二级域是顶级域的子域，对应二级域服务器，为域名提供权威域名解析服务。</p>
+<p>例如，您在域名服务商处购买域名example.com，并设置域名的DNS服务器地址，实际上就是将为域名example.com提供权威解析服务的DNS服务器地址告知.com顶级域的过程。</p>
+</li>
+</ul>
+<h3 id="etld">eTLD
+</h3><ul>
+<li>
+<p><strong>顶级域（TLD）</strong>：是 RFC 1034 树状结构中，<strong>根节点的直接子节点</strong>。它是一个<strong>技术概念</strong>。</p>
+</li>
+<li>
+<p><strong>有效顶级域（eTLD）</strong>：是<strong>公共后缀列表（Public Suffix List, PSL）<strong>中定义的、用户</strong>不能直接注册</strong>的域名后缀。它是一个<strong>管理/安全概念</strong>。</p>
+</li>
+</ul>
+<p> DNS 的树状结构里，顶级域就是紧挨着根域（<code>.</code>）下面的那一层。</p>
+<ul>
+<li>
+<p>在 <code>www.123.com.cn</code> 中，<code>.cn</code> 是顶级域（因为它是根的直接子节点）。</p>
+</li>
+<li>
+<p>在 <code>www.baidu.com</code> 中，<code>.com</code> 是顶级域。</p>
+</li>
+<li>
+<p>在 <code>www.example.org</code> 中，<code>.org</code> 是顶级域。</p>
+</li>
+</ul>
+<p>有效顶级域（eTLD）：管理上的“注册边界”：
+<strong>有效顶级域（effective TLD）</strong>，也叫<strong>公共后缀（Public Suffix）</strong>，它回答的问题是：<strong>“在哪个层级之下，普通用户才可以注册自己的域名？”</strong></p>
+<ul>
+<li>
+<p>在 <code>www.123.com.cn</code> 中，用户不能注册 <code>.cn</code>，也不能注册 <code>.com.cn</code>。用户能注册的是 <code>123.com.cn</code> 中的 <code>123</code>。所以，对于这个域名来说，<strong><code>.com.cn</code> 才是有效顶级域（eTLD）</strong>。</p>
+</li>
+<li>
+<p>同理，<code>www.baidu.com</code> 中，<code>.com</code> 是有效顶级域，用户可以在它下面注册 <code>baidu</code></p>
+</li>
+</ul>
+<h3 id="fqdn">FQDN
+</h3><ul>
+<li>
+<p>绝对域名（FQDN, Fully Qualified Domain Name）：以点号 . 结尾。例如 example.com.。最后的那个点代表根域，表示这是一个完整、无歧义的路径，计算机可以直接解析。</p>
+</li>
+<li>
+<p>相对域名（Relative Domain Name）：不以点号结尾。例如 example.com。它表示相对于当前所在域的一个名字。比如你在 com 域里输入 example，它会被自动补全为 example.com.。我们平时在浏览器里输入的网址，绝大多数都是相对域名（省略了最后的根点），浏览器通常会自动把它当作绝对域名来处理。</p>
+</li>
+</ul>
+<h2 id="dns-解析过程">DNS 解析过程
+</h2><p>DNS的查询方式有两种，分别为递归查询（recursion）和迭代查询（iteration）。</p>
+<ul>
+<li>
+<p><strong>递归查询</strong>：客户端发起一个DNS解析请求，若本地DNS服务器若不能为客户端直接解析域名，则域名服务器会代替客户端（下级服务器）向域名系统中的各分支的上下级服务器进行递归查询，直到有服务器响应回答了该请求后，将该请求结果返回客户端。在此期间，客户端将一直处于等待状态。</p>
+</li>
+<li>
+<p><strong>迭代查询</strong>：客户端（下级服务器）发起一个DNS解析请求后，若上级DNS服务器并不能直接提供该DNS的解析结果，则该上级DNS服务器会告知客户端（下级服务器）另一个可能查询到该DNS解析结果的DNS服务器IP，客户端（下级服务器）再次向这个DNS服务器发起解析请求，如此类推，直到查询到对应的结果为止。</p>
+</li>
+<li>
+<p>为了提高DNS的查询效率，并减少因特网上的DNS查询报文数量，在域名服务器中广泛地使用了缓存。当一个DNS服务器接收到DNS查询结果时，它能将该DNS信息缓存在缓存中。这样，当另一个相同的域名查询到达该DNS服务器时，该服务器就能够直接提供所要求的IP地址，而不需要再去向其他DNS服务器询问。因为主机名和IP地址之间的映射不是永久的，所以DNS服务器将在一段间后丢弃缓存中的信息。</p>
+</li>
+</ul>
+<pre class="mermaid">
+  sequenceDiagram
+    autonumber
+    participant Host as m.xyz.com&lt;br/&gt;(需要查找y.abc.com的IP)
+    participant Local as 本地域名服务器&lt;br/&gt;dns.xyz.com
+    participant Root as 根域名服务器
+    participant TLD as 顶级域名服务器&lt;br/&gt;dns.com
+    participant Auth as 权限域名服务器&lt;br/&gt;dns.abc.com
+
+    Host-&gt;&gt;Local: 递归查询 (y.abc.com的IP)
+
+    Note over Local, Auth: 请求逐级向下传递 (代替下级去问)
+    Local-&gt;&gt;Root: 递归查询
+    Root-&gt;&gt;TLD: 递归查询
+    TLD-&gt;&gt;Auth: 递归查询
+
+    Note over Local, Auth: 拿到结果后，各级逐步原路返回
+    Auth--&gt;&gt;TLD: 返回 y.abc.com的IP地址
+    TLD--&gt;&gt;Root: 返回 y.abc.com的IP地址
+    Root--&gt;&gt;Local: 返回 y.abc.com的IP地址
+
+    Local--&gt;&gt;Host: 返回 y.abc.com的IP地址
+Note over Host, Auth: ⚠️ 实际中几乎不使用：每次查询都要经过根域名服务器，&lt;br/&gt;会导致根服务器负载过大！
+</pre>
+<pre class="mermaid">
+  sequenceDiagram
+    autonumber
+    participant Host as m.xyz.com&lt;br/&gt;(需要查找y.abc.com的IP)
+    participant Local as 本地域名服务器&lt;br/&gt;dns.xyz.com
+    participant Root as 根域名服务器
+    participant TLD as 顶级域名服务器&lt;br/&gt;dns.com
+    participant Auth as 权限域名服务器&lt;br/&gt;dns.abc.com
+
+    Host-&gt;&gt;Local: 递归查询 (y.abc.com的IP)
+
+    Note over Local, Auth: 本地服务器进行迭代查询
+    Local-&gt;&gt;Root: 迭代查询
+    Root--&gt;&gt;Local: 返回顶级域名服务器(dns.com)地址
+
+    Local-&gt;&gt;TLD: 迭代查询
+    TLD--&gt;&gt;Local: 返回权限域名服务器(dns.abc.com)地址
+
+    Local-&gt;&gt;Auth: 迭代查询
+    Auth--&gt;&gt;Local: 返回 y.abc.com的IP地址
+
+    Local--&gt;&gt;Host: 返回 y.abc.com的IP地址
+</pre>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Domain Name System (query)
+</span></span><span class="line"><span class="cl">    Transaction ID: 0x9d51
+</span></span><span class="line"><span class="cl">    Flags: 0x0120 Standard query
+</span></span><span class="line"><span class="cl">        0... .... .... .... = Response: Message is a query
+</span></span><span class="line"><span class="cl">        .000 0... .... .... = Opcode: Standard query (0)
+</span></span><span class="line"><span class="cl">        .... .0.. .... .... = Truncated: Message is not truncated
+</span></span><span class="line"><span class="cl">        .... ..1. .... .... = Recursion desired: Do query recursively
+</span></span><span class="line"><span class="cl">        .... ...0 ..0. .... = Z: reserved (0)
+</span></span><span class="line"><span class="cl">        .... .... ..1. .... = AD bit: Set
+</span></span><span class="line"><span class="cl">        .... .... ...0 .... = Non-authenticated data: Unacceptable
+</span></span><span class="line"><span class="cl">    Questions: 1
+</span></span><span class="line"><span class="cl">    Answer RRs: 0
+</span></span><span class="line"><span class="cl">    Authority RRs: 0
+</span></span><span class="line"><span class="cl">    Additional RRs: 1
+</span></span><span class="line"><span class="cl">    Queries
+</span></span><span class="line"><span class="cl">        mail.pku.edu.cn: type A, class IN
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>Recursion desired</strong>：(期望递归) 标志位为 1，准确地说是：“主机希望本地域名服务器替它进行代理查询“ 。我作为客户端，不想自己去找根、找顶级域，太麻烦了。本地服务器你帮我把最终 IP 找回来吧。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># 可以用dig 来测试</span>
+</span></span><span class="line"><span class="cl">dig 12345678.com.cn +norecurse
+</span></span><span class="line"><span class="cl">dig 12345678.com.cn 
+</span></span><span class="line"><span class="cl">dig 12345678.com.cn +trace
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="dns-报文长度">DNS 报文长度
+</h2><h3 id="truncated-flag">Truncated flag
+</h3><blockquote>
+<p><a class="link" href="https://www.rfc-editor.org/info/rfc1035/#section-4.2.1"  target="_blank" rel="noopener"
+    >RFC1035-4.2.1</a></p>
+<p>Messages carried by UDP are restricted to 512 bytes (not counting the IP
+or UDP headers).  Longer messages are truncated and the TC bit is set in
+the header.
+<a class="link" href="https://www.rfc-editor.org/info/rfc1123/#page-75"  target="_blank" rel="noopener"
+    >RFC1123-6.1.3.2</a></p>
+<p>If the Answer section of the response is truncated and if the requester supports TCP, it SHOULD try the query again using TCP.</p></blockquote>
+<p>UDP携带的消息限制为512字节（不包括IP或UDP报头）。较长的消息被截断，TC位被设置在报头中。客户端收到带截断标志的dns 回复，应当用TCP 重新请求。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">dig . DNSKEY @8.8.8.8 +bufsize<span class="o">=</span><span class="m">512</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="edns0">EDNS0
+</h3><blockquote>
+<p><a class="link" href="https://www.rfc-editor.org/info/rfc6891/#section-4.3"  target="_blank" rel="noopener"
+    >RFC6891-4.3</a></p>
+<p>Traditional DNS messages are limited to 512 octets in size when sent
+over UDP [<a class="link" href="https://www.rfc-editor.org/info/rfc1035/"  target="_blank" rel="noopener"
+    >RFC1035</a>].  Fitting the increasing amounts of data that can
+be transported in DNS in this 512-byte limit is becoming more
+difficult.  For instance, inclusion of DNSSEC records frequently
+requires a much larger response than a 512-byte message can hold.
+EDNS(0) specifies a way to advertise additional features such as
+larger response size capability, which is intended to help avoid
+truncated UDP responses, which in turn cause retry over TCP.  It
+therefore provides support for transporting these larger packet sizes
+without needing to resort to TCP for transport.</p></blockquote>
+<p>传统的 DNS 消息在通过 UDP 传输时，大小被限制在 512 个八位组（octets，即字节）以内 [RFC1035]。随着 DNS 中需要传输的数据量不断增加，要在 512 字节的限制内装下这些数据变得越来越困难。例如，包含 DNSSEC 记录时，响应往往远大于 512 字节消息所能容纳的大小。EDNS(0) 规定了一种方式来通告额外的能力，例如更大的响应大小能力。其目的是帮助避免 UDP 响应被截断，因为截断会导致通过 TCP 重试。因此，它支持传输更大的数据包，而不必为了传输而改用 TCP。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">dig . DNSKEY @8.8.8.8 +bufsize<span class="o">=</span><span class="m">1232</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>为了规避 IP 分片带来的丢包风险（丢一个分片，整个 UDP 报文就废了），业界推荐使用 <strong>1232 字节</strong>。这个数字来自 IPv6 最小 MTU（1280）减去 IPv6 头和 UDP 头（48 字节）</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/dns/">Dns</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/cookiesessiontokenjwt-%E4%B8%8E-oauth2-%E7%9A%84%E5%8C%BA%E5%88%AB/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Cookie、Session、Token、JWT 与 OAuth2 的区别</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/netfilter-hooks/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Netfilter hooks</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/nat%E7%B1%BB%E5%9E%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">NAT类型</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ftp%E4%B8%BB%E5%8A%A8%E6%A8%A1%E5%BC%8Fnat%E7%A9%BF%E9%80%8F%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">FTP主动模式NAT穿透原理解析</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ipv6-nd-proxy/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">IPv6 ND proxy</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        right: 20px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop;
+        document.body.appendChild(btn);
+
+        
+        window.addEventListener('scroll', function() {
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        });
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+
+<style>
+     
+    .right-sidebar.toc-hidden {
+        display: none !important;
+    }
+
+     
+    #tocToggleBtn {
+        display: none;
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 99;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        padding: 6px;
+        border: none;
+        border-radius: 50%;
+        background: var(--card-background);
+        box-shadow: var(--shadow-l2);
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        transition: color 0.2s ease, background-color 0.2s ease;
+    }
+
+    #tocToggleBtn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    #tocToggleBtn svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+    }
+
+     
+    .toc-title-flex {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .toc-title-flex .section-title {
+        flex: 1;
+    }
+
+    .toc-inline-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        padding: 3px;
+        border: none;
+        background: none;
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        border-radius: 6px;
+        transition: color 0.2s ease, background-color 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .toc-inline-btn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    .toc-inline-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+</style>
+
+
+<script>
+    
+
+    function initTocToggle() {
+        let tocContent = document.querySelector('.widget--toc');
+        if (!tocContent) {
+            return;
+        }
+
+        let rightSidebar = document.querySelector('.right-sidebar');
+        if (!rightSidebar) {
+            return;
+        }
+
+        
+        let tocSection = tocContent.closest('section.widget');
+        let tocTitle = tocSection && tocSection.querySelector('.widget-title');
+
+        if (tocTitle) {
+            tocTitle.classList.add('toc-title-flex');
+
+            let inlineBtn = document.createElement('button');
+            inlineBtn.className = 'toc-inline-btn';
+            inlineBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+            let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+            updateBtnIcon(inlineBtn, isCollapsed);
+            if (isCollapsed) {
+                inlineBtn.title = '\u663e\u793a\u76ee\u5f55';
+            }
+
+            inlineBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleToc(rightSidebar);
+                
+                let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+                updateBtnIcon(inlineBtn, nowCollapsed);
+                let floatBtn = document.getElementById('tocToggleBtn');
+                if (floatBtn) {
+                    updateBtnIcon(floatBtn, nowCollapsed);
+                    floatBtn.title = inlineBtn.title;
+                }
+            });
+
+            tocTitle.appendChild(inlineBtn);
+        }
+
+        
+        let floatBtn = document.createElement('button');
+        floatBtn.id = 'tocToggleBtn';
+        floatBtn.style.display = 'flex';
+        floatBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+        let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+        updateBtnIcon(floatBtn, isCollapsed);
+        if (isCollapsed) {
+            rightSidebar.classList.add('toc-hidden');
+            floatBtn.title = '\u663e\u793a\u76ee\u5f55';
+        }
+
+        floatBtn.addEventListener('click', function () {
+            toggleToc(rightSidebar);
+            
+            let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+            updateBtnIcon(floatBtn, nowCollapsed);
+            let inlineBtns = document.querySelectorAll('.toc-inline-btn');
+            inlineBtns.forEach(function (b) {
+                updateBtnIcon(b, nowCollapsed);
+                b.title = floatBtn.title;
+            });
+        });
+
+        document.body.appendChild(floatBtn);
+    }
+
+     
+    function toggleToc(rightSidebar) {
+        rightSidebar.classList.toggle('toc-hidden');
+        let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+        localStorage.setItem('toc-collapsed', nowCollapsed);
+    }
+
+     
+    function updateBtnIcon(btn, collapsed) {
+        btn.innerHTML = collapsed ? getEyeOffSvg() : getEyeSvg();
+        btn.title = collapsed ? '\u663e\u793a\u76ee\u5f55' : '\u9690\u85cf\u76ee\u5f55';
+    }
+
+     
+    function getEyeSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+
+     
+    function getEyeOffSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    }
+
+    initTocToggle();
+</script>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true ,look: 'handDrawn'});
+    </script>
