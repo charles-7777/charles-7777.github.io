@@ -8,6 +8,14 @@
         <language>zh-cn</language>
         <copyright>Charles Lv</copyright><atom:link href="https://charles-7777.github.io/index.xml" rel="self" type="application/rss+xml" />
         <item>
+        <title>static 与 extern</title>
+        <link>https://charles-7777.github.io/p/static-%E4%B8%8E-extern/</link>
+        <pubDate>Wed, 14 Oct 2026 21:02:30 +0800</pubDate>
+        
+        <guid>https://charles-7777.github.io/p/static-%E4%B8%8E-extern/</guid>
+        </item>
+        
+        <item>
         <title>DNS简介</title>
         <link>https://charles-7777.github.io/p/dns%E7%AE%80%E4%BB%8B/</link>
         <pubDate>Tue, 22 Sep 2026 19:00:24 +0800</pubDate>
@@ -157,14 +165,6 @@
         <pubDate>Tue, 07 Jul 2026 00:07:47 +0800</pubDate>
         
         <guid>https://charles-7777.github.io/p/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/</guid>
-        </item>
-        
-        <item>
-        <title>WiFi EasyMesh</title>
-        <link>https://charles-7777.github.io/p/wifi-easymesh/</link>
-        <pubDate>Fri, 03 Jul 2026 10:51:44 +0800</pubDate>
-        
-        <guid>https://charles-7777.github.io/p/wifi-easymesh/</guid>
         </item>
         
     </channel>

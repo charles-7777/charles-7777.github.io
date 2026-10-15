@@ -1,0 +1,2082 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 一个 C 程序是怎么从若干个 .c 文件，变成一个（或多个）ELF 可执行文件的？\nstatic 和 extern 控制的，正是这件事的两个层面：\n层面 关键字 问题 编译期（单个翻译单元内） static 这个名字在当前文件里怎么找？作用域多大？ 链接期（多个翻译单元合并时） extern 这个名字跨文件怎么对上？谁能看见谁？ 所以本文的主线是：\nflowchart LR A[&#34;源码&#34;] --&gt; B[&#34;预处理&#34;] B --&gt; C[&#34;编译&lt;br/&gt;生成 .o（带符号表 + 重定位表）&#34;] C --&gt; D[&#34;链接&lt;br/&gt;符号解析 + 地址回填&#34;] D --&gt; E[&#34;ELF 可执行文件&#34;] S[&#34;&lt;b&gt;static&lt;/b&gt; 在这里决定&lt;br/&gt;名字是不是 LOCAL&#34;] -.-&gt; C X[&#34;&lt;b&gt;extern&lt;/b&gt; 在这里决定&lt;br/&gt;名字能不能跨文件对上&#34;] -.-&gt; D style S fill:#B8860B,stroke:#8B6508,color:#fff style X fill:#B8860B,stroke:#8B6508,color:#fff 作用域（scope）与链接（linkage） 这是理解 static/extern 最大的拦路虎。C 标准里它们是两个独立概念：\n作用域 (scope)：名字在源码的哪个范围内可见（编译期解析用） 块作用域、函数作用域、文件作用域、原型作用域 链接 (linkage)：这个名字在链接期指向哪个实体（链接期解析用） 外部链接 (external linkage)、内部链接 (internal linkage)、无链接 (no linkage) 一个名字可能&quot;在文件里到处可见&quot;（文件作用域），但&quot;链接期只认自己这一份&quot; （内部链接）——这正是 static 文件作用域变量的状态。\n">
+<title>static 与 extern</title>
+
+<link rel='canonical' href='https://charles-7777.github.io/p/static-%E4%B8%8E-extern/'>
+
+<link rel="stylesheet" href="/scss/style.min.1aedf5438eb6380946ca2f7d86c958e5adeb3c679a95ad190168d7c28b43101d.css"><meta property='og:title' content="static 与 extern">
+<meta property='og:description' content=" 一个 C 程序是怎么从若干个 .c 文件，变成一个（或多个）ELF 可执行文件的？\nstatic 和 extern 控制的，正是这件事的两个层面：\n层面 关键字 问题 编译期（单个翻译单元内） static 这个名字在当前文件里怎么找？作用域多大？ 链接期（多个翻译单元合并时） extern 这个名字跨文件怎么对上？谁能看见谁？ 所以本文的主线是：\nflowchart LR A[&#34;源码&#34;] --&gt; B[&#34;预处理&#34;] B --&gt; C[&#34;编译&lt;br/&gt;生成 .o（带符号表 + 重定位表）&#34;] C --&gt; D[&#34;链接&lt;br/&gt;符号解析 + 地址回填&#34;] D --&gt; E[&#34;ELF 可执行文件&#34;] S[&#34;&lt;b&gt;static&lt;/b&gt; 在这里决定&lt;br/&gt;名字是不是 LOCAL&#34;] -.-&gt; C X[&#34;&lt;b&gt;extern&lt;/b&gt; 在这里决定&lt;br/&gt;名字能不能跨文件对上&#34;] -.-&gt; D style S fill:#B8860B,stroke:#8B6508,color:#fff style X fill:#B8860B,stroke:#8B6508,color:#fff 作用域（scope）与链接（linkage） 这是理解 static/extern 最大的拦路虎。C 标准里它们是两个独立概念：\n作用域 (scope)：名字在源码的哪个范围内可见（编译期解析用） 块作用域、函数作用域、文件作用域、原型作用域 链接 (linkage)：这个名字在链接期指向哪个实体（链接期解析用） 外部链接 (external linkage)、内部链接 (internal linkage)、无链接 (no linkage) 一个名字可能&quot;在文件里到处可见&quot;（文件作用域），但&quot;链接期只认自己这一份&quot; （内部链接）——这正是 static 文件作用域变量的状态。\n">
+<meta property='og:url' content='https://charles-7777.github.io/p/static-%E4%B8%8E-extern/'>
+<meta property='og:site_name' content='Charles'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='c' /><meta property='article:published_time' content='2026-10-14T21:02:30&#43;08:00'/><meta property='article:modified_time' content='2026-10-15T17:55:29&#43;08:00'/>
+<meta name="twitter:title" content="static 与 extern">
+<meta name="twitter:description" content=" 一个 C 程序是怎么从若干个 .c 文件，变成一个（或多个）ELF 可执行文件的？\nstatic 和 extern 控制的，正是这件事的两个层面：\n层面 关键字 问题 编译期（单个翻译单元内） static 这个名字在当前文件里怎么找？作用域多大？ 链接期（多个翻译单元合并时） extern 这个名字跨文件怎么对上？谁能看见谁？ 所以本文的主线是：\nflowchart LR A[&#34;源码&#34;] --&gt; B[&#34;预处理&#34;] B --&gt; C[&#34;编译&lt;br/&gt;生成 .o（带符号表 + 重定位表）&#34;] C --&gt; D[&#34;链接&lt;br/&gt;符号解析 + 地址回填&#34;] D --&gt; E[&#34;ELF 可执行文件&#34;] S[&#34;&lt;b&gt;static&lt;/b&gt; 在这里决定&lt;br/&gt;名字是不是 LOCAL&#34;] -.-&gt; C X[&#34;&lt;b&gt;extern&lt;/b&gt; 在这里决定&lt;br/&gt;名字能不能跨文件对上&#34;] -.-&gt; D style S fill:#B8860B,stroke:#8B6508,color:#fff style X fill:#B8860B,stroke:#8B6508,color:#fff 作用域（scope）与链接（linkage） 这是理解 static/extern 最大的拦路虎。C 标准里它们是两个独立概念：\n作用域 (scope)：名字在源码的哪个范围内可见（编译期解析用） 块作用域、函数作用域、文件作用域、原型作用域 链接 (linkage)：这个名字在链接期指向哪个实体（链接期解析用） 外部链接 (external linkage)、内部链接 (internal linkage)、无链接 (no linkage) 一个名字可能&quot;在文件里到处可见&quot;（文件作用域），但&quot;链接期只认自己这一份&quot; （内部链接）——这正是 static 文件作用域变量的状态。\n">
+    <link rel="shortcut icon" href="/favicon2.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    <img src="https://raw.githubusercontent.com/charles-7777/ImageBed/main/blog/oi_compressed.gif" width="300" height="300" class="site-logo" loading="lazy" alt="Avatar">
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Charles</a></h1>
+            <h2 class="site-description">欢迎来到我的网站</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://www.bilibili.com/'
+                        target="_blank"
+                        title="bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/charles-7777/hugo-blog'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='/index.xml'
+                        target="_blank"
+                        title="RSS"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-rss" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="5" cy="19" r="1" />
+  <path d="M4 4a16 16 0 0 1 16 16" />
+  <path d="M4 11a9 9 0 0 1 9 9" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/cats-tags/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                
+                <span>Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>链接</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/updatelog/' >
+                
+                
+                
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-logs"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 12h.01" /><path d="M4 6h.01" /><path d="M4 18h.01" /><path d="M8 18h2" /><path d="M8 12h2" /><path d="M8 6h2" /><path d="M14 6h6" /><path d="M14 12h6" /><path d="M14 18h6" /></svg>
+                
+                <span>更新日志</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#作用域scope与链接linkage">作用域（scope）与链接（linkage）</a>
+      <ol>
+        <li><a href="#链接">链接</a></li>
+      </ol>
+    </li>
+    <li><a href="#四种场景逐一拆解">四种场景，逐一拆解</a>
+      <ol>
+        <li><a href="#文件作用域无-static外部链接">文件作用域、无 <code>static</code>：外部链接</a></li>
+        <li><a href="#文件作用域有-static内部链接">文件作用域、有 <code>static</code>：内部链接</a></li>
+        <li><a href="#块作用域-static作用域不变存储期改变">块作用域 <code>static</code>：作用域不变，存储期改变</a></li>
+        <li><a href="#extern仅声明"><code>extern</code>仅声明</a></li>
+      </ol>
+    </li>
+    <li><a href="#static-不只是隐藏优化器的视角"><code>static</code> 不只是&quot;隐藏&quot;：优化器的视角</a></li>
+    <li><a href="#汇编角度符号重定位与链接">汇编角度：符号、重定位与链接</a>
+      <ol>
+        <li><a href="#目标文件里有什么">目标文件里有什么</a></li>
+        <li><a href="#nm-速查表大小写就是链接属性"><code>nm</code> 速查表：大小写就是链接属性</a></li>
+        <li><a href="#extern-引用-vs-static-引用plt-的差别"><code>extern</code> 引用 vs <code>static</code> 引用：PLT 的差别</a></li>
+        <li><a href="#链接后符号属性的最终形态">链接后：符号属性的最终形态</a></li>
+        <li><a href="#elf-段布局全景变量最终住在哪">ELF 段布局全景：变量最终住在哪</a></li>
+        <li><a href="#字符串字面量与-rodata-的合并">字符串字面量与 <code>.rodata</code> 的合并</a></li>
+      </ol>
+    </li>
+    <li><a href="#进阶extern-的几个隐藏用法">进阶：<code>extern</code> 的几个隐藏用法</a>
+      <ol>
+        <li><a href="#static-与共享库谁能进-dynsym"><code>static</code> 与共享库：谁能进 <code>.dynsym</code></a></li>
+        <li><a href="#extern-c-在-c-里的作用"><code>extern &quot;C&quot;</code> 在 C++ 里的作用</a></li>
+        <li><a href="#头文件里写-static-变量的陷阱">头文件里写 <code>static</code> 变量的陷阱</a></li>
+        <li><a href="#static-inline头文件函数的标准姿势"><code>static inline</code>：头文件函数的标准姿势</a></li>
+      </ol>
+    </li>
+    <li><a href="#一张图总结">一张图总结</a></li>
+    <li><a href="#附本文所有实验的复现命令">附：本文所有实验的复现命令</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/c/" >
+                C
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/static-%E4%B8%8E-extern/">static 与 extern</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2026-10-14 21:02</time>
+            </div>
+        <div>
+            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+            <time class="article-lastmod">2026-10-15 17:55</time>
+        </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 12 分钟
+                </time>
+            </div>
+        
+
+        
+            <div>
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-word"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 12l1.333 5l1.667 -4l1.667 4l1.333 -5" /></svg>
+                <time class="article-words">
+                    2383 字
+                </time>
+            </div>
+        
+
+
+    </footer>
+    
+
+    
+
+
+</div>
+
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <blockquote>
+<p><strong>一个 C 程序是怎么从若干个 <code>.c</code> 文件，变成一个（或多个）ELF 可执行文件的？</strong></p></blockquote>
+<p><code>static</code> 和 <code>extern</code> 控制的，正是这件事的两个层面：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>层面</th>
+          <th>关键字</th>
+          <th>问题</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>编译期（单个翻译单元内）</strong></td>
+          <td><code>static</code></td>
+          <td>这个名字在<strong>当前文件</strong>里怎么找？作用域多大？</td>
+      </tr>
+      <tr>
+          <td><strong>链接期（多个翻译单元合并时）</strong></td>
+          <td><code>extern</code></td>
+          <td>这个名字<strong>跨文件</strong>怎么对上？谁能看见谁？</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>所以本文的主线是：</p>
+<pre class="mermaid">
+  flowchart LR
+    A[&#34;源码&#34;] --&gt; B[&#34;预处理&#34;]
+    B --&gt; C[&#34;编译&lt;br/&gt;生成 .o（带符号表 + 重定位表）&#34;]
+    C --&gt; D[&#34;链接&lt;br/&gt;符号解析 + 地址回填&#34;]
+    D --&gt; E[&#34;ELF 可执行文件&#34;]
+
+    S[&#34;&lt;b&gt;static&lt;/b&gt; 在这里决定&lt;br/&gt;名字是不是 LOCAL&#34;] -.-&gt; C
+    X[&#34;&lt;b&gt;extern&lt;/b&gt; 在这里决定&lt;br/&gt;名字能不能跨文件对上&#34;] -.-&gt; D
+    style S fill:#B8860B,stroke:#8B6508,color:#fff
+    style X fill:#B8860B,stroke:#8B6508,color:#fff
+</pre>
+<hr>
+<h2 id="作用域scope与链接linkage">作用域（scope）与链接（linkage）
+</h2><p>这是理解 <code>static</code>/<code>extern</code> 最大的拦路虎。C 标准里它们是<strong>两个独立概念</strong>：</p>
+<ul>
+<li><strong>作用域 (scope)</strong>：名字在<strong>源码的哪个范围内可见</strong>（编译期解析用）
+<ul>
+<li>块作用域、函数作用域、文件作用域、原型作用域</li>
+</ul>
+</li>
+<li><strong>链接 (linkage)</strong>：这个名字<strong>在链接期指向哪个实体</strong>（链接期解析用）
+<ul>
+<li>外部链接 (external linkage)、内部链接 (internal linkage)、无链接 (no linkage)</li>
+</ul>
+</li>
+</ul>
+<p>一个名字可能&quot;在文件里到处可见&quot;（文件作用域），但&quot;链接期只认自己这一份&quot;
+（内部链接）——这正是 <code>static</code> 文件作用域变量的状态。</p>
+<h3 id="链接">链接
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>链接类型</th>
+          <th>谁能定义</th>
+          <th>谁能引用</th>
+          <th>对应写法</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>外部链接</strong> (external)</td>
+          <td>全程序<strong>唯一</strong>一份</td>
+          <td>所有翻译单元</td>
+          <td>不加 <code>static</code> 的文件作用域变量/函数</td>
+      </tr>
+      <tr>
+          <td><strong>内部链接</strong> (internal)</td>
+          <td>每个翻译单元<strong>各一份</strong></td>
+          <td>仅本翻译单元</td>
+          <td>文件作用域加 <code>static</code></td>
+      </tr>
+      <tr>
+          <td><strong>无链接</strong> (none)</td>
+          <td>每次进入作用域</td>
+          <td>仅本作用域</td>
+          <td>局部变量、<code>static</code> 局部变量</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>关键：<strong><code>static</code> 本身不改变作用域，它改变的是链接</strong>。</p>
+<ul>
+<li><code>static int x;</code> 在<strong>文件作用域</strong> → 作用域仍是整个文件，但链接从 external 变成 internal</li>
+<li>函数内的 <code>static int y;</code> → 作用域仍是<strong>块作用域</strong>（只在函数内可见），但有了
+<strong>静态存储期</strong>（lifetime 是整个程序）</li>
+</ul>
+<p>也就是说 <code>static</code> 一词身兼两职（C 标准确实用了 &ldquo;static storage duration&rdquo; 和
+&ldquo;internal linkage&rdquo; 两套术语，历史原因）：</p>
+<ol>
+<li><strong>改变存储期</strong>（当用于块作用域时）：从 automatic → static，变量不再随栈帧销毁</li>
+<li><strong>改变链接</strong>（当用于文件作用域时）：从 external → internal，符号不再导出</li>
+</ol>
+<hr>
+<h2 id="四种场景逐一拆解">四种场景，逐一拆解
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">int</span>   <span class="n">g_shared</span> <span class="o">=</span> <span class="mi">42</span><span class="p">;</span>          <span class="cm">/* ① 文件作用域, 无 static: 外部链接 */</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="n">g_hidden</span> <span class="o">=</span> <span class="mi">7</span><span class="p">;</span>      <span class="cm">/* ② 文件作用域, 有 static: 内部链接 */</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">set_hidden</span><span class="p">(</span><span class="kt">int</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span> <span class="n">g_hidden</span> <span class="o">=</span> <span class="n">v</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span>  <span class="nf">get_hidden</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>  <span class="p">{</span> <span class="k">return</span> <span class="n">g_hidden</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">counter_demo</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">int</span> <span class="n">calls</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>     <span class="cm">/* ③ 块作用域 static: 无链接 + 静态存储期 */</span>
+</span></span><span class="line"><span class="cl">    <span class="o">++</span><span class="n">calls</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">extern</span> <span class="kt">int</span> <span class="n">g_extern_decl</span><span class="p">;</span>     <span class="cm">/* ④ 仅声明, 定义在别的翻译单元 */</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="文件作用域无-static外部链接">文件作用域、无 <code>static</code>：外部链接
+</h3><p><code>g_shared</code> 是一个<strong>全局定义</strong>，在整个程序里必须唯一。任何其他 <code>.c</code> 文件
+只要写 <code>extern int g_shared;</code> 就能引用它。</p>
+<p>链接时，如果两个文件都定义了 <code>int shared;</code>，会直接报错：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ gcc dup1.c dup2.c -o dup
+</span></span><span class="line"><span class="cl">/usr/bin/ld: /tmp/ccZQqxSH.o:<span class="o">(</span>.data+0x0<span class="o">)</span>: multiple definition of <span class="sb">`</span>shared<span class="err">&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">             /tmp/ccmuPxDG.o:<span class="o">(</span>.data+0x0<span class="o">)</span>: first defined here
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这就是<strong>符号冲突</strong>——链接器发现两个 GLOBAL 符号同名。</p>
+<h3 id="文件作用域有-static内部链接">文件作用域、有 <code>static</code>：内部链接
+</h3><p><code>g_hidden</code> 只在当前文件内有效。<strong>在别的文件里声明 <code>extern int g_hidden;</code>
+并引用它，链接期会找不到符号</strong>（因为它根本没被导出）。</p>
+<p>反过来，两个不同文件各自 <code>static int shared = 1;</code> 和 <code>static int shared = 2;</code>
+<strong>完全不冲突</strong>——它们是两个不同的符号：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ gcc p1.c p2.c -o ss2        <span class="c1"># 链接成功</span>
+</span></span><span class="line"><span class="cl">$ nm ss2 <span class="p">|</span> grep shared
+</span></span><span class="line"><span class="cl"><span class="m">0000000000004010</span> d shared     <span class="c1"># 来自 p1.c</span>
+</span></span><span class="line"><span class="cl"><span class="m">0000000000004014</span> d shared     <span class="c1"># 来自 p2.c  ← 两个同名但地址不同的 LOCAL 符号</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>nm</code> 输出的小写 <code>d</code> 表示 <strong>local data</strong>，正是&quot;内部链接&quot;的直接证据。</p>
+<h3 id="块作用域-static作用域不变存储期改变">块作用域 <code>static</code>：作用域不变，存储期改变
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">counter_demo</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">int</span> <span class="n">calls</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;%p</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">calls</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>连续调用两次，打印出的地址<strong>完全相同</strong>——变量不在栈上，而在进程的
+静态存储区。反汇编会看到它被 <code>nm</code> 命名为 <code>calls.0</code>（编译器加的后缀，
+避免与其它符号混淆），并且是<strong>小写 b</strong>（local BSS）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ nm st <span class="p">|</span> grep calls
+</span></span><span class="line"><span class="cl"><span class="m">0000000000004014</span> b calls.0
+</span></span><span class="line"><span class="cl">$ objdump -t st <span class="p">|</span> grep calls
+</span></span><span class="line"><span class="cl"><span class="m">0000000000004014</span> l     O .bss    <span class="m">0000000000000004</span>  calls.0
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="extern仅声明"><code>extern</code>仅声明
+</h3><p><code>extern</code> 的本质是：<strong>&ldquo;我在这里提到这个名字，但我不定义它&rdquo;</strong>。</p>
+<ul>
+<li><code>extern int x;</code> → 声明，期望链接期在别处找到 <code>x</code> 的定义</li>
+<li><code>extern int x = 10;</code> → 这是<strong>定义</strong>（带初始化器就不再是纯声明了）</li>
+<li>函数声明里 <code>extern</code> 可省略（<code>void f(void);</code> 等价于 <code>extern void f(void);</code>）</li>
+</ul>
+<p>一个容易忽略的 C99 陷阱——<strong>tentative definition（悬浮定义）</strong>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cm">/* file A */</span>
+</span></span><span class="line"><span class="cl"><span class="k">extern</span> <span class="kt">int</span> <span class="n">tentative</span><span class="p">;</span>   <span class="cm">/* 声明 */</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/* file B */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="n">tentative</span><span class="p">;</span>          <span class="cm">/* 未初始化, 也是定义 → 放进 .bss */</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>链接后 <code>tentative</code> 正常存在（<code>B</code> 类符号）。但如果<strong>两边都写 <code>int tentative;</code></strong>
+（都没初始化），C99 会把它们合并成同一个 COMMON 符号（<code>-fcommon</code> 时代的
+行为）；GCC 10 起默认改为 <code>-fno-common</code>，于是直接报 multiple definition。
+这也是很多老代码升级 GCC 后突然链接失败的原因。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl">        <span class="err">高地址</span>
+</span></span><span class="line"><span class="cl"><span class="err">┌─────────────────────────────────────┐</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>                                     <span class="err">│</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>          <span class="err">内核空间</span> <span class="p">(</span><span class="n">kernel</span><span class="p">)</span>           <span class="err">│</span>  <span class="err">←</span> <span class="err">用户程序访问不到</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>                                     <span class="err">│</span>
+</span></span><span class="line"><span class="cl"><span class="err">├─────────────────────────────────────┤</span> <span class="mh">0x7fff</span><span class="o">...</span> <span class="p">(</span><span class="err">栈顶附近</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>                                     <span class="err">│</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>            <span class="err">栈</span> <span class="p">(</span><span class="n">stack</span><span class="p">)</span>                <span class="err">│</span>  <span class="err">←</span> <span class="err">局部变量、函数参数</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>           <span class="err">↓</span> <span class="err">向下增长</span> <span class="err">↓</span>               <span class="err">│</span>    <span class="err">自动存储期</span> <span class="p">(</span><span class="n">auto</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>                                     <span class="err">│</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>         <span class="o">...</span>  <span class="err">空闲区</span>  <span class="o">...</span>             <span class="err">│</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>                                     <span class="err">│</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>           <span class="err">↑</span> <span class="err">向上增长</span> <span class="err">↑</span>               <span class="err">│</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>            <span class="err">堆</span> <span class="p">(</span><span class="n">heap</span><span class="p">)</span>                 <span class="err">│</span>  <span class="err">←</span> <span class="n">malloc</span> <span class="o">/</span> <span class="n">new</span> <span class="err">分配的内存</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>                                     <span class="err">│</span>
+</span></span><span class="line"><span class="cl"><span class="err">├─────────────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>      <span class="o">.</span><span class="n">bss</span>  <span class="p">(</span><span class="err">未初始化数据段</span><span class="p">)</span>          <span class="err">│</span>  <span class="err">←</span> <span class="err">初值为</span><span class="mi">0</span><span class="o">/</span><span class="err">无初值的全局、静态变量</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>                                     <span class="err">│</span>    <span class="err">启动时清零</span>
+</span></span><span class="line"><span class="cl"><span class="err">├─────────────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>      <span class="o">.</span><span class="n">data</span> <span class="p">(</span><span class="err">已初始化数据段</span><span class="p">)</span>          <span class="err">│</span>  <span class="err">←</span> <span class="err">有非零初值的全局、静态变量</span>
+</span></span><span class="line"><span class="cl"><span class="err">├─────────────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>      <span class="o">.</span><span class="n">rodata</span> <span class="p">(</span><span class="err">只读数据段</span><span class="p">)</span>            <span class="err">│</span>  <span class="err">←</span> <span class="err">字符串字面量</span> <span class="s2">&#34;abc&#34;</span><span class="err">、</span><span class="k">const</span> <span class="err">常量</span>
+</span></span><span class="line"><span class="cl"><span class="err">├─────────────────────────────────────┤</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>      <span class="o">.</span><span class="n">text</span> <span class="p">(</span><span class="err">代码段</span><span class="p">)</span>                  <span class="err">│</span>  <span class="err">←</span> <span class="err">机器指令</span> <span class="p">(</span><span class="err">程序代码</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>                                     <span class="err">│</span>    <span class="err">只读、可共享</span>
+</span></span><span class="line"><span class="cl"><span class="err">└─────────────────────────────────────┘</span>
+</span></span><span class="line"><span class="cl"><span class="err">低地址</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h2 id="static-不只是隐藏优化器的视角"><code>static</code> 不只是&quot;隐藏&quot;：优化器的视角
+</h2><p><code>static</code> 带来的最大实际收益，除了封装，还有<strong>优化自由度</strong>。</p>
+<p>因为 <code>static</code> 函数/变量在本翻译单元内<strong>定义一定可见</strong>，编译器可以放心：</p>
+<ol>
+<li><strong>内联</strong>：<code>static</code> 函数必然在本 TU 有定义，可以激进内联</li>
+<li><strong>不产生调用开销</strong>：<code>-O0</code> 下 <code>static</code> 函数也是<strong>直接 <code>call</code></strong>，不走 PLT</li>
+<li><strong>删除未使用的定义</strong>：<code>static</code> 且没人引用 → 直接丢弃，不留符号</li>
+<li><strong>跨函数记忆</strong>：<code>static</code> 局部变量让编译器知道这个值在函数调用间保持</li>
+</ol>
+<p>对比一下：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="nf">add</span><span class="p">(</span><span class="kt">int</span> <span class="n">a</span><span class="p">,</span> <span class="kt">int</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">use</span><span class="p">(</span><span class="kt">int</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nf">add</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span> <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ gcc -O0 -c ol.c -o ol0.o <span class="o">&amp;&amp;</span> objdump -d ol0.o <span class="p">|</span> grep call
+</span></span><span class="line"><span class="cl">  31:    call   <span class="m">0</span> &lt;add&gt;            <span class="c1"># -O0: 直接 call, 无 PLT</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ gcc -O2 -c ol.c -o ol2.o <span class="o">&amp;&amp;</span> objdump -d ol2.o
+</span></span><span class="line"><span class="cl">&lt;use&gt;:
+</span></span><span class="line"><span class="cl">   4:    lea    0x1<span class="o">(</span>%rdi<span class="o">)</span>,%eax     <span class="c1">#等于 eax = x + 1==&gt; -O2: 内联, add 根本没生成</span>
+</span></span><span class="line"><span class="cl">   7:    ret
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>而 <code>extern</code> 函数（跨 TU 可见、可能被别处重定义）在共享库场景下必须走<strong>PLT（过程链接表）</strong>，多一次间接跳转。</p>
+<p>PLT（Procedure Linkage Table） 是动态链接用的跳板。当程序调用一个定义在共享库（.so / .dll）里的外部函数时，编译器/链接器在编译期不知道它的真实地址（地址要等程序加载时才由动态链接器确定），所以不能直接 call，而是：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">call &lt;printf@plt&gt;   → 跳到 PLT 表项 → 再跳到真正的 printf
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>上面的add 是 static（internal linkage），编译器在编译这个 .o 时就完全知道它的地址，是文件内的本地符号。</p>
+<hr>
+<h2 id="汇编角度符号重定位与链接">汇编角度：符号、重定位与链接
+</h2><p><code>static</code>/<code>extern</code> 如何体现在<strong>目标文件（.o）</strong> 和 <strong>最终 ELF</strong> 里。</p>
+<h3 id="目标文件里有什么">目标文件里有什么
+</h3><p>编译器把每个 <code>.c</code> 编译成一个<strong>可重定位目标文件（relocatable object）</strong>，
+里面至少包含：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>节 (Section)</th>
+          <th>内容</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>.text</code></td>
+          <td>机器码</td>
+      </tr>
+      <tr>
+          <td><code>.data</code></td>
+          <td>已初始化的全局/静态变量</td>
+      </tr>
+      <tr>
+          <td><code>.bss</code></td>
+          <td>未初始化的全局/静态变量（NOBITS，不占文件空间）</td>
+      </tr>
+      <tr>
+          <td><code>.rodata</code></td>
+          <td>只读数据（<code>const</code>、字符串字面量）</td>
+      </tr>
+      <tr>
+          <td><code>.symtab</code></td>
+          <td><strong>符号表</strong>：每个名字的地址、大小、绑定(LOCAL/GLOBAL)、类型</td>
+      </tr>
+      <tr>
+          <td><code>.rela.text</code></td>
+          <td><strong>重定位表</strong>：机器码里哪些位置需要链接期回填地址</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>看一个例子——同一个函数里让 <code>extern</code> 声明、普通全局、<code>static</code> 三种写法同台：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cm">/* obj2.c */</span>
+</span></span><span class="line"><span class="cl"><span class="k">extern</span> <span class="kt">int</span> <span class="n">g</span><span class="p">;</span>       <span class="cm">/* ① extern 声明: 只提到名字, 定义在别的翻译单元 */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span>        <span class="n">l</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>   <span class="cm">/* ② 无 static 无 extern: 外部链接(定义) */</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span> <span class="n">s</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>   <span class="cm">/* ③ static: 内部链接 */</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">f</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span> <span class="n">g</span><span class="o">++</span><span class="p">;</span> <span class="n">l</span><span class="o">++</span><span class="p">;</span> <span class="n">s</span><span class="o">++</span><span class="p">;</span> <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ gcc -O0 -c obj2.c -o obj2.o
+</span></span><span class="line"><span class="cl">$ objdump -dr obj2.o
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl"><span class="err">0000000000000000</span> <span class="err">&lt;</span><span class="nf">f</span><span class="err">&gt;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">   <span class="err">0:</span>    <span class="nf">f3</span> <span class="mi">0</span><span class="no">f</span> <span class="mi">1</span><span class="no">e</span> <span class="no">fa</span>              <span class="no">endbr64</span>
+</span></span><span class="line"><span class="cl">   <span class="err">4:</span>    <span class="err">55</span>                       <span class="nf">push</span>   <span class="nv">%rbp</span>
+</span></span><span class="line"><span class="cl">   <span class="err">5:</span>    <span class="err">48</span> <span class="err">89</span> <span class="nf">e5</span>                 <span class="no">mov</span>    <span class="nv">%rsp</span><span class="p">,</span><span class="nv">%rbp</span>
+</span></span><span class="line"><span class="cl">   <span class="err">8:</span>    <span class="err">8</span><span class="nf">b</span> <span class="mi">05</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span>        <span class="no">mov</span>    <span class="mi">0x0</span><span class="p">(</span><span class="nv">%rip</span><span class="p">),</span><span class="nv">%eax</span>        <span class="c1"># e &lt;f+0xe&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="nl">a:</span> <span class="nf">R_X86_64_PC32</span>    <span class="no">g-0x4</span>        <span class="err">←</span> <span class="err">①</span> <span class="err">引用</span> <span class="no">extern</span> <span class="err">声明的</span> <span class="no">g</span> <span class="p">(</span><span class="no">GLOBAL</span><span class="p">,</span> <span class="err">但未定义</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="nl">e:</span>    <span class="err">83</span> <span class="nf">c0</span> <span class="mi">01</span>                 <span class="no">add</span>    <span class="no">$0x1</span><span class="p">,</span><span class="nv">%eax</span>
+</span></span><span class="line"><span class="cl">  <span class="err">11:</span>    <span class="err">89</span> <span class="err">05</span> <span class="err">00</span> <span class="err">00</span> <span class="err">00</span> <span class="err">00</span>        <span class="nf">mov</span>    <span class="nv">%eax</span><span class="p">,</span><span class="mi">0x0</span><span class="p">(</span><span class="nv">%rip</span><span class="p">)</span>        <span class="c1"># 17 &lt;f+0x17&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="err">13:</span> <span class="nf">R_X86_64_PC32</span>    <span class="no">g-0x4</span>
+</span></span><span class="line"><span class="cl">  <span class="err">17:</span>    <span class="err">8</span><span class="nf">b</span> <span class="mi">05</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span>        <span class="no">mov</span>    <span class="mi">0x0</span><span class="p">(</span><span class="nv">%rip</span><span class="p">),</span><span class="nv">%eax</span>        <span class="c1"># 1d &lt;f+0x1d&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="err">19:</span> <span class="nf">R_X86_64_PC32</span>    <span class="no">l-0x4</span>        <span class="err">←</span> <span class="err">②</span> <span class="err">引用本文件定义的</span> <span class="no">l</span> <span class="p">(</span><span class="no">GLOBAL</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="err">1</span><span class="nl">d:</span>    <span class="err">83</span> <span class="nf">c0</span> <span class="mi">01</span>                 <span class="no">add</span>    <span class="no">$0x1</span><span class="p">,</span><span class="nv">%eax</span>
+</span></span><span class="line"><span class="cl">  <span class="err">20:</span>    <span class="err">89</span> <span class="err">05</span> <span class="err">00</span> <span class="err">00</span> <span class="err">00</span> <span class="err">00</span>        <span class="nf">mov</span>    <span class="nv">%eax</span><span class="p">,</span><span class="mi">0x0</span><span class="p">(</span><span class="nv">%rip</span><span class="p">)</span>        <span class="c1"># 26 &lt;f+0x26&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="err">22:</span> <span class="nf">R_X86_64_PC32</span>    <span class="no">l-0x4</span>
+</span></span><span class="line"><span class="cl">  <span class="err">26:</span>    <span class="err">8</span><span class="nf">b</span> <span class="mi">05</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span>        <span class="no">mov</span>    <span class="mi">0x0</span><span class="p">(</span><span class="nv">%rip</span><span class="p">),</span><span class="nv">%eax</span>        <span class="c1"># 2c &lt;f+0x2c&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="err">28:</span> <span class="nf">R_X86_64_PC32</span>    <span class="no">.data</span>       <span class="err">←</span> <span class="err">③</span> <span class="err">引用</span> <span class="no">s</span> <span class="p">(</span><span class="no">LOCAL</span><span class="p">,</span> <span class="err">重定位只给节名</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="err">2</span><span class="nl">c:</span>    <span class="err">83</span> <span class="nf">c0</span> <span class="mi">01</span>                 <span class="no">add</span>    <span class="no">$0x1</span><span class="p">,</span><span class="nv">%eax</span>
+</span></span><span class="line"><span class="cl">  <span class="err">2</span><span class="nl">f:</span>    <span class="err">89</span> <span class="err">05</span> <span class="err">00</span> <span class="err">00</span> <span class="err">00</span> <span class="err">00</span>        <span class="nf">mov</span>    <span class="nv">%eax</span><span class="p">,</span><span class="mi">0x0</span><span class="p">(</span><span class="nv">%rip</span><span class="p">)</span>        <span class="c1"># 35 &lt;f+0x35&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="err">31:</span> <span class="nf">R_X86_64_PC32</span>    <span class="no">.data</span>
+</span></span><span class="line"><span class="cl">  <span class="err">35:</span>    <span class="err">90</span>                       <span class="nf">nop</span>
+</span></span><span class="line"><span class="cl">  <span class="err">36:</span>    <span class="err">5</span><span class="nf">d</span>                       <span class="no">pop</span>    <span class="nv">%rbp</span>
+</span></span><span class="line"><span class="cl">  <span class="err">37:</span>    <span class="nf">c3</span>                       <span class="no">ret</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>这里就是 <code>static</code> 和 <code>extern</code> 在汇编层面的第一个可见差异！</strong></p>
+<p>注意重定位记录的<strong>符号名</strong>有三种状态：</p>
+<ul>
+<li>引用 <code>g</code>（<code>extern</code> <strong>声明</strong>，定义在别的 <code>.c</code>）→ 重定位条目写着符号名 <strong><code>g</code></strong>，
+但 <code>g</code> 在本目标文件里<strong>没有定义</strong>——链接器要拿着这个名字去<strong>其它目标文件</strong>里找，
+找不到就报 <code>undefined reference to 'g'</code></li>
+<li>引用 <code>l</code>（本文件定义）→ 同样写着符号名 <strong><code>l</code></strong>，链接器只需在本文件或
+全局符号表里解析（跨文件时也可能被别处覆盖）</li>
+<li>引用 <code>s</code>（内部链接）→ 重定位条目只写着 <strong><code>.data</code></strong>（节名），因为 <code>s</code>
+是本文件的 LOCAL 符号，编译器<strong>当场就知道它在 <code>.data</code> 节的偏移</strong>，
+留给链接器的只是&quot;节基址 + 已知偏移&quot;的回填</li>
+</ul>
+<p>也就是说：<strong>重定位条目里出现符号名（<code>g</code>、<code>l</code>）= GLOBAL = 需要链接期按名字解析；
+出现节名（<code>.data</code>）= LOCAL = 本文件内已知偏移</strong>。<code>extern</code> 声明与普通全局
+在这一层<strong>写法相同</strong>，真正的差别在符号表的 <code>Ndx</code> 列（见下）。</p>
+<p>这行代码的 RIP 相对寻址 <code>mov 0x0(%rip), %eax</code> 中的 <code>0x0</code> 是占位符，
+链接期由重定位表回填为真实偏移。三种引用的机器码<strong>字节完全一样</strong>，
+差别只在<strong>重定位表记录的解析方式</strong>——这正是&quot;链接期符号解析&quot;的物证。</p>
+<p>再看符号表，<code>LOCAL</code>/<code>GLOBAL</code>/<code>UND</code> 一目了然：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ readelf -sW obj2.o
+</span></span><span class="line"><span class="cl">   Num:    Value          Size Type    Bind   Vis      Ndx Name
+</span></span><span class="line"><span class="cl">     4: <span class="m">0000000000000004</span>     <span class="m">4</span> OBJECT  LOCAL  DEFAULT    <span class="m">3</span> s         ← static: LOCAL
+</span></span><span class="line"><span class="cl">     5: <span class="m">0000000000000000</span>     <span class="m">4</span> OBJECT  GLOBAL DEFAULT    <span class="m">3</span> l         ← 普通全局: GLOBAL <span class="o">(</span><span class="nv">Ndx</span><span class="o">=</span>3, 在 .data<span class="o">)</span>
+</span></span><span class="line"><span class="cl">     6: <span class="m">0000000000000000</span>    <span class="m">56</span> FUNC    GLOBAL DEFAULT    <span class="m">1</span> f
+</span></span><span class="line"><span class="cl">     7: <span class="m">0000000000000000</span>     <span class="m">0</span> NOTYPE  GLOBAL DEFAULT  UND g         ← extern 声明: GLOBAL + UND
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>Bind 列是链接属性，Ndx 列告诉我们&quot;定义在哪&quot;</strong>：</p>
+<ul>
+<li><code>LOCAL</code> = 内部链接 = 源码里的 <code>static</code></li>
+<li><code>GLOBAL</code> = 外部链接 = 源码里不加 <code>static</code>（写不写 <code>extern</code> 都一样）</li>
+<li><code>GLOBAL</code> + <code>Ndx = UND</code> = <strong>只有声明没有定义</strong>——这就是 <code>extern int g;</code>
+在目标文件里的形态：符号已登记为 GLOBAL，但地址空着，
+<strong>等链接期从别的目标文件里解析</strong>。如果最终没人提供定义，
+链接器报 <code>undefined reference to 'g'</code>。</li>
+</ul>
+<p>对照 <code>nm</code> 也是同一信息的速记版：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ nm obj2.o
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> T f     ← 外部链接函数
+</span></span><span class="line"><span class="cl">                 U g     ← extern 声明: 未定义, 等链接期解析
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> D l     ← 外部链接数据
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000004</span> d s     ← 小写: static
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="nm-速查表大小写就是链接属性"><code>nm</code> 速查表：大小写就是链接属性
+</h3><p><code>nm</code> 是最快的符号检查工具，<strong>大小写字母直接暴露链接属性</strong>：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>字母</th>
+          <th>含义</th>
+          <th>大写（GLOBAL）</th>
+          <th>小写（LOCAL）</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>T/t</code></td>
+          <td>代码段 (.text)</td>
+          <td>外部链接函数</td>
+          <td><code>static</code> 函数</td>
+      </tr>
+      <tr>
+          <td><code>D/d</code></td>
+          <td>已初始化数据 (.data)</td>
+          <td>外部链接变量</td>
+          <td><code>static</code> 变量</td>
+      </tr>
+      <tr>
+          <td><code>B/b</code></td>
+          <td>未初始化数据 (.bss)</td>
+          <td>外部链接未初始化</td>
+          <td><code>static</code> 未初始化</td>
+      </tr>
+      <tr>
+          <td><code>R/r</code></td>
+          <td>只读数据 (.rodata)</td>
+          <td><code>const</code> 全局</td>
+          <td><code>static const</code></td>
+      </tr>
+      <tr>
+          <td><code>U</code></td>
+          <td>未定义（UND）</td>
+          <td>引用了别处的 <code>extern</code> 符号</td>
+          <td>—</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>实测对照：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ cat all.c
+</span></span><span class="line"><span class="cl">int   <span class="nv">gv</span> <span class="o">=</span> 1<span class="p">;</span>        static int <span class="nv">sv</span> <span class="o">=</span> 2<span class="p">;</span>
+</span></span><span class="line"><span class="cl">int   bu<span class="p">;</span>            static int sb<span class="p">;</span>
+</span></span><span class="line"><span class="cl">void  gf<span class="o">(</span>void<span class="o">){}</span>     static void sf<span class="o">(</span>void<span class="o">){}</span>
+</span></span><span class="line"><span class="cl">const int <span class="nv">cv</span> <span class="o">=</span> 3<span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ nm all.o
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> B bu      ← 外部链接, bss
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> R cv      ← 外部链接, rodata
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> T gf      ← 外部链接, text
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> D gv      ← 外部链接, data
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000004</span> b sb      ← 小写! static, bss
+</span></span><span class="line"><span class="cl">000000000000000b t sf      ← 小写! static, text
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000004</span> d sv      ← 小写! static, data
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>一眼区分</strong>：大写 = 导出给链接器看，小写 = 只在本文件用。</p>
+<h3 id="extern-引用-vs-static-引用plt-的差别"><code>extern</code> 引用 vs <code>static</code> 引用：PLT 的差别
+</h3><p>函数调用更能体现差异。看同一段代码里两种调用：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">ext</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>        <span class="cm">/* 外部链接, 定义在别处 */</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">void</span> <span class="nf">intl</span><span class="p">(</span><span class="kt">void</span><span class="p">){}</span>  <span class="cm">/* 内部链接 */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">use</span><span class="p">(</span><span class="kt">void</span><span class="p">){</span> <span class="nf">ext</span><span class="p">();</span> <span class="nf">intl</span><span class="p">();</span> <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ gcc -O0 -c pltx.c -o pltx.o <span class="o">&amp;&amp;</span> objdump -dr pltx.o
+</span></span><span class="line"><span class="cl">&lt;use&gt;:
+</span></span><span class="line"><span class="cl">  14:    call   <span class="m">18</span> &lt;use+0xd&gt;
+</span></span><span class="line"><span class="cl">            14: R_X86_64_PLT32    ext-0x4     ← extern: PLT32 重定位
+</span></span><span class="line"><span class="cl">  18:    call   <span class="m">0</span> &lt;intl&gt;                       ← static: 直接 call, 无重定位
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><strong><code>extern</code> 函数</strong> → <code>R_X86_64_PLT32</code> 重定位，链接期可能经过 <strong>PLT</strong>
+（共享库场景必须间接跳转，因为地址要到运行时才能确定）</li>
+<li><strong><code>static</code> 函数</strong> → <strong>直接 <code>call</code></strong>，编译器当场知道目标在本文件 <code>.text</code>
+的哪个偏移，连重定位都不需要（或只需相对节内偏移）</li>
+</ul>
+<p>链接成最终可执行文件后，对比更明显（把 <code>loop.c</code> 与一个调用 <code>printf</code> 的
+<code>main</code> 放在一起链接成 <code>mm</code>）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ objdump -d mm --no-show-raw-insn
+</span></span><span class="line"><span class="cl">  117d:    call   <span class="m">1149</span> &lt;get&gt;            ← 本程序内定义的函数, 直接 call
+</span></span><span class="line"><span class="cl">  1195:    call   <span class="m">1050</span> &lt;printf@plt&gt;      ← 外部库函数, 走 PLT
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>这就是 <code>static</code> 带来的性能优势的汇编实证</strong>：少一次间接跳转，
+而且给链接器/优化器更多自由度。</p>
+<h3 id="链接后符号属性的最终形态">链接后：符号属性的最终形态
+</h3><p>把 <code>main2.c</code>（有 <code>static int s</code>）和 <code>ext2.c</code>（有 <code>int ext_val</code>）链接后：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ gcc -O0 main2.c ext2.c -o exe2
+</span></span><span class="line"><span class="cl">$ readelf -sW exe2 <span class="p">|</span> grep -E <span class="s2">&#34;s</span>$<span class="s2">|ext_val|main&#34;</span>
+</span></span><span class="line"><span class="cl">    12: <span class="m">0000000000004010</span>     <span class="m">4</span> OBJECT  LOCAL  DEFAULT   <span class="m">25</span> s        ← 保持 LOCAL
+</span></span><span class="line"><span class="cl">    20: <span class="m">0000000000004014</span>     <span class="m">4</span> OBJECT  GLOBAL DEFAULT   <span class="m">25</span> ext_val   ← 保持 GLOBAL
+</span></span><span class="line"><span class="cl">    34: <span class="m">0000000000001149</span>    <span class="m">49</span> FUNC    GLOBAL DEFAULT   <span class="m">16</span> main
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>s</code> 和 <code>ext_val</code> <strong>都在 <code>.data</code> 节</strong>（第 25 节）、都在同一地址范围，
+<strong>存储位置毫无区别</strong>——唯一的差别就是 <code>Bind</code> 列的 <code>LOCAL</code> vs <code>GLOBAL</code>。</p>
+<p>反汇编看访问方式：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-asm" data-lang="asm"><span class="line"><span class="cl">  <span class="err">1151:</span>    <span class="nf">mov</span>    <span class="mi">0x2eb9</span><span class="p">(</span><span class="nv">%rip</span><span class="p">),</span><span class="nv">%edx</span>        <span class="c1"># 4010 &lt;s&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="err">1157:</span>    <span class="nf">mov</span>    <span class="mi">0x2eb7</span><span class="p">(</span><span class="nv">%rip</span><span class="p">),</span><span class="nv">%eax</span>        <span class="c1"># 4014 &lt;ext_val&gt;
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>两条 <code>mov</code> 指令<strong>结构完全一样</strong>（都是 RIP 相对寻址），
+链接后地址都已回填。<strong><code>static</code>/<code>extern</code> 不影响指令怎么访问变量，
+只影响这个符号名在链接期&quot;叫不叫得应&quot;。</strong></p>
+<h3 id="elf-段布局全景变量最终住在哪">ELF 段布局全景：变量最终住在哪
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ readelf -S exe2
+</span></span><span class="line"><span class="cl">  <span class="o">[</span>16<span class="o">]</span> .text             PROGBITS   <span class="m">0000000000001060</span>   ← 代码
+</span></span><span class="line"><span class="cl">  <span class="o">[</span>18<span class="o">]</span> .rodata           PROGBITS   <span class="m">0000000000002000</span>   ← const / 字符串
+</span></span><span class="line"><span class="cl">  <span class="o">[</span>24<span class="o">]</span> .got              PROGBITS   0000000000003fb8   ← 全局偏移表 <span class="o">(</span>PIC<span class="o">)</span>
+</span></span><span class="line"><span class="cl">  <span class="o">[</span>25<span class="o">]</span> .data             PROGBITS   <span class="m">0000000000004000</span>   ← 有初值的全局/static
+</span></span><span class="line"><span class="cl">  <span class="o">[</span>26<span class="o">]</span> .bss              NOBITS     <span class="m">0000000000004018</span>   ← 零初始化的全局/static
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>初值决定段，<code>static</code>/<code>extern</code> 决定链接属性，两者正交：</strong></p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>写法</th>
+          <th>段</th>
+          <th>链接属性</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>int x = 1;</code></td>
+          <td><code>.data</code></td>
+          <td>GLOBAL</td>
+      </tr>
+      <tr>
+          <td><code>int x;</code></td>
+          <td><code>.bss</code></td>
+          <td>GLOBAL</td>
+      </tr>
+      <tr>
+          <td><code>static int x = 1;</code></td>
+          <td><code>.data</code></td>
+          <td>LOCAL</td>
+      </tr>
+      <tr>
+          <td><code>static int x;</code></td>
+          <td><code>.bss</code></td>
+          <td>LOCAL</td>
+      </tr>
+      <tr>
+          <td><code>const int x = 1;</code></td>
+          <td><code>.rodata</code></td>
+          <td>GLOBAL</td>
+      </tr>
+      <tr>
+          <td><code>static const int x = 1;</code></td>
+          <td><code>.rodata</code></td>
+          <td>LOCAL</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>注意 <code>.bss</code> 是 <strong>NOBITS</strong> 类型——它<strong>不占文件空间</strong>，只在内存里分配
+（内核加载 ELF 时统一清零）。一个 <code>static int arr[1000];</code> 会让 <code>.bss</code>
+&ldquo;膨胀&rdquo; 4000 字节，但可执行文件本身一个字节都不增加：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ size bss.o
+</span></span><span class="line"><span class="cl">text   data    bss    dec
+</span></span><span class="line"><span class="cl"> <span class="m">144</span>      <span class="m">4</span>   <span class="m">4004</span>   <span class="m">4152</span>      ← bss <span class="m">4004</span> 字节, 但文件里 NOBITS
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="字符串字面量与-rodata-的合并">字符串字面量与 <code>.rodata</code> 的合并
+</h3><p>顺便看一个编译器优化细节——相同字符串字面量会被合并到同一地址：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">a</span> <span class="o">=</span> <span class="s">&#34;unique-string-xyz&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">b</span> <span class="o">=</span> <span class="s">&#34;unique-string-xyz&#34;</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ ./strt
+</span></span><span class="line"><span class="cl">0x62715db5200e 0x62715db5200e <span class="m">1</span>    ← <span class="nv">a</span> <span class="o">==</span> b 为真, 指向同一份
+</span></span><span class="line"><span class="cl">$ objdump -s -j .rodata strt
+</span></span><span class="line"><span class="cl"> <span class="m">2010</span> <span class="m">69717565</span> 2d737472 696e672d 78797a00  unique-string-xyz<span class="se">\0</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>GCC 默认 <code>-fmerge-constants</code>，把相同的只读串合并。这与 <code>static</code> 无关，
+但展示了 <code>.rodata</code>（只读段）的典型行为——把 <code>const</code> 放这里就能享受
+这类合并，同时受到写保护。</p>
+<hr>
+<h2 id="进阶extern-的几个隐藏用法">进阶：<code>extern</code> 的几个隐藏用法
+</h2><h3 id="static-与共享库谁能进-dynsym"><code>static</code> 与共享库：谁能进 <code>.dynsym</code>
+</h3><p><code>.dynsym</code>（动态符号表）决定<strong>外部能不能通过 <code>dlsym</code>/动态链接拿到这个名字</strong>；
+<code>.symtab</code> 只是本文件的完整清单。<code>static</code> 符号<strong>永远不进 <code>.dynsym</code></strong>，
+因此无法被 <code>dlsym</code> 找到，也不会被 <code>LD_PRELOAD</code> 之类的机制拦截：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cm">/* lib.c */</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">int</span>  <span class="n">hidden_var</span> <span class="o">=</span> <span class="mi">42</span><span class="p">;</span>       <span class="cm">/* 内部链接变量 */</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">void</span> <span class="nf">hidden_fn</span><span class="p">(</span><span class="kt">void</span><span class="p">){}</span>      <span class="cm">/* 内部链接函数 */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">getlib</span><span class="p">(</span><span class="kt">void</span><span class="p">){</span> <span class="nf">hidden_fn</span><span class="p">();</span> <span class="k">return</span> <span class="n">hidden_var</span><span class="p">;</span> <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ gcc -O0 -fPIC -shared lib.c -o lib0.so
+</span></span><span class="line"><span class="cl">$ nm lib0.so <span class="p">|</span> grep hidden
+</span></span><span class="line"><span class="cl">00000000000010f9 t hidden_fn        ← 小写 t, LOCAL, 在 .symtab
+</span></span><span class="line"><span class="cl"><span class="m">0000000000004008</span> d hidden_var       ← 小写 d, LOCAL, 在 .symtab
+</span></span><span class="line"><span class="cl">$ readelf --dyn-syms lib0.so <span class="p">|</span> grep hidden
+</span></span><span class="line"><span class="cl">（无输出）                           ← 两个都不在 .dynsym, 外部拿不到
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>函数和 <code>static</code> 变量在这里表现一致：LOCAL 符号不进 <code>.dynsym</code>。</strong></p>
+<p>反过来说，不加 <code>static</code> 的名字默认 <code>GLOBAL DEFAULT</code>，会进 <code>.dynsym</code>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ <span class="nb">printf</span> <span class="s1">&#39;int shown_var = 1;\n&#39;</span> &gt; libv.c
+</span></span><span class="line"><span class="cl">$ gcc -O0 -fPIC -shared libv.c -o libv.so
+</span></span><span class="line"><span class="cl">$ readelf --dyn-syms libv.so <span class="p">|</span> grep shown_var
+</span></span><span class="line"><span class="cl">     5: <span class="m">0000000000004008</span>     <span class="m">4</span> OBJECT  GLOBAL DEFAULT   <span class="m">19</span> shown_var   ← 进了
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>一个容易踩的细节：<strong>默认导出与否看的是&quot;这个名字最终是不是 LOCAL&quot;</strong>。
+普通的全局变量/函数默认 GLOBAL（进 <code>.dynsym</code>）；若加了 <code>static</code>、或用
+<code>-fvisibility=hidden</code> 编译，就变成 LOCAL/隐藏，<strong>不进 <code>.dynsym</code></strong>：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ gcc -O0 -fPIC -fvisibility<span class="o">=</span>hidden -shared libv.c -o libvh.so
+</span></span><span class="line"><span class="cl">$ readelf --dyn-syms libvh.so <span class="p">|</span> grep shown_var
+</span></span><span class="line"><span class="cl">（无输出）                           ← 被隐藏了, 外部同样拿不到
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="extern-c-在-c-里的作用"><code>extern &quot;C&quot;</code> 在 C++ 里的作用
+</h3><p>C++ 有名字修饰（name mangling），函数 <code>use()</code> 编译后变成 <code>_Z3usev</code>。
+<code>extern &quot;C&quot;</code> 强制按 C 的规则命名，从而：</p>
+<ul>
+<li>让 C 和 C++ 文件能互相链接</li>
+<li>让 <code>static</code>/<code>extern</code> 的链接语义在 C++ 中保持一致</li>
+</ul>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ nm anoncpp.o
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> T _Z3usev                              ← C++ 修饰名
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> b _ZN12_GLOBAL__N_17anon_nsE          ← <span class="nv">匿名命名空间</span> <span class="o">=</span> static
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>C++ 的 <code>namespace { ... }</code>（匿名命名空间）在语义上<strong>等价于 <code>static</code></strong>——
+都是内部链接，编译器用 <code>_GLOBAL__N_</code> 前缀标记。</p>
+<h3 id="头文件里写-static-变量的陷阱">头文件里写 <code>static</code> 变量的陷阱
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cm">/* bad.h */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="n">in_header</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>        <span class="cm">/* 定义! 每个 include 它的 .c 都定义一份 */</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>两个 <code>.c</code> 都 include 后链接，直接报 multiple definition。
+正确做法：头文件里只放<strong>声明</strong>（<code>extern int in_header;</code>），
+<strong>定义</strong>放在<strong>某一个</strong> <code>.c</code> 里；或者如果确实每个文件要各一份，用
+<code>static int in_header;</code>（但要知道它们是<strong>不同变量</strong>）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ nm trap2 <span class="p">|</span> grep in_header
+</span></span><span class="line"><span class="cl"><span class="m">0000000000004010</span> d in_header      ← u1.c 的那份
+</span></span><span class="line"><span class="cl"><span class="m">0000000000004014</span> d in_header      ← u2.c 的那份 <span class="o">(</span>地址不同, 互不影响!<span class="o">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这是 <code>static</code> 变量在头文件里最隐蔽的坑：<strong>看似共享，实则每个文件各一份</strong>，
+改了一个不会影响另一个。</p>
+<h3 id="static-inline头文件函数的标准姿势"><code>static inline</code>：头文件函数的标准姿势
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cm">/* helper.h */</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kr">inline</span> <span class="kt">int</span> <span class="nf">helper</span><span class="p">(</span><span class="kt">int</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">;</span> <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>每个 include 它的 <code>.c</code> 都会生成<strong>自己的一份</strong>（LOCAL 符号）：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ nm a1.o <span class="p">|</span> grep helper
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> t helper      ← 小写 t
+</span></span><span class="line"><span class="cl">$ nm a2.o <span class="p">|</span> grep helper
+</span></span><span class="line"><span class="cl"><span class="m">0000000000000000</span> t helper      ← 另一份, 独立
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>好处：无链接冲突、可被内联、编译器可自由丢弃未使用版本。
+代价：可能产生多份代码（编译器内联后通常就消失了）。</p>
+<hr>
+<h2 id="一张图总结">一张图总结
+</h2><pre class="mermaid">
+  flowchart TD
+    A[&#34;源码中的名字&#34;] --&gt; B{&#34;有 static 吗?&#34;}
+
+    B -- &#34;文件作用域 + static&#34; --&gt; C[&#34;内部链接&lt;br&gt;Bind = LOCAL&lt;br&gt;nm 小写符号&lt;br&gt;重定位只认节名&#34;]
+    B -- &#34;无 static&#34; --&gt; D[&#34;外部链接&lt;br&gt;Bind = GLOBAL&lt;br&gt;nm 大写符号&lt;br&gt;重定位认符号名&#34;]
+    B -- &#34;块作用域 + static&#34; --&gt; E[&#34;无链接 + 静态存储期&lt;br&gt;作用域限于块内&lt;br&gt;但值跨调用保留&#34;]
+
+    C --&gt; F[&#34;链接期: 本文件内解析&lt;br&gt;不进 .dynsym, 不走 PLT&lt;br&gt;可被激进优化/内联&#34;]
+    D --&gt; G[&#34;链接期: 全局符号表解析&lt;br&gt;跨文件共享, 冲突则报错&lt;br&gt;共享库中走 PLT&#34;]
+    E --&gt; H[&#34;编译期: 生成 .data/.bss 符号&lt;br&gt;地址固定, 跨调用不变&#34;]
+
+    F --&gt; I[&#34;ELF: LOCAL 符号&#34;]
+    G --&gt; J[&#34;ELF: GLOBAL 符号&#34;]
+    H --&gt; I
+</pre>
+<p><strong>核心要点回顾：</strong></p>
+<ol>
+<li><strong><code>static</code> 改变的是链接（文件作用域）或存储期（块作用域），不改变作用域本身</strong></li>
+<li><strong><code>extern</code> 是&quot;跨翻译单元引用&quot;的契约</strong>，它让名字在链接期可解析</li>
+<li><strong>编译器视角</strong>：<code>static</code> = LOCAL = 本文件可见 = 可内联、无 PLT、可丢弃</li>
+<li><strong>链接器视角</strong>：<code>Bind</code> 列决定符号怎么合并，<code>LOCAL</code> 天然不冲突</li>
+<li><strong>汇编实证</strong>：
+<ul>
+<li>重定位表里 LOCAL 符号只写节名（<code>.data</code>），GLOBAL 符号写名字（<code>g</code>）</li>
+<li><code>nm</code> 大小写直接暴露链接属性</li>
+<li><code>static</code> 函数直接 <code>call</code>，<code>extern</code> 函数走 <code>R_X86_64_PLT32</code>/PLT</li>
+<li>段归属由<strong>初值</strong>决定，链接属性由 <strong>static/extern</strong> 决定，二者正交</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="附本文所有实验的复现命令">附：本文所有实验的复现命令
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. 符号表对比 (extern 声明 vs 普通全局 vs static)</span>
+</span></span><span class="line"><span class="cl">cat &gt; obj2.c <span class="s">&lt;&lt;&#39;EOF&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s">extern int g;       /* ① 声明, 定义在别处 */
+</span></span></span><span class="line"><span class="cl"><span class="s">int        l = 1;   /* ② 外部链接(定义) */
+</span></span></span><span class="line"><span class="cl"><span class="s">static int s = 2;   /* ③ 内部链接 */
+</span></span></span><span class="line"><span class="cl"><span class="s">void f(void) { g++; l++; s++; }
+</span></span></span><span class="line"><span class="cl"><span class="s">EOF</span>
+</span></span><span class="line"><span class="cl">gcc -O0 -c obj2.c -o obj2.o
+</span></span><span class="line"><span class="cl">objdump -dr obj2.o        <span class="c1"># 重定位表: g / l 写符号名, s 只写节名 .data</span>
+</span></span><span class="line"><span class="cl">readelf -sW obj2.o        <span class="c1"># Bind: s=LOCAL, l=GLOBAL, g=GLOBAL+UND(无定义)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 1b. 把 g 链接上 (定义方也不用写 extern)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">printf</span> <span class="s1">&#39;int g = 100;\nint main(void){ return 0; }\n&#39;</span> &gt; defg.c
+</span></span><span class="line"><span class="cl">gcc -O0 obj2.c defg.c -o prog <span class="o">&amp;&amp;</span> <span class="nb">echo</span> LINK-OK
+</span></span><span class="line"><span class="cl"><span class="c1"># 去掉 defg.c 单独链接 → undefined reference to `g`</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 2. nm 大小写速查</span>
+</span></span><span class="line"><span class="cl">nm obj2.o                 <span class="c1"># D=大写(GLOBAL), d=小写(LOCAL), U=未定义(extern)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 3. 跨文件冲突测试</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 两个文件都 int shared; → 链接报 multiple definition</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 两个文件都 static int shared; → 链接成功, 两个 LOCAL 符号</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 4. static 函数无 PLT</span>
+</span></span><span class="line"><span class="cl">gcc -O0 -c pltx.c -o pltx.o <span class="o">&amp;&amp;</span> objdump -dr pltx.o
+</span></span><span class="line"><span class="cl"><span class="c1"># static 函数: call 直接跳; extern 函数: R_X86_64_PLT32 重定位</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 5. 段归属 (初值决定, 与 static/extern 无关)</span>
+</span></span><span class="line"><span class="cl">readelf -S exe2            <span class="c1"># .data / .bss / .rodata 地址范围</span>
+</span></span><span class="line"><span class="cl">size bss.o                 <span class="c1"># .bss 不占文件空间 (NOBITS)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 6. 共享库验证 static 不导出</span>
+</span></span><span class="line"><span class="cl">gcc -O0 -fPIC -shared lib.c -o lib.so
+</span></span><span class="line"><span class="cl">nm lib.so                  <span class="c1"># static: 小写 t/d, 在 .symtab</span>
+</span></span><span class="line"><span class="cl">readelf --dyn-syms lib.so  <span class="c1"># 不在 .dynsym, 外部拿不到</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 对照: 不加 static 的全局变量会进 .dynsym; -fvisibility=hidden 则不进</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div>
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/c/">C</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    
+
+    
+</footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/x29-x30%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E6%A0%88/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">X29 X30与函数调用栈</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E6%95%B0%E7%BB%84%E8%B6%8A%E7%95%8C%E4%B8%8E%E6%A0%88%E6%BA%A2%E5%87%BA/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">数组越界与栈溢出</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/c%E8%AF%AD%E8%A8%80%E5%AE%9E%E7%8E%B0%E5%A4%9A%E6%80%81%E6%A8%A1%E4%BB%BFc-%E8%99%9A%E5%87%BD%E6%95%B0%E8%A1%A8/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">C语言实现多态—模仿C&#43;&#43;虚函数表</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Charles Lv
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+<script src=https://charles-7777.github.io/background/sakura.js></script>
+
+
+
+
+
+
+<style>
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+        transition: transform 0.3s ease;
+    }
+
+     
+    .code-show .code-more-box {
+        background-image: none !important;
+        background: #fff;
+        padding-top: 4px;
+        position: relative;
+    }
+
+     
+    .code-show .code-more-btn {
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+  function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        
+        codeBlock.classList.toggle('code-show');
+        
+        let img = codeMoreBtn.querySelector('img');
+        if (codeBlock.classList.contains('code-show')) {
+          img.style.transform = 'rotate(180deg)';
+        } else {
+          img.style.transform = 'rotate(0deg)';
+        }
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = "https://charles-7777.github.io/icons/codeMore.png"
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+<style>
+    #backTopBtn {
+        display: none;
+        position: fixed;
+        bottom: 30px;
+        right: 20px;
+        z-index: 99;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        background-image: url(https://charles-7777.github.io/icons/backTop.svg);
+    }
+</style>
+
+<script>
+    
+
+    function initScrollTop() {
+        
+        let btn = document.createElement("div");
+        btn.id = "backTopBtn";
+        btn.onclick = backToTop;
+        document.body.appendChild(btn);
+
+        
+        window.addEventListener('scroll', function() {
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        });
+    }
+
+    
+
+    function backToTop(){
+        window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    initScrollTop();
+</script>
+
+
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+</style>
+
+
+<style>
+     
+    .right-sidebar.toc-hidden {
+        display: none !important;
+    }
+
+     
+    #tocToggleBtn {
+        display: none;
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 99;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        padding: 6px;
+        border: none;
+        border-radius: 50%;
+        background: var(--card-background);
+        box-shadow: var(--shadow-l2);
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        transition: color 0.2s ease, background-color 0.2s ease;
+    }
+
+    #tocToggleBtn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    #tocToggleBtn svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+    }
+
+     
+    .toc-title-flex {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .toc-title-flex .section-title {
+        flex: 1;
+    }
+
+    .toc-inline-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        padding: 3px;
+        border: none;
+        background: none;
+        color: var(--card-text-color-secondary);
+        cursor: pointer;
+        border-radius: 6px;
+        transition: color 0.2s ease, background-color 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .toc-inline-btn:hover {
+        color: var(--card-text-color-main);
+        background-color: var(--card-separator-color);
+    }
+
+    .toc-inline-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+</style>
+
+
+<script>
+    
+
+    function initTocToggle() {
+        let tocContent = document.querySelector('.widget--toc');
+        if (!tocContent) {
+            return;
+        }
+
+        let rightSidebar = document.querySelector('.right-sidebar');
+        if (!rightSidebar) {
+            return;
+        }
+
+        
+        let tocSection = tocContent.closest('section.widget');
+        let tocTitle = tocSection && tocSection.querySelector('.widget-title');
+
+        if (tocTitle) {
+            tocTitle.classList.add('toc-title-flex');
+
+            let inlineBtn = document.createElement('button');
+            inlineBtn.className = 'toc-inline-btn';
+            inlineBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+            let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+            updateBtnIcon(inlineBtn, isCollapsed);
+            if (isCollapsed) {
+                inlineBtn.title = '\u663e\u793a\u76ee\u5f55';
+            }
+
+            inlineBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleToc(rightSidebar);
+                
+                let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+                updateBtnIcon(inlineBtn, nowCollapsed);
+                let floatBtn = document.getElementById('tocToggleBtn');
+                if (floatBtn) {
+                    updateBtnIcon(floatBtn, nowCollapsed);
+                    floatBtn.title = inlineBtn.title;
+                }
+            });
+
+            tocTitle.appendChild(inlineBtn);
+        }
+
+        
+        let floatBtn = document.createElement('button');
+        floatBtn.id = 'tocToggleBtn';
+        floatBtn.style.display = 'flex';
+        floatBtn.title = '\u9690\u85cf\u76ee\u5f55';
+
+        let isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+        updateBtnIcon(floatBtn, isCollapsed);
+        if (isCollapsed) {
+            rightSidebar.classList.add('toc-hidden');
+            floatBtn.title = '\u663e\u793a\u76ee\u5f55';
+        }
+
+        floatBtn.addEventListener('click', function () {
+            toggleToc(rightSidebar);
+            
+            let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+            updateBtnIcon(floatBtn, nowCollapsed);
+            let inlineBtns = document.querySelectorAll('.toc-inline-btn');
+            inlineBtns.forEach(function (b) {
+                updateBtnIcon(b, nowCollapsed);
+                b.title = floatBtn.title;
+            });
+        });
+
+        document.body.appendChild(floatBtn);
+    }
+
+     
+    function toggleToc(rightSidebar) {
+        rightSidebar.classList.toggle('toc-hidden');
+        let nowCollapsed = rightSidebar.classList.contains('toc-hidden');
+        localStorage.setItem('toc-collapsed', nowCollapsed);
+    }
+
+     
+    function updateBtnIcon(btn, collapsed) {
+        btn.innerHTML = collapsed ? getEyeOffSvg() : getEyeSvg();
+        btn.title = collapsed ? '\u663e\u793a\u76ee\u5f55' : '\u9690\u85cf\u76ee\u5f55';
+    }
+
+     
+    function getEyeSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+
+     
+    function getEyeOffSvg() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    }
+
+    initTocToggle();
+</script>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+</script>
+
+
+
+
+
+
+
+    </body>
+</html>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true ,look: 'handDrawn'});
+    </script>
